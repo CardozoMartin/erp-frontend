@@ -1,8 +1,24 @@
-import { useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { Card, Input, Label, SectionHeader, Select, Toggle } from './FormComponents';
-import { InputFormField } from './InputFormField';
-import { CATEGORIAS, COLORES, DEPOSITOS, TALLES, UNIDADES } from './constants';
+import { useRef, useState } from "react";
+import { useForm } from "react-hook-form";
+import {
+  Card,
+  Input,
+  Label,
+  SectionHeader,
+  Select,
+  Toggle,
+} from "./FormComponents";
+import { InputFormField } from "./InputFormField";
+import { CATEGORIAS, COLORES, DEPOSITOS, TALLES, UNIDADES } from "./constants";
+import {
+  BadgeDollarSign,
+  DollarSign,
+  Info,
+  MapPin,
+  PackageSearch,
+  Plus,
+} from "lucide-react";
+import "../../../index.css";
 
 interface ProductFormProps {
   onSave?: (data: any) => void;
@@ -21,23 +37,23 @@ export default function ProductForm({ onSave, onCancel }: ProductFormProps) {
     formState: { errors },
   } = useForm({
     defaultValues: {
-      nombre: '',
-      referencia: '',
-      cod_barra: '',
-      categoria: '',
-      unidad: 'Unidad (Ud)',
-      descripcion: '',
-      precio: '',
-      cantidad: '0',
-      venc: '',
-      deposito: 'Depósito Central (A1)',
-      seccion: '',
+      nombre: "",
+      referencia: "",
+      cod_barra: "",
+      categoria: "",
+      unidad: "Unidad (Ud)",
+      descripcion: "",
+      precio: "",
+      cantidad: "0",
+      venc: "",
+      deposito: "Depósito Central (A1)",
+      seccion: "",
       enOferta: false,
       posPOS: true,
       posWeb: false,
       activo: true,
       selColor: 0,
-      selTalle: 'M',
+      selTalle: "M",
     },
   });
 
@@ -56,10 +72,16 @@ export default function ProductForm({ onSave, onCancel }: ProductFormProps) {
   };
 
   return (
-    <form className="max-w-[1280px] mx-auto px-6 py-6 flex flex-col gap-6" onSubmit={handleSubmit(onSubmit)}>
+    <form
+      className="max-w-[1280px] mx-auto px-6 py-6 flex flex-col gap-6 text_color"
+      onSubmit={handleSubmit(onSubmit)}
+    >
       {/* ── Información Básica ── */}
       <Card>
-        <SectionHeader icon="info" title="Información Básica" />
+        <div className="flex items-center gap-2 text-[#041627] mb-3">
+          <Info className="text-blue-600" />
+          <p>Información básica del producto</p>
+        </div>
         <div className="flex gap-10">
           {/* Imagen */}
           <div className="w-64 flex-shrink-0">
@@ -70,14 +92,22 @@ export default function ProductForm({ onSave, onCancel }: ProductFormProps) {
             >
               {imagen ? (
                 <>
-                  <img src={imagen} alt="producto" className="w-full h-full object-cover" />
+                  <img
+                    src={imagen}
+                    alt="producto"
+                    className="w-full h-full object-cover"
+                  />
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="material-symbols-outlined text-white text-4xl">upload</span>
+                    <span className="material-symbols-outlined text-white text-4xl">
+                      upload
+                    </span>
                   </div>
                 </>
               ) : (
                 <div className="flex flex-col items-center gap-2">
-                  <span className="material-symbols-outlined text-[#c4c6cd] text-4xl">image</span>
+                  <span className="material-symbols-outlined text-[#c4c6cd] text-4xl">
+                    image
+                  </span>
                   <span className="text-xs text-[#c4c6cd]">Subir imagen</span>
                 </div>
               )}
@@ -96,7 +126,9 @@ export default function ProductForm({ onSave, onCancel }: ProductFormProps) {
             <InputFormField
               label="Nombre del Producto"
               name="nombre"
-              registration={register('nombre', { required: 'El nombre es obligatorio' })}
+              registration={register("nombre", {
+                required: "El nombre es obligatorio",
+              })}
               error={errors.nombre?.message}
               placeholder="Ej: Taladro Inalámbrico XYZ"
             />
@@ -106,7 +138,9 @@ export default function ProductForm({ onSave, onCancel }: ProductFormProps) {
                 label="Categoría"
                 name="categoria"
                 type="select"
-                registration={register('categoria', { required: 'La categoría es obligatoria' })}
+                registration={register("categoria", {
+                  required: "La categoría es obligatoria",
+                })}
                 error={errors.categoria?.message}
                 options={CATEGORIAS}
               />
@@ -114,7 +148,9 @@ export default function ProductForm({ onSave, onCancel }: ProductFormProps) {
                 label="Unidad de Medida"
                 name="unidad"
                 type="select"
-                registration={register('unidad', { required: 'La unidad es obligatoria' })}
+                registration={register("unidad", {
+                  required: "La unidad es obligatoria",
+                })}
                 error={errors.unidad?.message}
                 options={UNIDADES}
               />
@@ -124,7 +160,7 @@ export default function ProductForm({ onSave, onCancel }: ProductFormProps) {
               label="Descripción"
               name="descripcion"
               type="textarea"
-              registration={register('descripcion')}
+              registration={register("descripcion")}
               placeholder="Ej: Taladro inalámbrico con batería de larga duración, ideal para trabajos de bricolaje y profesionales."
               rows={4}
             />
@@ -134,16 +170,11 @@ export default function ProductForm({ onSave, onCancel }: ProductFormProps) {
 
       {/* ── Variantes ── */}
       <Card>
-        <SectionHeader
-          icon="layers"
-          title="Variantes"
-          action={
-            <button className="flex items-center gap-1 text-[13px] font-medium text-[#4A90E2] hover:underline">
-              <span className="material-symbols-outlined text-lg">add</span>
-              Añadir Variante
-            </button>
-          }
-        />
+        <button className="flex items-center gap-1 text-[13px] font-medium text-[#4A90E2] hover:underline">
+          <Plus size={15} />
+          Añadir Variante
+        </button>
+
         <div className="grid grid-cols-3 gap-10">
           {/* Color */}
           <div>
@@ -152,9 +183,9 @@ export default function ProductForm({ onSave, onCancel }: ProductFormProps) {
               {COLORES.map((c, i) => (
                 <div
                   key={i}
-                  onClick={() => setValue('selColor', i)}
+                  onClick={() => setValue("selColor", i)}
                   className={`w-8 h-8 rounded-full border cursor-pointer transition-shadow
-                      ${watched.selColor === i ? 'border-[#c4c6cd] ring-2 ring-[#4A90E2]' : 'border-[#c4c6cd] hover:ring-2 hover:ring-[#4A90E2]'}`}
+                      ${watched.selColor === i ? "border-[#c4c6cd] ring-2 ring-[#4A90E2]" : "border-[#c4c6cd] hover:ring-2 hover:ring-[#4A90E2]"}`}
                   style={{ background: c }}
                 />
               ))}
@@ -169,12 +200,12 @@ export default function ProductForm({ onSave, onCancel }: ProductFormProps) {
               {TALLES.map((t) => (
                 <button
                   key={t}
-                  onClick={() => setValue('selTalle', t)}
+                  onClick={() => setValue("selTalle", t)}
                   className={`w-10 h-10 border rounded-sm text-[13px] font-medium tracking-wide transition-colors
                       ${
                         watched.selTalle === t
-                          ? 'bg-[#041627] text-white border-[#041627]'
-                          : 'bg-white text-[#1b1c1d] border-[#c4c6cd] hover:bg-[#f5f3f4]'
+                          ? "bg-[#041627] text-white border-[#041627]"
+                          : "bg-white text-[#1b1c1d] border-[#c4c6cd] hover:bg-[#f5f3f4]"
                       }`}
                 >
                   {t}
@@ -195,7 +226,9 @@ export default function ProductForm({ onSave, onCancel }: ProductFormProps) {
                 />
               </div>
               <div className="w-16 h-16 border-2 border-dashed border-[#c4c6cd] rounded-sm flex items-center justify-center text-[#c4c6cd] cursor-pointer hover:bg-[#f5f3f4] transition-colors">
-                <span className="material-symbols-outlined text-xl">add_a_photo</span>
+                <span className="material-symbols-outlined text-xl">
+                  add_a_photo
+                </span>
               </div>
             </div>
           </div>
@@ -206,7 +239,10 @@ export default function ProductForm({ onSave, onCancel }: ProductFormProps) {
       <div className="grid grid-cols-3 gap-6">
         {/* Precios */}
         <Card>
-          <SectionHeader icon="payments" title="Precios" />
+          <div className="flex items-center gap-2 text-[#041627] mb-3">
+            <DollarSign size={15} />
+            Precios
+          </div>
           <div className="flex flex-col gap-4">
             <div>
               <Label small>Precio Regular</Label>
@@ -214,7 +250,12 @@ export default function ProductForm({ onSave, onCancel }: ProductFormProps) {
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#595f66] text-sm">
                   $
                 </span>
-                <Input type="number" className="pl-8" placeholder="0.00" {...register('precio')} />
+                <Input
+                  type="number"
+                  className="pl-8"
+                  placeholder="0.00"
+                  {...register("precio")}
+                />
               </div>
             </div>
 
@@ -222,7 +263,10 @@ export default function ProductForm({ onSave, onCancel }: ProductFormProps) {
               <span className="text-[13px] font-medium tracking-wide text-[#041627]">
                 En Oferta
               </span>
-              <Toggle checked={watched.enOferta} onChange={(val) => setValue('enOferta', val)} />
+              <Toggle
+                checked={watched.enOferta}
+                onChange={(val) => setValue("enOferta", val)}
+              />
             </div>
 
             <div className="pt-2">
@@ -232,7 +276,7 @@ export default function ProductForm({ onSave, onCancel }: ProductFormProps) {
                   <input
                     type="checkbox"
                     checked={watched.posPOS}
-                    onChange={(e) => setValue('posPOS', e.target.checked)}
+                    onChange={(e) => setValue("posPOS", e.target.checked)}
                     className="w-4 h-4 rounded border-[#c4c6cd] accent-[#4A90E2] cursor-pointer"
                   />
                   POS
@@ -241,7 +285,7 @@ export default function ProductForm({ onSave, onCancel }: ProductFormProps) {
                   <input
                     type="checkbox"
                     checked={watched.posWeb}
-                    onChange={(e) => setValue('posWeb', e.target.checked)}
+                    onChange={(e) => setValue("posWeb", e.target.checked)}
                     className="w-4 h-4 rounded border-[#c4c6cd] accent-[#4A90E2] cursor-pointer"
                   />
                   Web
@@ -253,34 +297,44 @@ export default function ProductForm({ onSave, onCancel }: ProductFormProps) {
 
         {/* Stock */}
         <Card>
-          <SectionHeader icon="inventory" title="Stock" />
+          <div className="flex items-center gap-2 text-[#041627] mb-3">
+            <PackageSearch size={15} />
+            Stock
+          </div>
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between p-2 bg-[#fbf9fa] rounded-sm">
               <span className="text-[13px] font-medium tracking-wide text-[#041627]">
                 Estado: Activo
               </span>
-              <Toggle checked={watched.activo} onChange={(val) => setValue('activo', val)} dark />
+              <Toggle
+                checked={watched.activo}
+                onChange={(val) => setValue("activo", val)}
+                dark
+              />
             </div>
             <div>
               <Label small>Cantidad</Label>
-              <Input type="number" {...register('cantidad')} />
+              <Input type="number" {...register("cantidad")} />
             </div>
             <div>
               <Label small>Vencimiento</Label>
-              <Input type="date" {...register('venc')} />
+              <Input type="date" {...register("venc")} />
             </div>
           </div>
         </Card>
 
         {/* Ubicación */}
         <Card>
-          <SectionHeader icon="location_on" title="Ubicación" />
+          <div className="flex items-center gap-2 text-[#041627] mb-3">
+            <MapPin size={15} />
+            Ubicación
+          </div>
           <div className="flex flex-col gap-4">
             <div>
               <Label small>Depósito</Label>
               <Select
                 value={watched.deposito}
-                onChange={(e) => setValue('deposito', e.target.value)}
+                onChange={(e) => setValue("deposito", e.target.value)}
               >
                 {DEPOSITOS.map((d) => (
                   <option key={d}>{d}</option>
@@ -289,7 +343,10 @@ export default function ProductForm({ onSave, onCancel }: ProductFormProps) {
             </div>
             <div>
               <Label small>Sección / Pasillo</Label>
-              <Input placeholder="Ej: Pasillo 3, Estante B" {...register('seccion')} />
+              <Input
+                placeholder="Ej: Pasillo 3, Estante B"
+                {...register("seccion")}
+              />
             </div>
           </div>
         </Card>

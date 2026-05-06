@@ -1,3 +1,5 @@
+import { ChevronDown } from 'lucide-react';
+
 interface LabelProps {
   children: React.ReactNode;
   small?: boolean;
@@ -42,9 +44,7 @@ export function Select({ children, value, onChange }: SelectProps) {
       >
         {children}
       </select>
-      <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#595f66] text-lg">
-        expand_more
-      </span>
+      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#595f66] w-5 h-5" />
     </div>
   );
 }

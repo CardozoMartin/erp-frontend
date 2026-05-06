@@ -1,3 +1,4 @@
+import { History, Printer, Save, X } from 'lucide-react';
 import ProductForm from '../components/ProductForm';
 //
 const ProductosPages = () => {
@@ -11,22 +12,24 @@ const ProductosPages = () => {
            <div className="flex items-center gap-4">
              <button
 
-               className="px-6 py-2 text-[13px] font-medium tracking-wide border border-[#041627] text-[#041627] rounded-sm hover:bg-[#f5f3f4] transition-colors"
+               className="px-6 py-2 text-[13px] font-medium tracking-wide border bg-red-600 border-[#f33333] text-[#ffffff] rounded-sm hover:bg-[#cc0505] hover:text-[#111111] transition-colors cursor-pointer flex items-center gap-1"
              >
                Cancelar
+               <X size={15} className='' />
              </button>
              <button
 
-               className="px-6 py-2 text-[13px] font-medium tracking-wide bg-[#4A90E2] text-white rounded-sm hover:opacity-90 transition-opacity"
+               className="px-6 py-2 text-[13px] font-medium tracking-wide bg-[#075E54] hover:bg-[#1e8e4f] text-white hover:text-[#111111] rounded-sm hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1"
              >
                Guardar Producto
+               <Save size={15} />
              </button>
              <div className="w-px h-8 bg-[#c4c6cd] mx-2" />
-             <button className="p-2 text-[#595f66] hover:text-[#041627] transition-colors">
-               <span className="material-symbols-outlined">history</span>
+             <button className="p-2 text-[#595f66] hover:text-[#041627] hover:bg-[#DCF8C6] transition-colors cursor-pointer">
+              <History />
              </button>
-             <button className="p-2 text-[#595f66] hover:text-[#041627] transition-colors">
-               <span className="material-symbols-outlined">print</span>
+             <button className="p-2 text-[#595f66] hover:text-[#041627] hover:bg-[#DCF8C6] transition-colors cursor-pointer">
+              <Printer />
              </button>
            </div>
          </header>

@@ -1,6 +1,7 @@
 import { Package, ShoppingCart, Wallet } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import '../../index.css'
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type NavItem = {
@@ -39,7 +40,7 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <nav className="w-full bg-white border-b border-gray-500/20 px-5 flex items-center justify-between h-[52px] font-medium select-none">
+    <nav className="w-full bg-white border-b border-gray-500/20 px-5 flex items-center justify-between h-[52px] font-medium select-none text_color">
       {/* ── Izquierda: logo + links ── */}
       <div className="flex items-center gap-5">
         {/* Logo */}
@@ -65,7 +66,7 @@ export default function Navbar() {
                     ${
                       isActive
                         ? 'bg-gray-500/10 text-gray-900'
-                        : 'text-gray-500 hover:bg-gray-500/10 hover:text-gray-800'
+                        : 'text-gray-500 hover:bg-[#DCF8C6] hover:text-[#ECE5DD] '
                     }
                   `}
                 >
