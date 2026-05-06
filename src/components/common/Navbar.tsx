@@ -1,12 +1,13 @@
-import { Box, Package, ShoppingBag, ShoppingCart, Wallet } from "lucide-react";
-import { useState } from "react";
-
+import { Package, ShoppingCart, Wallet } from 'lucide-react';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type NavItem = {
   id: string;
   label: string;
   icon: React.ReactNode;
+  link: string;
 };
 
 type UserMenuAction = {
@@ -15,41 +16,35 @@ type UserMenuAction = {
   danger?: boolean;
 };
 
-
-
 // ─── Data ────────────────────────────────────────────────────────────────────
 
 const navItems: NavItem[] = [
-  { id: "Punto Venta", label: "Punto Venta", icon: <ShoppingCart /> },
-  { id: "Productos", label: "Productos", icon: <Package />  },
-  { id: "Caja", label: "Caja", icon: <Wallet /> },
-  { id: "transfers", label: "Transferencias", icon: "" },
+  { id: 'Punto Venta', label: 'Punto Venta', icon: <ShoppingCart />, link: '/punto-venta' },
+  { id: 'Productos', label: 'Productos', icon: <Package />, link: '/productos' },
+  { id: 'Caja', label: 'Caja', icon: <Wallet />, link: '/caja' },
+  { id: 'transfers', label: 'Transferencias', icon: '', link: '/transferencias' },
 ];
 
 const userMenuActions: UserMenuAction[] = [
-  { label: "Favoritos", icon: "" },
-  { label: "Renombrar", icon: "" },
-  { label: "Ajustes", icon: "" },
-  { label: "Eliminar cuenta", icon: "", danger: true },
+  { label: 'Favoritos', icon: '' },
+  { label: 'Renombrar', icon: '' },
+  { label: 'Ajustes', icon: '' },
+  { label: 'Eliminar cuenta', icon: '', danger: true },
 ];
 
 // ─── Navbar ──────────────────────────────────────────────────────────────────
 
 export default function Navbar() {
-  const [activeId, setActiveId] = useState<string>("analytics");
+  const [activeId, setActiveId] = useState<string>('analytics');
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <nav className="w-full bg-white border-b border-gray-500/20 px-5 flex items-center justify-between h-[52px] font-medium select-none">
-
       {/* ── Izquierda: logo + links ── */}
       <div className="flex items-center gap-5">
-
         {/* Logo */}
         <div className="flex items-center gap-2 shrink-0">
-          <div className="w-6 h-6 bg-gray-900 rounded-md flex items-center justify-center">
-         
-          </div>
+          <div className="w-6 h-6 bg-gray-900 rounded-md flex items-center justify-center"></div>
           <span className="text-sm font-semibold text-gray-800 tracking-tight">Sistema ERP</span>
         </div>
 
@@ -62,21 +57,21 @@ export default function Navbar() {
             const isActive = activeId === item.id;
             return (
               <li key={item.id}>
-                <button
+                <Link
+                  to={item.link}
                   onClick={() => setActiveId(item.id)}
                   className={`
                     flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors duration-150 cursor-pointer
-                    ${isActive
-                      ? "bg-gray-500/10 text-gray-900"
-                      : "text-gray-500 hover:bg-gray-500/10 hover:text-gray-800"
+                    ${
+                      isActive
+                        ? 'bg-gray-500/10 text-gray-900'
+                        : 'text-gray-500 hover:bg-gray-500/10 hover:text-gray-800'
                     }
                   `}
                 >
-                  <span className={isActive ? "text-gray-800" : "text-gray-400"}>
-                    {item.icon}
-                  </span>
+                  <span className={isActive ? 'text-gray-800' : 'text-gray-400'}>{item.icon}</span>
                   {item.label}
-                </button>
+                </Link>
               </li>
             );
           })}
@@ -85,10 +80,8 @@ export default function Navbar() {
 
       {/* ── Derecha: ajustes + usuario ── */}
       <div className="flex items-center gap-2">
-
         {/* Ajustes */}
         <button className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-gray-500 hover:bg-gray-500/10 hover:text-gray-800 transition-colors duration-150 cursor-pointer">
-         
           Ajustes
         </button>
 
@@ -105,9 +98,7 @@ export default function Navbar() {
               MD
             </div>
             <span className="text-sm text-gray-800">Martín</span>
-            <span className="text-gray-400">
-              {/* <IconChevron open={menuOpen} /> */}
-            </span>
+            <span className="text-gray-400">{/* <IconChevron open={menuOpen} /> */}</span>
           </button>
 
           {/* Dropdown */}
@@ -115,25 +106,23 @@ export default function Navbar() {
             <div className="absolute right-0 top-[calc(100%+6px)] w-52 bg-white border border-gray-500/20 rounded-md shadow-sm z-50 overflow-hidden py-1">
               {userMenuActions.map((action, i) => {
                 const isDanger = action.danger;
-                const isBeforeDanger =
-                  !isDanger && userMenuActions[i + 1]?.danger;
+                const isBeforeDanger = !isDanger && userMenuActions[i + 1]?.danger;
 
                 return (
                   <div key={action.label}>
-                    {isBeforeDanger && (
-                      <div className="w-full h-px bg-gray-200/70 my-1" />
-                    )}
+                    {isBeforeDanger && <div className="w-full h-px bg-gray-200/70 my-1" />}
                     <button
                       className={`
                         w-full flex items-center justify-between gap-3 px-3 py-2 text-sm transition-colors duration-100 cursor-pointer
-                        ${isDanger
-                          ? "text-red-600/80 hover:bg-red-600/10"
-                          : "text-gray-700/80 hover:bg-gray-500/10"
+                        ${
+                          isDanger
+                            ? 'text-red-600/80 hover:bg-red-600/10'
+                            : 'text-gray-700/80 hover:bg-gray-500/10'
                         }
                       `}
                     >
                       {action.label}
-                      <span className={isDanger ? "text-red-500" : "text-gray-400"}>
+                      <span className={isDanger ? 'text-red-500' : 'text-gray-400'}>
                         {action.icon}
                       </span>
                     </button>
