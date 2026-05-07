@@ -1,356 +1,363 @@
-import { useRef, useState } from "react";
-import { useForm } from "react-hook-form";
-import {
-  Card,
-  Input,
-  Label,
-  SectionHeader,
-  Select,
-  Toggle,
-} from "./FormComponents";
-import { InputFormField } from "./InputFormField";
-import { CATEGORIAS, COLORES, DEPOSITOS, TALLES, UNIDADES } from "./constants";
-import {
-  BadgeDollarSign,
-  DollarSign,
-  Info,
-  MapPin,
-  PackageSearch,
-  Plus,
-} from "lucide-react";
-import "../../../index.css";
+import { DollarSign, History, Info, Printer, Save, X } from 'lucide-react';
+import { FormProvider, useForm } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
+import '../../../index.css';
+import { usePostProducts } from '../hooks/useProducts';
+import type { IProducto } from '../types/productos.type';
+import { Card, Input, Label, Toggle } from './FormComponents';
+import { InputFormField } from './InputFormField';
+import { ImagenesSection } from './ProductFormSections/ImagenesSection';
+import { LotesSection } from './ProductFormSections/LotesSection';
+import { OfertasSection } from './ProductFormSections/OfertasSection';
+import { StockSection } from './ProductFormSections/StockSection';
+import { VariantesSection } from './ProductFormSections/VariantesSection';
+import { CATEGORIAS, UNIDADES } from './constants';
 
-interface ProductFormProps {
-  onSave?: (data: any) => void;
-  onCancel?: () => void;
-}
+const defaultProductValues = {
+  nombre: '',
+  codigo_barras: '',
+  descripcion: '',
+  precio_base: '',
+  unidad_venta: 'UNIDAD',
+  activo: true,
+  activo_pos: true,
+  activo_web: false,
+  tiene_variantes: false,
+  tiene_vencimiento: false,
+  es_fraccionable: false,
+  categoria_id: null,
+  stock: [{ sucursal_id: null, cantidad: 0, cantidad_minima: 0 }],
+  variantes: [],
+  imagenes: [],
+  lotes: [],
+  ofertas: [],
+};
 
-export default function ProductForm({ onSave, onCancel }: ProductFormProps) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [imagen, setImagen] = useState<string | null>(null);
+export default function ProductForm() {
+  const navigate = useNavigate();
+  //TQUERY---------------------------------------
+  const { mutate: postProducto } = usePostProducts();
 
+  //RHF--------------------------------------------
+  const methods = useForm({ defaultValues: defaultProductValues });
   const {
     register,
-    handleSubmit,
     watch,
     setValue,
     formState: { errors },
-  } = useForm({
-    defaultValues: {
-      nombre: "",
-      referencia: "",
-      cod_barra: "",
-      categoria: "",
-      unidad: "Unidad (Ud)",
-      descripcion: "",
-      precio: "",
-      cantidad: "0",
-      venc: "",
-      deposito: "Depósito Central (A1)",
-      seccion: "",
-      enOferta: false,
-      posPOS: true,
-      posWeb: false,
-      activo: true,
-      selColor: 0,
-      selTalle: "M",
-    },
-  });
+    handleSubmit: RHFOnSubmit,
+  } = methods;
 
-  const watched = watch();
+  //watch para mostrar/ocultar secciones según opciones seleccionadas
+  const watchedTieneVariantes = watch('tiene_variantes');
+  const watchedTieneVencimiento = watch('tiene_vencimiento');
+  const watchedActivoPos = watch('activo_pos');
+  const watchedActivoWeb = watch('activo_web');
+  const watchedActivo = watch('activo');
 
-  const handleImg = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (f) setImagen(URL.createObjectURL(f));
-  };
+  //Handlers --------------------------------------
+  const handleSubmit = (data: IProducto) : void => {
+    console.log('Datos originales del formulario:', data);
 
-  const onSubmit = (data: any) => {
-    onSave?.({
-      ...data,
-      imagen,
+    // Clonamos los datos
+    const payload = { ...data } as any;
+
+    // 1. Validar UUID de Categoría. Si no es un UUID válido, lo eliminamos
+    // (Porque "Ferretería" no es un UUID y fallará en backend)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!payload.categoria_id || !uuidRegex.test(payload.categoria_id)) {
+      delete payload.categoria_id;
+    }
+
+    // 2. Mapear Unidad de Venta al ENUM del backend
+    const mapUnidad: Record<string, string> = {
+      'Unidad (Ud)': 'UNIDAD',
+      'UNIDAD': 'UNIDAD',
+      'Kilogramos (Kg)': 'KG',
+      'Litros (L)': 'LITRO',
+    };
+    payload.unidad_venta = mapUnidad[payload.unidad_venta] || 'UNIDAD';
+
+    // 3. Limpiar strings vacíos que rompen la validación del backend
+    if (payload.codigo_barras === "") delete payload.codigo_barras;
+    if (payload.descripcion === "") delete payload.descripcion;
+    if (payload.id === "") delete payload.id;
+
+    // 4. Remover propiedades que el CreateProductoDto aún no acepta
+    delete payload.stock;
+    delete payload.imagenes;
+    delete payload.lotes;
+    delete payload.ofertas;
+
+    // 5. Limpiar variantes
+    if (payload.tiene_variantes && payload.variantes) {
+      payload.variantes = payload.variantes.map((v: any) => {
+        const varCopy = { ...v };
+        delete varCopy.id;
+        delete varCopy.producto_id;
+        delete varCopy.created_at;
+        delete varCopy.updated_at;
+        delete varCopy.stock;
+        delete varCopy.imagenes;
+        delete varCopy.lotes;
+        delete varCopy.ofertas;
+        
+        if (varCopy.atributos) {
+          varCopy.atributos = varCopy.atributos.map((a: any) => {
+            const attrCopy = { ...a };
+            delete attrCopy.id;
+            delete attrCopy.variante_id;
+            delete attrCopy.metadata;
+            return attrCopy;
+          });
+        }
+        
+        return varCopy;
+      });
+    } else {
+      payload.variantes = [];
+    }
+
+    delete payload.created_at;
+    delete payload.updated_at;
+
+    console.log('Datos del producto limpios a guardar:', payload);
+    postProducto(payload, {
+      onError: (error: any) => {
+        const errorData = error.response?.data;
+        if (errorData && Array.isArray(errorData.message)) {
+          // Mapear errores del backend (NestJS) a los campos del formulario
+          errorData.message.forEach((msg: string) => {
+            const field = msg.split(' ')[0]; // El primer string suele ser el nombre del campo
+            methods.setError(field as any, { type: 'server', message: msg });
+          });
+          // También podemos mostrar un alert general por si acaso
+          alert("Errores de validación devueltos por el servidor:\n\n" + errorData.message.join("\n"));
+        } else {
+          alert(errorData?.message || "Ocurrió un error inesperado al guardar el producto");
+        }
+      },
+      onSuccess: () => {
+        alert("Producto creado exitosamente");
+      }
     });
   };
 
   return (
-    <form
-      className="max-w-[1280px] mx-auto px-6 py-6 flex flex-col gap-6 text_color"
-      onSubmit={handleSubmit(onSubmit)}
-    >
-      {/* ── Información Básica ── */}
-      <Card>
-        <div className="flex items-center gap-2 text-[#041627] mb-3">
-          <Info className="text-blue-600" />
-          <p>Información básica del producto</p>
+    <FormProvider {...methods}>
+      {/* ── Header ── */}
+      <header className="sticky top-16 z-10 bg-[#fbf9fa] border-b border-[#c4c6cd] px-6 py-3 flex items-center justify-between">
+        <h2 className="text-2xl font-semibold tracking-tight text-[#041627]">
+          Añadir Nuevo Producto
+        </h2>
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="px-6 py-2 text-[13px] font-medium tracking-wide border bg-red-600 border-[#f33333] text-[#ffffff] rounded-sm hover:bg-[#cc0505] transition-colors cursor-pointer flex items-center gap-1"
+          >
+            Cancelar
+            <X size={15} />
+          </button>
+          <button
+            type="submit"
+            form="product-form"
+            className="px-6 py-2 text-[13px] font-medium tracking-wide bg-[#075E54] hover:bg-[#1e8e4f] text-white rounded-sm hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1"
+          >
+            Guardar Producto
+            <Save size={15} />
+          </button>
+          <div className="w-px h-8 bg-[#c4c6cd]" />
+          <button
+            type="button"
+            className="p-2 text-[#595f66] hover:text-[#041627] hover:bg-[#DCF8C6] transition-colors cursor-pointer"
+          >
+            <History size={20} />
+          </button>
+          <button
+            type="button"
+            className="p-2 text-[#595f66] hover:text-[#041627] hover:bg-[#DCF8C6] transition-colors cursor-pointer"
+          >
+            <Printer size={20} />
+          </button>
         </div>
-        <div className="flex gap-10">
-          {/* Imagen */}
-          <div className="w-64 flex-shrink-0">
-            <Label>Imagen del Producto</Label>
-            <div
-              onClick={() => fileRef.current?.click()}
-              className="aspect-square border-2 border-dashed border-[#c4c6cd] rounded-sm bg-[#fbf9fa] flex flex-col items-center justify-center cursor-pointer overflow-hidden relative group hover:bg-[#f5f3f4] transition-colors"
-            >
-              {imagen ? (
-                <>
-                  <img
-                    src={imagen}
-                    alt="producto"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="material-symbols-outlined text-white text-4xl">
-                      upload
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center gap-2">
-                  <span className="material-symbols-outlined text-[#c4c6cd] text-4xl">
-                    image
-                  </span>
-                  <span className="text-xs text-[#c4c6cd]">Subir imagen</span>
-                </div>
-              )}
-            </div>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleImg}
-            />
+      </header>
+
+      <form
+        id="product-form"
+        className="max-w-[1280px] mx-auto px-6 py-6 flex flex-col gap-6 text_color"
+        onSubmit={RHFOnSubmit(handleSubmit)}
+      >
+        {/* ── Información Básica ── */}
+        <Card>
+          <div className="flex items-center gap-2 text-[#041627] mb-6">
+            <Info className="text-blue-600" />
+            <h3 className="text-lg font-semibold">Información Básica</h3>
           </div>
 
-          {/* Campos */}
-          <div className="flex-1 flex flex-col gap-6">
+          <div className="grid grid-cols-2 gap-6 mb-6">
             <InputFormField
               label="Nombre del Producto"
               name="nombre"
-              registration={register("nombre", {
-                required: "El nombre es obligatorio",
-              })}
-              error={errors.nombre?.message}
+              registration={register('nombre', { required: 'El nombre es obligatorio' })}
+              error={errors.nombre?.message as string}
               placeholder="Ej: Taladro Inalámbrico XYZ"
             />
-
-            <div className="grid grid-cols-2 gap-6">
-              <InputFormField
-                label="Categoría"
-                name="categoria"
-                type="select"
-                registration={register("categoria", {
-                  required: "La categoría es obligatoria",
-                })}
-                error={errors.categoria?.message}
-                options={CATEGORIAS}
-              />
-              <InputFormField
-                label="Unidad de Medida"
-                name="unidad"
-                type="select"
-                registration={register("unidad", {
-                  required: "La unidad es obligatoria",
-                })}
-                error={errors.unidad?.message}
-                options={UNIDADES}
-              />
-            </div>
-
             <InputFormField
-              label="Descripción"
-              name="descripcion"
-              type="textarea"
-              registration={register("descripcion")}
-              placeholder="Ej: Taladro inalámbrico con batería de larga duración, ideal para trabajos de bricolaje y profesionales."
-              rows={4}
+              label="Código de Barras"
+              name="codigo_barras"
+              registration={register('codigo_barras')}
+              placeholder="Ej: 7798102030057"
             />
           </div>
-        </div>
-      </Card>
 
-      {/* ── Variantes ── */}
-      <Card>
-        <button className="flex items-center gap-1 text-[13px] font-medium text-[#4A90E2] hover:underline">
-          <Plus size={15} />
-          Añadir Variante
-        </button>
-
-        <div className="grid grid-cols-3 gap-10">
-          {/* Color */}
-          <div>
-            <Label small>Color</Label>
-            <div className="flex gap-2 items-center">
-              {COLORES.map((c, i) => (
-                <div
-                  key={i}
-                  onClick={() => setValue("selColor", i)}
-                  className={`w-8 h-8 rounded-full border cursor-pointer transition-shadow
-                      ${watched.selColor === i ? "border-[#c4c6cd] ring-2 ring-[#4A90E2]" : "border-[#c4c6cd] hover:ring-2 hover:ring-[#4A90E2]"}`}
-                  style={{ background: c }}
-                />
-              ))}
-              <Input className="flex-1" placeholder="Ej: Azul Marino" />
-            </div>
-          </div>
-
-          {/* Talle */}
-          <div>
-            <Label small>Talle</Label>
-            <div className="flex gap-2">
-              {TALLES.map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setValue("selTalle", t)}
-                  className={`w-10 h-10 border rounded-sm text-[13px] font-medium tracking-wide transition-colors
-                      ${
-                        watched.selTalle === t
-                          ? "bg-[#041627] text-white border-[#041627]"
-                          : "bg-white text-[#1b1c1d] border-[#c4c6cd] hover:bg-[#f5f3f4]"
-                      }`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Galería */}
-          <div>
-            <Label small>Galería de Variante</Label>
-            <div className="flex gap-4">
-              <div className="w-16 h-16 border border-[#c4c6cd] rounded-sm overflow-hidden bg-[#fbf9fa]">
-                <img
-                  src="https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=128&q=80"
-                  alt="variante"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="w-16 h-16 border-2 border-dashed border-[#c4c6cd] rounded-sm flex items-center justify-center text-[#c4c6cd] cursor-pointer hover:bg-[#f5f3f4] transition-colors">
-                <span className="material-symbols-outlined text-xl">
-                  add_a_photo
+          <div className="grid grid-cols-3 gap-6 mb-6">
+            <InputFormField
+              label="Categoría"
+              name="categoria_id"
+              type="select"
+              registration={register('categoria_id', { required: 'La categoría es obligatoria' })}
+              error={errors.categoria_id?.message as string}
+              options={CATEGORIAS}
+            />
+            <InputFormField
+              label="Unidad de Medida"
+              name="unidad_venta"
+              type="select"
+              registration={register('unidad_venta', { required: 'La unidad es obligatoria' })}
+              error={errors.unidad_venta?.message as string}
+              options={UNIDADES}
+            />
+            <div className="flex flex-col justify-center gap-2 px-4 border border-[#efedef] rounded-sm bg-[#fbf9fa]">
+              <div className="flex justify-between items-center">
+                <span className="text-[13px] font-medium tracking-wide text-[#041627]">
+                  Estado General Activo
                 </span>
+                <Toggle checked={watchedActivo} onChange={(val) => setValue('activo', val)} dark />
               </div>
             </div>
           </div>
-        </div>
-      </Card>
 
-      {/* ── Grid inferior ── */}
-      <div className="grid grid-cols-3 gap-6">
-        {/* Precios */}
-        <Card>
-          <div className="flex items-center gap-2 text-[#041627] mb-3">
-            <DollarSign size={15} />
-            Precios
-          </div>
-          <div className="flex flex-col gap-4">
-            <div>
-              <Label small>Precio Regular</Label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#595f66] text-sm">
-                  $
-                </span>
-                <Input
-                  type="number"
-                  className="pl-8"
-                  placeholder="0.00"
-                  {...register("precio")}
+          <InputFormField
+            label="Descripción"
+            name="descripcion"
+            type="textarea"
+            registration={register('descripcion')}
+            placeholder="Descripción detallada del producto..."
+            rows={4}
+          />
+        </Card>
+
+        <div className="grid grid-cols-2 gap-6">
+          {/* Precios y Canales */}
+          <Card>
+            <div className="flex items-center gap-2 text-[#041627] mb-6">
+              <DollarSign className="text-green-600" />
+              <h3 className="text-lg font-semibold">Precios y Canales</h3>
+            </div>
+            <div className="flex flex-col gap-6">
+              <div>
+                <Label>Precio Base Regular</Label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#595f66] text-sm">
+                    $
+                  </span>
+                  <Input
+                    type="number"
+                    className="pl-8"
+                    placeholder="0.00"
+                    {...register('precio_base', { valueAsNumber: true })}
+                  />
+                </div>
+              </div>
+
+              <div className="p-4 border border-[#efedef] rounded-sm bg-[#fbf9fa] flex flex-col gap-4">
+                <h4 className="text-sm font-semibold text-[#041627]">Disponibilidad en Canales</h4>
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] font-medium tracking-wide text-[#44474c]">
+                    Punto de Venta (POS)
+                  </span>
+                  <Toggle
+                    checked={watchedActivoPos}
+                    onChange={(val) => setValue('activo_pos', val)}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] font-medium tracking-wide text-[#44474c]">
+                    Tienda Online (Web)
+                  </span>
+                  <Toggle
+                    checked={watchedActivoWeb}
+                    onChange={(val) => setValue('activo_web', val)}
+                  />
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Configuraciones Generales */}
+          <Card>
+            <div className="flex items-center gap-2 text-[#041627] mb-6">
+              <span className="material-symbols-outlined text-orange-500">settings</span>
+              <h3 className="text-lg font-semibold">Configuración Avanzada</h3>
+            </div>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between p-3 border border-[#efedef] rounded-sm bg-[#fbf9fa]">
+                <div>
+                  <h4 className="text-sm font-semibold text-[#041627]">¿Tiene Variantes?</h4>
+                  <p className="text-xs text-[#595f66] mt-1">Colores, talles, sabores, etc.</p>
+                </div>
+                <Toggle
+                  checked={watchedTieneVariantes}
+                  onChange={(val) => setValue('tiene_variantes', val)}
+                  dark
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3 border border-[#efedef] rounded-sm bg-[#fbf9fa]">
+                <div>
+                  <h4 className="text-sm font-semibold text-[#041627]">¿Controla Vencimiento?</h4>
+                  <p className="text-xs text-[#595f66] mt-1">Habilita la gestión de lotes</p>
+                </div>
+                <Toggle
+                  checked={watchedTieneVencimiento}
+                  onChange={(val) => setValue('tiene_vencimiento', val)}
+                  dark
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3 border border-[#efedef] rounded-sm bg-[#fbf9fa]">
+                <div>
+                  <h4 className="text-sm font-semibold text-[#041627]">¿Es Fraccionable?</h4>
+                  <p className="text-xs text-[#595f66] mt-1">
+                    Permite venta en decimales (ej. 1.5 kg)
+                  </p>
+                </div>
+                <Toggle
+                  checked={watch('es_fraccionable')}
+                  onChange={(val) => setValue('es_fraccionable', val)}
+                  dark
                 />
               </div>
             </div>
+          </Card>
+        </div>
 
-            <div className="flex items-center justify-between p-2 bg-[#fbf9fa] rounded-sm">
-              <span className="text-[13px] font-medium tracking-wide text-[#041627]">
-                En Oferta
-              </span>
-              <Toggle
-                checked={watched.enOferta}
-                onChange={(val) => setValue("enOferta", val)}
-              />
-            </div>
+        {/* Imágenes Generales del Producto */}
+        {!watchedTieneVariantes && <ImagenesSection namePrefix="imagenes" />}
 
-            <div className="pt-2">
-              <Label small>Canales</Label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer text-sm text-[#1b1c1d]">
-                  <input
-                    type="checkbox"
-                    checked={watched.posPOS}
-                    onChange={(e) => setValue("posPOS", e.target.checked)}
-                    className="w-4 h-4 rounded border-[#c4c6cd] accent-[#4A90E2] cursor-pointer"
-                  />
-                  POS
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer text-sm text-[#1b1c1d]">
-                  <input
-                    type="checkbox"
-                    checked={watched.posWeb}
-                    onChange={(e) => setValue("posWeb", e.target.checked)}
-                    className="w-4 h-4 rounded border-[#c4c6cd] accent-[#4A90E2] cursor-pointer"
-                  />
-                  Web
-                </label>
-              </div>
-            </div>
-          </div>
-        </Card>
+        {/* Si NO tiene variantes, gestionamos Stock y Ofertas de forma general */}
+        {!watchedTieneVariantes && (
+          <>
+            <StockSection namePrefix="stock" />
+            <OfertasSection namePrefix="ofertas" />
+            {watchedTieneVencimiento && <LotesSection namePrefix="lotes" />}
+          </>
+        )}
 
-        {/* Stock */}
-        <Card>
-          <div className="flex items-center gap-2 text-[#041627] mb-3">
-            <PackageSearch size={15} />
-            Stock
-          </div>
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between p-2 bg-[#fbf9fa] rounded-sm">
-              <span className="text-[13px] font-medium tracking-wide text-[#041627]">
-                Estado: Activo
-              </span>
-              <Toggle
-                checked={watched.activo}
-                onChange={(val) => setValue("activo", val)}
-                dark
-              />
-            </div>
-            <div>
-              <Label small>Cantidad</Label>
-              <Input type="number" {...register("cantidad")} />
-            </div>
-            <div>
-              <Label small>Vencimiento</Label>
-              <Input type="date" {...register("venc")} />
-            </div>
-          </div>
-        </Card>
-
-        {/* Ubicación */}
-        <Card>
-          <div className="flex items-center gap-2 text-[#041627] mb-3">
-            <MapPin size={15} />
-            Ubicación
-          </div>
-          <div className="flex flex-col gap-4">
-            <div>
-              <Label small>Depósito</Label>
-              <Select
-                value={watched.deposito}
-                onChange={(e) => setValue("deposito", e.target.value)}
-              >
-                {DEPOSITOS.map((d) => (
-                  <option key={d}>{d}</option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label small>Sección / Pasillo</Label>
-              <Input
-                placeholder="Ej: Pasillo 3, Estante B"
-                {...register("seccion")}
-              />
-            </div>
-          </div>
-        </Card>
-      </div>
-    </form>
+        {/* Si TIENE variantes, mostramos el gestor de variantes que incluye sus propios atributos, stock, imagenes, ofertas y lotes */}
+        {watchedTieneVariantes && <VariantesSection tieneVencimiento={watchedTieneVencimiento} />}
+      </form>
+    </FormProvider>
   );
 }
