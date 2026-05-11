@@ -1,6 +1,6 @@
-import { Plus, Trash2, Image as ImageIcon } from 'lucide-react';
+import { Image as ImageIcon, Plus, Trash2 } from 'lucide-react';
 import { useFieldArray, useFormContext } from 'react-hook-form';
-import { Card, Input, Label, Select } from '../FormComponents';
+import { Card } from '../FormComponents';
 import { InputFormField } from '../InputFormField';
 
 interface Props {
@@ -8,7 +8,7 @@ interface Props {
 }
 
 export function ImagenesSection({ namePrefix }: Props) {
-  const { control, register, formState: { errors } } = useFormContext();
+  const { control, register } = useFormContext();
   const { fields, append, remove } = useFieldArray({
     control,
     name: namePrefix,
@@ -18,13 +18,15 @@ export function ImagenesSection({ namePrefix }: Props) {
     <Card>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2 text-[#041627]">
-          <ImageIcon size={16} className="text-blue-600" />
+          <ImageIcon size={16} className="text_color" />
           <h3 className="font-medium">Imágenes</h3>
         </div>
         <button
           type="button"
-          onClick={() => append({ rol: 'GALERIA', url: '', alt_text: '', orden: fields.length + 1 })}
-          className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium"
+          onClick={() =>
+            append({ rol: 'GALERIA', url: '', alt_text: '', orden: fields.length + 1 })
+          }
+          className="flex items-center gap-1 text-sm text_color hover:text-blue-700 font-medium cursor-pointer transition-colors"
         >
           <Plus size={16} /> Agregar
         </button>
@@ -32,7 +34,10 @@ export function ImagenesSection({ namePrefix }: Props) {
 
       <div className="space-y-4">
         {fields.map((field, index) => (
-          <div key={field.id} className="flex gap-4 items-start p-4 border border-[#efedef] rounded-sm bg-[#fbf9fa]">
+          <div
+            key={field.id}
+            className="flex gap-4 items-start p-4 border border-[#efedef] rounded-sm bg-[#fbf9fa]"
+          >
             <div className="flex-1 grid grid-cols-2 gap-4">
               <InputFormField
                 label="URL de Imagen"

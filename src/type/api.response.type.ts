@@ -1,8 +1,13 @@
-
 export interface ISuccessResponse<T> {
   ok: true;
   mensaje: string;
-  datos: T;
+  data: T;
+  meta?: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
 }
 
 export interface IErrorResponse {

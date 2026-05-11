@@ -19,13 +19,13 @@ export function StockSection({ namePrefix }: Props) {
     <Card>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2 text-[#041627]">
-          <PackageSearch size={16} className="text-orange-500" />
+          <PackageSearch size={16} className="text_color" />
           <h3 className="font-medium">Stock por Sucursal</h3>
         </div>
         <button
           type="button"
           onClick={() => append({ sucursal_id: DEPOSITOS[0], cantidad: 0, cantidad_minima: 0 })}
-          className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium"
+          className="flex items-center gap-1 text-sm text_color hover:text-blue-700 font-medium cursor-pointer transition-colors"
         >
           <Plus size={16} /> Agregar Sucursal
         </button>
@@ -33,7 +33,10 @@ export function StockSection({ namePrefix }: Props) {
 
       <div className="space-y-4">
         {fields.map((field, index) => (
-          <div key={field.id} className="flex gap-4 items-start p-4 border border-[#efedef] rounded-sm bg-[#fbf9fa]">
+          <div
+            key={field.id}
+            className="flex gap-4 items-start p-4 border border-[#efedef] rounded-sm bg-[#fbf9fa]"
+          >
             <div className="flex-1 grid grid-cols-3 gap-4">
               <InputFormField
                 label="Sucursal"
@@ -52,7 +55,9 @@ export function StockSection({ namePrefix }: Props) {
                 label="Cantidad Mínima"
                 name={`${namePrefix}.${index}.cantidad_minima`}
                 type="number"
-                registration={register(`${namePrefix}.${index}.cantidad_minima`, { valueAsNumber: true })}
+                registration={register(`${namePrefix}.${index}.cantidad_minima`, {
+                  valueAsNumber: true,
+                })}
               />
             </div>
             {fields.length > 1 && (

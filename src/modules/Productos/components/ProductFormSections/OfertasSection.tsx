@@ -18,13 +18,15 @@ export function OfertasSection({ namePrefix }: Props) {
     <Card>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2 text-[#041627]">
-          <Tag size={16} className="text-green-600" />
+          <Tag size={16} className="text_color" />
           <h3 className="font-medium">Ofertas y Descuentos</h3>
         </div>
         <button
           type="button"
-          onClick={() => append({ precio_oferta: 0, fecha_inicio: '', fecha_fin: '', activo: true })}
-          className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium"
+          onClick={() =>
+            append({ precio_oferta: 0, fecha_inicio: '', fecha_fin: '', activo: true })
+          }
+          className="flex items-center gap-1 text-sm text_color hover:text-blue-700 font-medium cursor-pointer transition-colors"
         >
           <Plus size={16} /> Agregar Oferta
         </button>
@@ -34,14 +36,19 @@ export function OfertasSection({ namePrefix }: Props) {
         {fields.map((field, index) => {
           const isActive = watch(`${namePrefix}.${index}.activo`);
           return (
-            <div key={field.id} className="flex gap-4 items-start p-4 border border-[#efedef] rounded-sm bg-[#fbf9fa]">
+            <div
+              key={field.id}
+              className="flex gap-4 items-start p-4 border border-[#efedef] rounded-sm bg-[#fbf9fa]"
+            >
               <div className="flex-1 grid grid-cols-4 gap-4">
                 <InputFormField
                   label="Precio Oferta"
                   name={`${namePrefix}.${index}.precio_oferta`}
                   type="number"
                   prefix="$"
-                  registration={register(`${namePrefix}.${index}.precio_oferta`, { valueAsNumber: true })}
+                  registration={register(`${namePrefix}.${index}.precio_oferta`, {
+                    valueAsNumber: true,
+                  })}
                 />
                 <InputFormField
                   label="Inicio"
@@ -58,7 +65,9 @@ export function OfertasSection({ namePrefix }: Props) {
                   registration={register(`${namePrefix}.${index}.fecha_fin`)}
                 />
                 <div className="flex flex-col gap-2">
-                  <label className="text-[13px] font-medium text-[#44474c] tracking-wide">Activo</label>
+                  <label className="text-[13px] font-medium text-[#44474c] tracking-wide">
+                    Activo
+                  </label>
                   <Toggle
                     checked={isActive}
                     onChange={(val) => setValue(`${namePrefix}.${index}.activo`, val)}

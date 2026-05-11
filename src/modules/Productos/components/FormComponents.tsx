@@ -53,9 +53,12 @@ interface ToggleProps {
   checked: boolean;
   onChange: (val: boolean) => void;
   dark?: boolean;
+  isActive?: boolean;
 }
 
-export function Toggle({ checked, onChange, dark }: ToggleProps) {
+export function Toggle({ checked, onChange, dark, isActive }: ToggleProps) {
+  const isToggled = isActive !== undefined ? isActive : checked;
+
   return (
     <label className="relative inline-flex items-center cursor-pointer">
       <input
@@ -65,12 +68,14 @@ export function Toggle({ checked, onChange, dark }: ToggleProps) {
         onChange={(e) => onChange(e.target.checked)}
       />
       <div
-        className={`w-11 h-6 rounded-full transition-colors duration-200
-        bg-[#c1c7cf]
-        peer-checked:${dark ? 'bg-[#041627]' : 'bg-[#4A90E2]'}
+        className={`w-11 h-6 rounded-full transition-colors duration-200 ${
+          isToggled
+            ? dark ? 'bg-[#041627]' : 'bg-[#68e24a]'
+            : 'bg-[#c1c7cf]'
+        }
         after:content-[''] after:absolute after:top-[2px] after:left-[2px]
         after:bg-white after:rounded-full after:h-5 after:w-5
-        after:transition-all peer-checked:after:translate-x-5
+        after:transition-all ${isToggled ? 'after:translate-x-5' : ''}
         after:shadow-sm`}
       />
     </label>

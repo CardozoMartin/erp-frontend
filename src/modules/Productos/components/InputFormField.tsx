@@ -34,7 +34,7 @@ export function InputFormField({
     transition focus:border-[#4A90E2] focus:ring-2 focus:ring-[#4A90E2]/20
     placeholder:text-[#c4c6cd]
     ${error ? 'border-red-400 focus:border-red-400 focus:ring-red-200' : 'border-[#c4c6cd]'}
-    ${prefix ? 'pl-8' : ''}
+    ${prefix ? 'pl-8 text-red-600' : ''}
     ${suffix ? 'pr-8' : ''}
   `;
 
@@ -98,7 +98,7 @@ export function InputFormField({
     <div className={`flex flex-col gap-1 ${className}`}>
       <label
         htmlFor={name}
-        className={`text-[#44474c] font-medium tracking-wide ${small ? 'text-xs' : 'text-[13px]'}`}
+        className={`text_color font-medium tracking-wide ${small ? 'text-xs' : 'text-[13px]'}`}
       >
         {label}
       </label>
