@@ -6,9 +6,10 @@ import { DEPOSITOS } from '../constants';
 
 interface Props {
   namePrefix: string;
+  sucursales: any[]; // Replace 'any[]' with the actual type if available
 }
 
-export function StockSection({ namePrefix }: Props) {
+export function StockSection({ namePrefix, sucursales }: Props) {
   const { control, register } = useFormContext();
   const { fields, append, remove } = useFieldArray({
     control,
@@ -43,8 +44,11 @@ export function StockSection({ namePrefix }: Props) {
                 name={`${namePrefix}.${index}.sucursal_id`}
                 type="select"
                 registration={register(`${namePrefix}.${index}.sucursal_id`)}
-                options={DEPOSITOS}
-                emptyLabel="Stock general"
+                options={sucursales.map((sucursal) => ({
+                  value: sucursal.id,
+                  label: sucursal.nombre,
+                }))}
+                
               />
               <InputFormField
                 label="Cantidad"

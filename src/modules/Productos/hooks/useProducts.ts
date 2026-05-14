@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { getProductosFn, postProductoFn } from "../api/productoApi";
 import type { AxiosError } from "axios";
 import type { IErrorResponse } from "../../../type/api.response.type";
+import { toast } from "sonner";
 
 
 //hook para crear un nuevo producto
@@ -10,9 +11,10 @@ export const usePostProducts = () => {
   return useMutation({
     mutationFn: postProductoFn,
     onSuccess: (data) => {
-      console.log('Producto creado con éxito:', data);
+      toast.success("Producto creado exitosamente");
     },
     onError: (error: AxiosError<IErrorResponse>) => {
+      toast.error("Error al crear el producto");
       console.error('Error al crear el producto:', error);
     },
   });

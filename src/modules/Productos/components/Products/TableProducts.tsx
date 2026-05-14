@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useGetProducts } from '../../hooks/useProducts';
 import ProductRow from './ProductRow';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const TableProducts = () => {
   const [currentPage, setCurrentPage] = useState(1);
@@ -33,7 +34,7 @@ const TableProducts = () => {
                 { label: 'Stock', align: 'text-center' },
                 { label: 'Costo', align: 'text-right' },
                 { label: 'Precio', align: 'text-right' },
-                { label: 'Acciones', align: 'text-right' },
+               
               ].map(({ label, align }) => (
                 <th
                   key={label}
@@ -82,7 +83,7 @@ const TableProducts = () => {
               className="material-symbols-outlined text-[18px]"
               style={{ fontFamily: "'Material Symbols Outlined'" }}
             >
-              chevron_left
+              <ChevronLeft />
             </span>
           </button>
 
@@ -111,7 +112,7 @@ const TableProducts = () => {
               className="material-symbols-outlined text-[18px]"
               style={{ fontFamily: "'Material Symbols Outlined'" }}
             >
-              chevron_right
+              <ChevronRight />
             </span>
           </button>
         </div>
