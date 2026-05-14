@@ -37,7 +37,7 @@ export interface IStock {
   id: string;
   producto_id: string;
   variante_id?: string | null;
-  sucursal_id: string;
+  sucursal_id?: string | null;
   cantidad: number;
   cantidad_minima: number;
   created_at: string;
@@ -63,6 +63,7 @@ export interface ILote {
   id: string;
   producto_id: string;
   variante_id?: string | null;
+  sucursal_id?: string | null;
   numero_lote: string;
   fecha_vencimiento?: string;
   cantidad_total: number;

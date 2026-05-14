@@ -4,6 +4,7 @@ import type { IProducto } from '../types/productos.type';
 
 // Funcion para crear un nuevo producto
 export const postProductoFn = async (productoData: IProducto) => {
+  console.log('Enviando datos al servidor:', productoData);
   const { data } = await api.post<ISuccessResponse<IProducto>>('/producto', productoData);
   return data;
 };

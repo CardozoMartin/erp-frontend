@@ -85,6 +85,12 @@ const navItems: NavItem[] = [
     ],
   },
   {
+    id: 'sucursales',
+    label: 'Sucursales',
+    icon: <Warehouse size={15} />,
+    link: '/sucursales',
+  },
+  {
     id: 'caja',
     label: 'Caja',
     icon: <Wallet size={15} />,

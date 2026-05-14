@@ -3,10 +3,11 @@ import { ChevronDown } from 'lucide-react';
 interface FormFieldProps {
   label: string;
   name: string;
-  type?: 'text' | 'number' | 'select' | 'textarea';
+  type?: 'text' | 'number' | 'select' | 'textarea' | 'date';
   registration?: any;
   error?: { message?: string } | string | null;
-  options?: string[];
+  options?: Array<string | { label: string; value: string | number }>;
+  emptyLabel?: string;
   prefix?: string;
   suffix?: string;
   placeholder?: string;
@@ -22,6 +23,7 @@ export function InputFormField({
   registration = {},
   error,
   options = [],
+  emptyLabel = 'Seleccionar...',
   prefix,
   suffix,
   placeholder,
@@ -47,12 +49,21 @@ export function InputFormField({
             {...registration}
             className={`${baseInput} appearance-none pr-10 cursor-pointer`}
           >
-            <option value="">Seleccionar…</option>
-            {options.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
+            <option value="">{emptyLabel}</option>
+            {options.map((o: any, idx) => {
+              if (typeof o === 'string') {
+                return (
+                  <option key={idx} value={o}>
+                    {o}
+                  </option>
+                );
+              }
+              return (
+                <option key={idx} value={o.value}>
+                  {o.label}
+                </option>
+              );
+            })}
           </select>
           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#595f66] w-5 h-5" />
         </div>

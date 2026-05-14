@@ -24,7 +24,7 @@ export function LotesSection({ namePrefix }: Props) {
         </div>
         <button
           type="button"
-          onClick={() => append({ sucursal_id: DEPOSITOS[0], numero_lote: '', fecha_vencimiento: '', cantidad: 0 })}
+          onClick={() => append({ sucursal_id: '', numero_lote: '', fecha_vencimiento: '', cantidad: 0 })}
           className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium"
         >
           <Plus size={16} /> Agregar Lote
@@ -36,11 +36,12 @@ export function LotesSection({ namePrefix }: Props) {
           <div key={field.id} className="flex gap-4 items-start p-4 border border-[#efedef] rounded-sm bg-[#fbf9fa]">
             <div className="flex-1 grid grid-cols-4 gap-4">
               <InputFormField
-                label="Sucursal"
+                label="Sucursal (opcional)"
                 name={`${namePrefix}.${index}.sucursal_id`}
                 type="select"
                 registration={register(`${namePrefix}.${index}.sucursal_id`)}
                 options={DEPOSITOS}
+                emptyLabel="Sin sucursal"
               />
               <InputFormField
                 label="Nº de Lote"
@@ -51,7 +52,7 @@ export function LotesSection({ namePrefix }: Props) {
               <InputFormField
                 label="Vencimiento"
                 name={`${namePrefix}.${index}.fecha_vencimiento`}
-                type="text"
+                type="date"
                 registration={register(`${namePrefix}.${index}.fecha_vencimiento`, { required: 'Requerido' })}
                 placeholder="YYYY-MM-DD"
               />

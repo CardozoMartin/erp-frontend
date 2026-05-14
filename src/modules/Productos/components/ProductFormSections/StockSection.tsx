@@ -20,14 +20,14 @@ export function StockSection({ namePrefix }: Props) {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2 text-[#041627]">
           <PackageSearch size={16} className="text_color" />
-          <h3 className="font-medium">Stock por Sucursal</h3>
+          <h3 className="font-medium">Stock</h3>
         </div>
         <button
           type="button"
-          onClick={() => append({ sucursal_id: DEPOSITOS[0], cantidad: 0, cantidad_minima: 0 })}
+          onClick={() => append({ sucursal_id: '', cantidad: 0, cantidad_minima: 0 })}
           className="flex items-center gap-1 text-sm text_color hover:text-blue-700 font-medium cursor-pointer transition-colors"
         >
-          <Plus size={16} /> Agregar Sucursal
+          <Plus size={16} /> Agregar Stock
         </button>
       </div>
 
@@ -39,11 +39,12 @@ export function StockSection({ namePrefix }: Props) {
           >
             <div className="flex-1 grid grid-cols-3 gap-4">
               <InputFormField
-                label="Sucursal"
+                label="Sucursal (opcional)"
                 name={`${namePrefix}.${index}.sucursal_id`}
                 type="select"
                 registration={register(`${namePrefix}.${index}.sucursal_id`)}
                 options={DEPOSITOS}
+                emptyLabel="Stock general"
               />
               <InputFormField
                 label="Cantidad"
@@ -60,7 +61,6 @@ export function StockSection({ namePrefix }: Props) {
                 })}
               />
             </div>
-            {fields.length > 1 && (
               <button
                 type="button"
                 onClick={() => remove(index)}
@@ -68,9 +68,13 @@ export function StockSection({ namePrefix }: Props) {
               >
                 <Trash2 size={18} />
               </button>
-            )}
           </div>
         ))}
+        {fields.length === 0 && (
+          <p className="text-sm text-gray-500 text-center py-4 bg-[#fbf9fa] border border-dashed border-[#c4c6cd] rounded-sm">
+            Este producto no gestiona stock o es un servicio.
+          </p>
+        )}
       </div>
     </Card>
   );

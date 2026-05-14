@@ -32,7 +32,7 @@ export function VariantesSection({ tieneVencimiento }: Props) {
             precio_extra: 0,
             activo: true,
             atributos: [{ tipo: 'color', valor: '' }],
-            stock: [{ sucursal_id: 'Depósito Central (A1)', cantidad: 0, cantidad_minima: 0 }],
+            stock: [{ sucursal_id: '', cantidad: 0, cantidad_minima: 0 }],
             imagenes: [],
             ofertas: [],
             lotes: []

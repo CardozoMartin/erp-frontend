@@ -4,7 +4,6 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import '../../../index.css';
 import { usePostProducts } from '../hooks/useProducts';
-import type { IProducto } from '../types/productos.type';
 import ModalCategory from './CategoryProducts/ModalCategory';
 import { Card, Input, Label, Toggle } from './FormComponents';
 import { InputFormField } from './InputFormField';
@@ -13,7 +12,8 @@ import { LotesSection } from './ProductFormSections/LotesSection';
 import { OfertasSection } from './ProductFormSections/OfertasSection';
 import { StockSection } from './ProductFormSections/StockSection';
 import { VariantesSection } from './ProductFormSections/VariantesSection';
-import { CATEGORIAS, UNIDADES } from './constants';
+import { UNIDADES } from './constants';
+import { useGetAllProductCategoriesActives } from '../hooks/useProductCategory';
 
 const defaultProductValues = {
   nombre: '',
@@ -28,7 +28,7 @@ const defaultProductValues = {
   tiene_vencimiento: false,
   es_fraccionable: false,
   categoria_id: null,
-  stock: [{ sucursal_id: null, cantidad: 0, cantidad_minima: 0 }],
+  stock: [{ sucursal_id: '', cantidad: 0, cantidad_minima: 0 }],
   variantes: [],
   imagenes: [],
   lotes: [],
@@ -41,7 +41,8 @@ export default function ProductForm() {
 
   //TQUERY---------------------------------------
   const { mutate: postProducto } = usePostProducts();
-
+  const { data: categorias } = useGetAllProductCategoriesActives();
+  const todasLasCategorias = categorias?.data || [];
   //RHF--------------------------------------------
   const methods = useForm({ defaultValues: defaultProductValues });
   const {
@@ -61,10 +62,53 @@ export default function ProductForm() {
 
   //Handlers --------------------------------------
   const handleSubmit = (formData: any) => {
-    const data: IProducto = {
+    const data: any = {
       ...formData,
       precio_base: formData.precio_base ? Number(formData.precio_base) : 0,
     };
+    
+    // Si no hay categoría seleccionada, la eliminamos para evitar error de UUID en backend
+    if (!data.categoria_id || data.categoria_id === '') {
+      delete data.categoria_id;
+    }
+
+    // Normalizar stock sin sucursal como stock general antes de enviar.
+    const normalizeStock = (stock: any[] = []) =>
+      stock.map((item) => ({
+        ...item,
+        sucursal_id: item.sucursal_id || null,
+        cantidad: Number(item.cantidad || 0),
+        cantidad_minima: Number(item.cantidad_minima || 0),
+      }));
+
+    if (data.stock && data.stock.length > 0) {
+      data.stock = normalizeStock(data.stock);
+    }
+
+    // Asegurar que precios_extra sean números en variantes
+    if (data.variantes && data.variantes.length > 0) {
+      data.variantes = data.variantes.map((v: any) => ({
+        ...v,
+        precio_extra: v.precio_extra ? Number(v.precio_extra) : 0,
+        stock: v.stock ? normalizeStock(v.stock) : [],
+        lotes: v.lotes
+          ? v.lotes.map((l: any) => ({ ...l, sucursal_id: l.sucursal_id || null }))
+          : [],
+      }));
+    }
+
+    // Limpiar lotes con fecha vacía
+    if (data.lotes && data.lotes.length > 0) {
+      data.lotes = data.lotes
+        .filter((l: any) => l.fecha_vencimiento && l.fecha_vencimiento.trim() !== '')
+        .map((l: any) => ({ ...l, sucursal_id: l.sucursal_id || null }));
+    }
+
+    // Limpiar ofertas con fechas vacías
+    if (data.ofertas && data.ofertas.length > 0) {
+      data.ofertas = data.ofertas.filter((o: any) => o.fecha_inicio && o.fecha_fin && o.fecha_inicio.trim() !== '' && o.fecha_fin.trim() !== '');
+    }
+
     postProducto(data);
   };
 
@@ -150,9 +194,9 @@ export default function ProductForm() {
                     {...register('categoria_id', { required: 'La categoría es obligatoria' })}
                     className="flex-1 h-9 border border-gray-200 rounded-sm px-2 text-[13px]"
                   >
-                    {CATEGORIAS.map((categoria: string) => (
-                      <option key={categoria} value={categoria}>
-                        {categoria}
+                    {todasLasCategorias.map((categoria: any) => (
+                      <option key={categoria.id} value={categoria.id}>
+                        {categoria.nombre}
                       </option>
                     ))}
                   </select>

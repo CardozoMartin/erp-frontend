@@ -53,14 +53,14 @@ export function OfertasSection({ namePrefix }: Props) {
                 <InputFormField
                   label="Inicio"
                   name={`${namePrefix}.${index}.fecha_inicio`}
-                  type="text"
+                  type="date"
                   placeholder="YYYY-MM-DD"
                   registration={register(`${namePrefix}.${index}.fecha_inicio`)}
                 />
                 <InputFormField
                   label="Fin"
                   name={`${namePrefix}.${index}.fecha_fin`}
-                  type="text"
+                  type="date"
                   placeholder="YYYY-MM-DD"
                   registration={register(`${namePrefix}.${index}.fecha_fin`)}
                 />

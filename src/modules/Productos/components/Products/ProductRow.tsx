@@ -1,19 +1,32 @@
-import { PenIcon, TrashIcon } from "lucide-react";
+import { PenIcon, TrashIcon } from 'lucide-react';
 
 type StockStatus = 'IN STOCK' | 'LOW STOCK' | 'OUT OF STOCK';
 type CategoryType = 'Footwear' | 'Electronics' | 'Apparel' | 'Accessories';
 
+type ProductCategory =
+  | CategoryType
+  | string
+  | {
+      id: string;
+      nombre: string;
+      descripcion?: string;
+      activo: boolean;
+      padre_id?: string | null;
+    }
+  | null
+  | undefined;
+
 interface Product {
   id: number;
   image: string;
-  name: string;
+  nombre: string;
   subtitle: string;
-  sku: string;
-  category: CategoryType;
+  codigo_barras: string;
+  categoria?: ProductCategory;
   stockUnits: number;
   stockStatus: StockStatus;
   cost: number;
-  retail: number;
+  precio_base: number;
 }
 
 const stockBadge: Record<StockStatus, string> = {
@@ -44,8 +57,6 @@ const categoryBadge: Record<CategoryType, string> = {
 const fmt = (n: number | null | undefined) =>
   n != null ? n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' }) : '—';
 
-
-
 const ProductRow = ({
   product,
   onEdit,
@@ -62,7 +73,7 @@ const ProductRow = ({
         <div className="w-11 h-11 rounded-lg overflow-hidden bg-[#efedef] flex items-center justify-center border border-[#c4c6cd]">
           <img
             src={product.image}
-            alt={product.name}
+            alt={product.nombre}
             className="w-full h-full object-cover"
             onError={(e) => {
               (e.target as HTMLImageElement).src = 'https://via.placeholder.com/48x48?text=IMG';
@@ -82,11 +93,21 @@ const ProductRow = ({
 
       {/* Categoría */}
       <td className="px-6 py-4">
-        <span
-          className={`text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide ${categoryBadge[product.category]}`}
-        >
-          {product.category}
-        </span>
+        {(() => {
+          const categoryName =
+            typeof product.categoria === 'string'
+              ? product.categoria
+              : product.categoria?.nombre || 'Sin categoría';
+          const badgeClass = categoryBadge[categoryName as CategoryType] || 'bg-[#e8edf5] text-[#34495e]';
+
+          return (
+            <span
+              className={`text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide ${badgeClass}`}
+            >
+              {categoryName}
+            </span>
+          );
+        })()}
       </td>
 
       {/* Stock */}
@@ -111,7 +132,7 @@ const ProductRow = ({
 
       {/* Precio */}
       <td className="px-6 py-4 text-right text-[14px] font-bold text-[#041627]">
-        {fmt(product.retail)}
+        {fmt(product.precio_base)}
       </td>
 
       {/* Acciones */}
@@ -120,14 +141,14 @@ const ProductRow = ({
           <button
             onClick={() => onEdit(product.id)}
             className="p-1 text-[#595f66] hover:text-[#fd9308] cursor-pointer transition-colors rounded"
-            aria-label={`Editar ${product.name}`}
+            aria-label={`Editar ${product.nombre}`}
           >
             <PenIcon />
           </button>
           <button
             onClick={() => onDelete(product.id)}
             className="p-1 text-[#595f66] hover:text-[#ba1a1a] cursor-pointer transition-colors rounded"
-            aria-label={`Eliminar ${product.name}`}
+            aria-label={`Eliminar ${product.nombre}`}
           >
             <TrashIcon />
           </button>
