@@ -98,7 +98,8 @@ const ProductRow = ({
             typeof product.categoria === 'string'
               ? product.categoria
               : product.categoria?.nombre || 'Sin categoría';
-          const badgeClass = categoryBadge[categoryName as CategoryType] || 'bg-[#e8edf5] text-[#34495e]';
+          const badgeClass =
+            categoryBadge[categoryName as CategoryType] || 'bg-[#e8edf5] text-[#34495e]';
 
           return (
             <span
