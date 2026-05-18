@@ -17,18 +17,19 @@ const ProductosPages = () => {
 
   //Tquery-------------------------------------------
   const { data: sucursales, isSuccess } = useGetSucursales();
+  const sucursalesActivas = sucursales?.data ?? [];
 
   //ahora si la consulta de sucursales trae datos vamos a usar el estado isTrueBranch para hacer verificacion
   useEffect(() => {
-    if (isSuccess && (!sucursales || sucursales.length === 0)) {
+    if (isSuccess && sucursalesActivas.length === 0) {
       setShowNoBranchModal(true);
       setNoActive(true);
     }
-  }, [isSuccess, sucursales]);
+  }, [isSuccess, sucursalesActivas.length]);
 
   //handlers-------------------------------------
   const handlerChangePageProducts = () => {
-    if (!sucursales || sucursales.length === 0) {
+    if (sucursalesActivas.length === 0) {
       setShowNoBranchModal(true);
     } else {
       navigate("/productos/nuevo", { state: { noActive } });

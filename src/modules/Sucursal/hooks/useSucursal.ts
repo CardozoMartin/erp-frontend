@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { AxiosError } from 'axios';
 import type { IErrorResponse } from '../../../type/api.response.type';
-import type { ISucursal, INewSucursalPayload } from '../types/sucursal.type';
+import type { INewSucursalPayload } from '../api/sucursalApi';
 import { getSucursalesFn, postSucursalFn } from '../api/sucursalApi';
 
 export const useGetSucursales = (page: number = 1, limit: number = 30) => {

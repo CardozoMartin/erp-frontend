@@ -10,7 +10,7 @@ const SucursalPages = () => {
   const LIMIT = 10;
 
   const { data: sucursalesResponse, isLoading } = useGetSucursales(currentPage, LIMIT);
-  const sucursales = sucursalesResponse || [];
+  const sucursales = sucursalesResponse?.data ?? [];
   console.log(sucursales);
   const total = sucursalesResponse?.meta?.total || sucursales.length;
   const totalPages = sucursalesResponse?.meta?.totalPages || Math.max(1, Math.ceil(total / LIMIT));

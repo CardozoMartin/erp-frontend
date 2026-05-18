@@ -1,36 +1,30 @@
-import {
-  DollarSign,
-  History,
-  Info,
-  Plus,
-  Printer,
-  Save,
-  Settings,
-  X,
-} from "lucide-react";
-import { useEffect, useState } from "react";
-import { FormProvider, useForm } from "react-hook-form";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
-import "../../../index.css";
-import { usePostProducts } from "../hooks/useProducts";
-import ModalCategory from "./CategoryProducts/ModalCategory";
-import { Card, Input, Label, Toggle } from "./FormComponents";
-import { InputFormField } from "./InputFormField";
-import { ImagenesSection } from "./ProductFormSections/ImagenesSection";
-import { LotesSection } from "./ProductFormSections/LotesSection";
-import { OfertasSection } from "./ProductFormSections/OfertasSection";
-import { StockSection } from "./ProductFormSections/StockSection";
-import { VariantesSection } from "./ProductFormSections/VariantesSection";
-import { UNIDADES } from "./constants";
-import { useGetAllProductCategoriesActives } from "../hooks/useProductCategory";
-import { useGetSucursales } from "../../Sucursal/hooks/useSucursal";
+import { DollarSign, History, Info, Plus, Printer, Save, Settings, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { FormProvider, useForm } from 'react-hook-form';
+import { useLocation, useNavigate } from 'react-router-dom';
+import '../../../index.css';
+import { usePostProducts } from '../hooks/useProducts';
+import ModalCategory from './CategoryProducts/ModalCategory';
+import { Card, Input, Label, Toggle } from './FormComponents';
+import { InputFormField } from './InputFormField';
+import { ImagenesSection } from './ProductFormSections/ImagenesSection';
+import { LotesSection } from './ProductFormSections/LotesSection';
+import { OfertasSection } from './ProductFormSections/OfertasSection';
+import { StockSection } from './ProductFormSections/StockSection';
+import { VariantesSection } from './ProductFormSections/VariantesSection';
+import { UNIDADES } from './constants';
+import { useGetAllProductCategoriesActives } from '../hooks/useProductCategory';
+import { useGetSucursales } from '../../Sucursal/hooks/useSucursal';
+import { useProductStore } from '../store/useProductStore';
+import Swal from 'sweetalert2';
+import type { IProducto, IStock, IImagenLocal } from '../types/productos.type';
 
 const defaultProductValues = {
-  nombre: "",
-  codigo_barras: "",
-  descripcion: "",
-  precio_base: "",
-  unidad_venta: "UNIDAD",
+  nombre: '',
+  codigo_barras: '',
+  descripcion: '',
+  precio_base: '',
+  unidad_venta: 'UNIDAD',
   activo: true,
   activo_pos: true,
   activo_web: false,
@@ -38,7 +32,7 @@ const defaultProductValues = {
   tiene_vencimiento: false,
   es_fraccionable: false,
   categoria_id: null,
-  stock: [{ sucursal_id: "", cantidad: 0, cantidad_minima: 0 }],
+  stock: [{ sucursal_id: '', cantidad: 0, cantidad_minima: 0 }],
   variantes: [],
   imagenes: [],
   lotes: [],
@@ -49,25 +43,56 @@ export default function ProductForm() {
   const navigate = useNavigate();
   const location = useLocation();
   const noActive = location.state?.noActive || false;
-  console.log("No active param:", noActive);
+  console.log('No active param:', noActive);
   const [showModalCategory, setShowModalCategory] = useState(false);
+  const [imagenesLocales, setImagenesLocales] = useState<IImagenLocal[]>([]);
 
   const { data: sucursales, isSuccess } = useGetSucursales();
+  const sucursalesActivas = sucursales?.data ?? [];
   useEffect(() => {
-    if (isSuccess && (!sucursales || sucursales.length === 0)) {
-      navigate("/productos", {
+    if (isSuccess && sucursalesActivas.length === 0) {
+      navigate('/productos', {
         replace: true,
         state: { showNoBranchModal: true },
       });
     }
-  }, [isSuccess, sucursales]);
+  }, [isSuccess, sucursalesActivas.length, navigate]);
+  //Zustand para obtener el producto seleccionado para editarlo y cargar su información en el formulario
+  const { product } = useProductStore();
+  //Ahora usamos el useEffect para cargar los datos del producto en el formulario
+  useEffect(() => {
+    if (product) {
+      reset({
+        nombre: product.nombre,
+        codigo_barras: product.codigo_barras ?? '',
+        descripcion: product.descripcion ?? '',
+        precio_base: product.precio_base,
+        unidad_venta: product.unidad_venta,
+        activo: product.activo,
+        activo_pos: product.activo_pos,
+        activo_web: product.activo_web,
+        tiene_variantes: product.tiene_variantes,
+        tiene_vencimiento: product.tiene_vencimiento,
+        es_fraccionable: product.es_fraccionable,
+        categoria_id: product.categoria_id ?? null,
+        stock:
+          (product.stock?.length ?? 0) > 0
+            ? product.stock
+            : [{ sucursal_id: '', cantidad: 0, cantidad_minima: 0 }],
+        variantes: product.variantes ?? [],
+        imagenes: product.imagenes ?? [],
+        lotes: product.lotes ?? [],
+        ofertas: product.ofertas ?? [],
+      });
+    }
+  }, [product]);
 
   //TQUERY---------------------------------------
   const { mutate: postProducto } = usePostProducts();
   const { data: categorias } = useGetAllProductCategoriesActives();
   const todasLasCategorias = categorias?.data || [];
   //RHF--------------------------------------------
-  const methods = useForm({ defaultValues: defaultProductValues });
+  const methods = useForm<any>({ defaultValues: defaultProductValues });
   const {
     register,
     watch,
@@ -78,26 +103,31 @@ export default function ProductForm() {
   } = methods;
 
   //watch para mostrar/ocultar secciones según opciones seleccionadas
-  const watchedTieneVariantes = watch("tiene_variantes");
-  const watchedTieneVencimiento = watch("tiene_vencimiento");
-  const watchedActivoPos = watch("activo_pos");
-  const watchedActivoWeb = watch("activo_web");
-  const watchedActivo = watch("activo");
+  const watchedTieneVariantes = watch('tiene_variantes');
+  const watchedTieneVencimiento = watch('tiene_vencimiento');
+  const watchedActivoPos = watch('activo_pos');
+  const watchedActivoWeb = watch('activo_web');
+  const watchedActivo = watch('activo');
 
   //Handlers --------------------------------------
   const handleSubmit = (formData: any) => {
-    const data: any = {
+    const data: IProducto & { imagenesLocales?: IImagenLocal[] } = {
       ...formData,
       precio_base: formData.precio_base ? Number(formData.precio_base) : 0,
+      imagenesLocales: imagenesLocales.length > 0 ? imagenesLocales : undefined,
     };
 
     // Si no hay categoría seleccionada, la eliminamos para evitar error de UUID en backend
-    if (!data.categoria_id || data.categoria_id === "") {
-      delete data.categoria_id;
+    if (!data.categoria_id || data.categoria_id === '') {
+      delete (data as Partial<IProducto>).categoria_id;
+    }
+
+    if (!data.codigo_barras || data.codigo_barras.trim() === '') {
+      delete (data as Partial<IProducto>).codigo_barras;
     }
 
     // Normalizar stock sin sucursal como stock general antes de enviar.
-    const normalizeStock = (stock: any[] = []) =>
+    const normalizeStock = (stock: IStock[] = []) =>
       stock.map((item) => ({
         ...item,
         sucursal_id: item.sucursal_id || null,
@@ -113,6 +143,7 @@ export default function ProductForm() {
     if (data.variantes && data.variantes.length > 0) {
       data.variantes = data.variantes.map((v: any) => ({
         ...v,
+        sku: v.sku?.trim() || undefined,
         precio_extra: v.precio_extra ? Number(v.precio_extra) : 0,
         stock: v.stock ? normalizeStock(v.stock) : [],
         lotes: v.lotes
@@ -125,11 +156,18 @@ export default function ProductForm() {
     }
 
     // Limpiar lotes con fecha vacía
+    if (data.tiene_variantes) {
+      data.stock = [];
+      data.lotes = [];
+      data.ofertas = [];
+      data.imagenes = [];
+    } else {
+      data.variantes = [];
+    }
+
     if (data.lotes && data.lotes.length > 0) {
       data.lotes = data.lotes
-        .filter(
-          (l: any) => l.fecha_vencimiento && l.fecha_vencimiento.trim() !== "",
-        )
+        .filter((l: any) => l.fecha_vencimiento && l.fecha_vencimiento.trim() !== '')
         .map((l: any) => ({ ...l, sucursal_id: l.sucursal_id || null }));
     }
 
@@ -137,15 +175,33 @@ export default function ProductForm() {
     if (data.ofertas && data.ofertas.length > 0) {
       data.ofertas = data.ofertas.filter(
         (o: any) =>
-          o.fecha_inicio &&
-          o.fecha_fin &&
-          o.fecha_inicio.trim() !== "" &&
-          o.fecha_fin.trim() !== "",
+          o.fecha_inicio && o.fecha_fin && o.fecha_inicio.trim() !== '' && o.fecha_fin.trim() !== ''
       );
     }
-
-    postProducto(data);
-    reset(defaultProductValues);
+    if (product) {
+      Swal.fire({
+        title: '¿Guardar cambios?',
+        text: 'Estás editando un producto existente. ¿Deseas guardar los cambios realizados?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, guardar cambios',
+        cancelButtonText: 'No, cancelar',
+      }).then((result) => {
+        if (result.isConfirmed) {
+          postProducto({ ...data, id: product.id });
+          setImagenesLocales([]);
+          Swal.fire('¡Guardado!', 'Los cambios han sido guardados.', 'success');
+        } else {
+          Swal.fire('Cancelado', 'Los cambios no han sido guardados.', 'info');
+        }
+      });
+    } else {
+      postProducto(data);
+      reset(defaultProductValues);
+      setImagenesLocales([]);
+    }
   };
 
   const handlerModalCategory = (): void => {
@@ -158,7 +214,7 @@ export default function ProductForm() {
         {/* ── Header ── */}
         <header className=" top-16 z-10 bg-[#fbf9fa] border-b border-[#c4c6cd] px-6 py-3 flex items-center justify-between">
           <h2 className="text-2xl font-semibold tracking-tight text-[#041627]">
-            Añadir Nuevo Producto
+            {product ? 'Editar Producto' : 'Añadir Nuevo Producto'}
           </h2>
           <div className="flex items-center gap-4">
             <button
@@ -166,7 +222,7 @@ export default function ProductForm() {
               onClick={() => navigate(-1)}
               className="px-6 py-2 text-[13px] font-medium tracking-wide border bg-red-600 border-[#f33333] text-[#ffffff] rounded-sm hover:bg-[#cc0505] transition-colors cursor-pointer flex items-center gap-1"
             >
-              Cancelar
+              {product ? 'Cancelar Edición' : 'Cancelar'}
               <X size={15} />
             </button>
             <button
@@ -174,7 +230,7 @@ export default function ProductForm() {
               form="product-form"
               className="px-6 py-2 text-[13px] font-medium tracking-wide bg-[#075E54] hover:bg-[#1e8e4f] text-white rounded-sm hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1"
             >
-              Guardar Producto
+              {product ? 'Guardar Cambios' : 'Guardar Producto'}
               <Save size={15} />
             </button>
             <div className="w-px h-8 bg-[#c4c6cd]" />
@@ -209,8 +265,8 @@ export default function ProductForm() {
               <InputFormField
                 label="Nombre del Producto"
                 name="nombre"
-                registration={register("nombre", {
-                  required: "El nombre es obligatorio",
+                registration={register('nombre', {
+                  required: 'El nombre es obligatorio',
                 })}
                 error={errors.nombre?.message as string}
                 placeholder="Ej: Taladro Inalámbrico XYZ"
@@ -218,7 +274,7 @@ export default function ProductForm() {
               <InputFormField
                 label="Código de Barras"
                 name="codigo_barras"
-                registration={register("codigo_barras")}
+                registration={register('codigo_barras')}
                 placeholder="Ej: 7798102030057"
               />
             </div>
@@ -226,13 +282,11 @@ export default function ProductForm() {
             <div className="grid grid-cols-3 gap-6 mb-6">
               {/* Categoría con botón inline */}
               <div className="flex flex-col gap-1">
-                <label className="text-[12px] font-medium text-gray-600">
-                  Categoría
-                </label>
+                <label className="text-[12px] font-medium text-gray-600">Categoría</label>
                 <div className="flex items-center gap-1.5">
                   <select
-                    {...register("categoria_id", {
-                      required: "La categoría es obligatoria",
+                    {...register('categoria_id', {
+                      required: 'La categoría es obligatoria',
                     })}
                     className="flex-1 h-9 border border-gray-200 rounded-sm px-2 text-[13px]"
                   >
@@ -252,7 +306,7 @@ export default function ProductForm() {
                 </div>
                 {errors.categoria_id && (
                   <span className="text-red-500 text-xs">
-                    {errors.categoria_id.message}
+                    {String(errors.categoria_id.message ?? '')}
                   </span>
                 )}
               </div>
@@ -262,8 +316,8 @@ export default function ProductForm() {
                 label="Unidad de Medida"
                 name="unidad_venta"
                 type="select"
-                registration={register("unidad_venta", {
-                  required: "La unidad es obligatoria",
+                registration={register('unidad_venta', {
+                  required: 'La unidad es obligatoria',
                 })}
                 error={errors.unidad_venta?.message as string}
                 options={UNIDADES}
@@ -275,10 +329,7 @@ export default function ProductForm() {
                   <span className="text-[13px] font-medium tracking-wide text-[#041627]">
                     Estado General Activo
                   </span>
-                  <Toggle
-                    checked={watchedActivo}
-                    onChange={(val) => setValue("activo", val)}
-                  />
+                  <Toggle checked={watchedActivo} onChange={(val) => setValue('activo', val)} />
                 </div>
               </div>
             </div>
@@ -287,7 +338,7 @@ export default function ProductForm() {
               label="Descripción"
               name="descripcion"
               type="textarea"
-              registration={register("descripcion")}
+              registration={register('descripcion')}
               placeholder="Descripción detallada del producto..."
               rows={4}
             />
@@ -311,7 +362,7 @@ export default function ProductForm() {
                       type="number"
                       className="pl-8"
                       placeholder="0.00"
-                      {...register("precio_base", { valueAsNumber: true })}
+                      {...register('precio_base', { valueAsNumber: true })}
                     />
                   </div>
                 </div>
@@ -326,7 +377,7 @@ export default function ProductForm() {
                     </span>
                     <Toggle
                       checked={watchedActivoPos}
-                      onChange={(val) => setValue("activo_pos", val)}
+                      onChange={(val) => setValue('activo_pos', val)}
                     />
                   </div>
                   <div className="flex items-center justify-between">
@@ -335,7 +386,7 @@ export default function ProductForm() {
                     </span>
                     <Toggle
                       checked={watchedActivoWeb}
-                      onChange={(val) => setValue("activo_web", val)}
+                      onChange={(val) => setValue('activo_web', val)}
                     />
                   </div>
                 </div>
@@ -348,55 +399,43 @@ export default function ProductForm() {
                 <span className="material-symbols-outlined text-orange-500">
                   <Settings />
                 </span>
-                <h3 className="text-lg font-semibold">
-                  Configuración Avanzada
-                </h3>
+                <h3 className="text-lg font-semibold">Configuración Avanzada</h3>
               </div>
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between p-3 border border-[#efedef] rounded-sm bg-[#fbf9fa]">
                   <div>
-                    <h4 className="text-sm font-semibold text-[#041627]">
-                      ¿Tiene Variantes?
-                    </h4>
-                    <p className="text-xs text-[#595f66] mt-1">
-                      Colores, talles, sabores, etc.
-                    </p>
+                    <h4 className="text-sm font-semibold text-[#041627]">¿Tiene Variantes?</h4>
+                    <p className="text-xs text-[#595f66] mt-1">Colores, talles, sabores, etc.</p>
                   </div>
                   <Toggle
                     checked={watchedTieneVariantes}
-                    onChange={(val) => setValue("tiene_variantes", val)}
+                    onChange={(val) => setValue('tiene_variantes', val)}
                     dark
                   />
                 </div>
 
                 <div className="flex items-center justify-between p-3 border border-[#efedef] rounded-sm bg-[#fbf9fa]">
                   <div>
-                    <h4 className="text-sm font-semibold text-[#041627]">
-                      ¿Controla Vencimiento?
-                    </h4>
-                    <p className="text-xs text-[#595f66] mt-1">
-                      Habilita la gestión de lotes
-                    </p>
+                    <h4 className="text-sm font-semibold text-[#041627]">¿Controla Vencimiento?</h4>
+                    <p className="text-xs text-[#595f66] mt-1">Habilita la gestión de lotes</p>
                   </div>
                   <Toggle
                     checked={watchedTieneVencimiento}
-                    onChange={(val) => setValue("tiene_vencimiento", val)}
+                    onChange={(val) => setValue('tiene_vencimiento', val)}
                     dark
                   />
                 </div>
 
                 <div className="flex items-center justify-between p-3 border border-[#efedef] rounded-sm bg-[#fbf9fa]">
                   <div>
-                    <h4 className="text-sm font-semibold text-[#041627]">
-                      ¿Es Fraccionable?
-                    </h4>
+                    <h4 className="text-sm font-semibold text-[#041627]">¿Es Fraccionable?</h4>
                     <p className="text-xs text-[#595f66] mt-1">
                       Permite venta en decimales (ej. 1.5 kg)
                     </p>
                   </div>
                   <Toggle
-                    checked={watch("es_fraccionable")}
-                    onChange={(val) => setValue("es_fraccionable", val)}
+                    checked={watch('es_fraccionable')}
+                    onChange={(val) => setValue('es_fraccionable', val)}
                     dark
                   />
                 </div>
@@ -405,12 +444,17 @@ export default function ProductForm() {
           </div>
 
           {/* Imágenes Generales del Producto */}
-          {!watchedTieneVariantes && <ImagenesSection namePrefix="imagenes" />}
+          {!watchedTieneVariantes && (
+            <ImagenesSection 
+              imagenesLocales={imagenesLocales} 
+              setImagenesLocales={setImagenesLocales} 
+            />
+          )}
 
           {/* Si NO tiene variantes, gestionamos Stock y Ofertas de forma general */}
           {!watchedTieneVariantes && (
             <>
-              <StockSection namePrefix="stock" sucursales={sucursales} />
+              <StockSection namePrefix="stock" sucursales={sucursalesActivas} />
               <OfertasSection namePrefix="ofertas" />
               {watchedTieneVencimiento && <LotesSection namePrefix="lotes" />}
             </>
@@ -418,17 +462,17 @@ export default function ProductForm() {
 
           {/* Si TIENE variantes, mostramos el gestor de variantes que incluye sus propios atributos, stock, imagenes, ofertas y lotes */}
           {watchedTieneVariantes && (
-            <VariantesSection tieneVencimiento={watchedTieneVencimiento} />
+            <VariantesSection
+              tieneVencimiento={watchedTieneVencimiento}
+              sucursales={sucursalesActivas}
+            />
           )}
         </form>
       </FormProvider>
 
       {/* Modal para gestión de categorías (placeholder) */}
       {showModalCategory && (
-        <ModalCategory
-          isActive={showModalCategory}
-          onClose={handlerModalCategory}
-        />
+        <ModalCategory isActive={showModalCategory} onClose={handlerModalCategory} />
       )}
     </>
   );

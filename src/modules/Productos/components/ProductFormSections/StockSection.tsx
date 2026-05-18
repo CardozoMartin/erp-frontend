@@ -2,11 +2,10 @@ import { PackageSearch, Plus, Trash2 } from 'lucide-react';
 import { useFieldArray, useFormContext } from 'react-hook-form';
 import { Card } from '../FormComponents';
 import { InputFormField } from '../InputFormField';
-import { DEPOSITOS } from '../constants';
 
 interface Props {
   namePrefix: string;
-  sucursales: any[]; // Replace 'any[]' with the actual type if available
+  sucursales?: any[];
 }
 
 export function StockSection({ namePrefix, sucursales }: Props) {
@@ -44,10 +43,11 @@ export function StockSection({ namePrefix, sucursales }: Props) {
                 name={`${namePrefix}.${index}.sucursal_id`}
                 type="select"
                 registration={register(`${namePrefix}.${index}.sucursal_id`)}
-                options={sucursales.map((sucursal) => ({
+                options={(sucursales ?? []).map((sucursal) => ({
                   value: sucursal.id,
                   label: sucursal.nombre,
                 }))}
+                emptyLabel="Stock general"
                 
               />
               <InputFormField

@@ -112,4 +112,11 @@ export interface IProducto {
   updated_at?: string;
 }
 
+export interface IImagenLocal {
+  file: File;
+  preview: string;
+  alt_text?: string;
+  orden?: number;
+}
+
 

@@ -9,9 +9,10 @@ import { StockSection } from './StockSection';
 
 interface Props {
   tieneVencimiento: boolean;
+  sucursales?: any[];
 }
 
-export function VariantesSection({ tieneVencimiento }: Props) {
+export function VariantesSection({ tieneVencimiento, sucursales }: Props) {
   const { control, register, watch, setValue } = useFormContext();
   const { fields, append, remove } = useFieldArray({
     control,
@@ -89,7 +90,7 @@ export function VariantesSection({ tieneVencimiento }: Props) {
               <AtributosSection variantIndex={index} />
 
               <div className="mt-8 space-y-6 border-t border-[#efedef] pt-6">
-                <StockSection namePrefix={`variantes.${index}.stock`} />
+                <StockSection namePrefix={`variantes.${index}.stock`} sucursales={sucursales} />
                 <ImagenesSection namePrefix={`variantes.${index}.imagenes`} />
                 <OfertasSection namePrefix={`variantes.${index}.ofertas`} />
                 {tieneVencimiento && (

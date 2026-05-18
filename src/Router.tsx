@@ -18,6 +18,7 @@ const Router = () => {
         {/* Rutas del Modulo de Producto */}
         <Route path="/productos" element={<ProductosPages />} />
         <Route path="/productos/nuevo" element={<ProductForm />} />
+        <Route path="/productos/editar" element={<ProductForm />} />
         <Route path="/productos/category" element={<ProductCategoryPages />} />
         <Route path="/sucursales" element={<SucursalPages />} />
         <Route path="/sucursales/nuevo" element={<SucursalForm />} />

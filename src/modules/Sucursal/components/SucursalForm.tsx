@@ -7,7 +7,7 @@ const DEFAULT_EMPRESA_ID = import.meta.env.VITE_DEMO_EMPRESA_ID || '00000000-000
 
 export default function SucursalForm() {
   const navigate = useNavigate();
-  const { mutate, isLoading } = usePostSucursal();
+  const { mutate, isPending } = usePostSucursal();
 
   const [empresaId, setEmpresaId] = useState(DEFAULT_EMPRESA_ID);
   const [nombre, setNombre] = useState('');
@@ -108,10 +108,10 @@ export default function SucursalForm() {
             </button>
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isPending}
               className="px-5 py-2 text-sm font-medium bg-[#075E54] hover:bg-[#1e8e4f] text-white rounded-sm transition-colors disabled:opacity-50"
             >
-              {isLoading ? 'Guardando...' : 'Guardar sucursal'}
+              {isPending ? 'Guardando...' : 'Guardar sucursal'}
             </button>
           </div>
         </form>
