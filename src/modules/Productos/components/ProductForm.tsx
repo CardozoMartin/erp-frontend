@@ -127,6 +127,23 @@ export default function ProductForm() {
       setValue('categoria_id', todasLasCategorias[0].id);
     }
   }, [todasLasCategorias, watchedCategoriaId, setValue, product]);
+
+  // 4. Determinar si la categoría seleccionada admite variantes (Ropa, Calzado, Calzados, Zapatillas, Jeans, etc.)
+  const permiteVariantes =
+    categoriaSeleccionada?.nombre &&
+    (/ropa|calzado|indumentaria|vestimenta|prenda|zapatilla|zapato|jean|camisa|remera/i.test(
+      categoriaSeleccionada.nombre
+    ) ||
+      atributosCategoria.some((attr: any) =>
+        /talle|talla|color/i.test(attr.nombre)
+      ));
+
+  // Forzar tiene_variantes a false si la categoría no lo permite
+  useEffect(() => {
+    if (!permiteVariantes && watchedTieneVariantes) {
+      setValue('tiene_variantes', false);
+    }
+  }, [permiteVariantes, watchedTieneVariantes, setValue]);
   //Handlers --------------------------------------
   const handleSubmit = (formData: IProducto) => {
     const data: IProducto & { imagenesLocales?: IImagenLocal[] } = {
@@ -426,17 +443,19 @@ export default function ProductForm() {
                 <h3 className="text-lg font-semibold">Configuración Avanzada</h3>
               </div>
               <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between p-3 border border-[#efedef] rounded-sm bg-[#fbf9fa]">
-                  <div>
-                    <h4 className="text-sm font-semibold text-[#041627]">¿Tiene Variantes?</h4>
-                    <p className="text-xs text-[#595f66] mt-1">Colores, talles, sabores, etc.</p>
+                {permiteVariantes && (
+                  <div className="flex items-center justify-between p-3 border border-[#efedef] rounded-sm bg-[#fbf9fa]">
+                    <div>
+                      <h4 className="text-sm font-semibold text-[#041627]">¿Tiene Variantes?</h4>
+                      <p className="text-xs text-[#595f66] mt-1">Colores, talles, etc. para esta categoría</p>
+                    </div>
+                    <Toggle
+                      checked={watchedTieneVariantes}
+                      onChange={(val) => setValue('tiene_variantes', val)}
+                      dark
+                    />
                   </div>
-                  <Toggle
-                    checked={watchedTieneVariantes}
-                    onChange={(val) => setValue('tiene_variantes', val)}
-                    dark
-                  />
-                </div>
+                )}
 
                 <div className="flex items-center justify-between p-3 border border-[#efedef] rounded-sm bg-[#fbf9fa]">
                   <div>
