@@ -12,6 +12,7 @@ import { LotesSection } from './ProductFormSections/LotesSection';
 import { OfertasSection } from './ProductFormSections/OfertasSection';
 import { StockSection } from './ProductFormSections/StockSection';
 import { VariantesSection } from './ProductFormSections/VariantesSection';
+import { AtributosGeneralesSection } from './ProductFormSections/AtributosGeneralesSection';
 import { UNIDADES } from './constants';
 import { useGetAllProductCategoriesActives } from '../hooks/useProductCategory';
 import { useGetSucursales } from '../../Sucursal/hooks/useSucursal';
@@ -37,6 +38,7 @@ const defaultProductValues = {
   imagenes: [],
   lotes: [],
   ofertas: [],
+  atributos: [],
 };
 
 export default function ProductForm() {
@@ -83,14 +85,14 @@ export default function ProductForm() {
         imagenes: product.imagenes ?? [],
         lotes: product.lotes ?? [],
         ofertas: product.ofertas ?? [],
+        atributos: product.atributos ?? [],
       });
     }
   }, [product]);
 
   //TQUERY---------------------------------------
   const { mutate: postProducto } = usePostProducts();
-  const { data: categorias } = useGetAllProductCategoriesActives();
-  const todasLasCategorias = categorias?.data || [];
+  const { data: categorias } = useGetAllProductCategoriesActives(1, 1000);
   //RHF--------------------------------------------
   const methods = useForm<any>({ defaultValues: defaultProductValues });
   const {
@@ -109,8 +111,24 @@ export default function ProductForm() {
   const watchedActivoWeb = watch('activo_web');
   const watchedActivo = watch('activo');
 
+  const todasLasCategorias = categorias?.data || [];
+  //1.- Escuchar el Id de la categoria selecciona en tiempo real
+  const watchedCategoriaId = watch('categoria_id');
+  //2.- Buscar la categoria seleccionada dentro de tu lista cargada de categorias
+  const categoriaSeleccionada = todasLasCategorias.find(
+    (cat: any) => cat.id === watchedCategoriaId
+  );
+  // 3. Extraer sus atributos definidos (ej: [{ nombre: 'Sabor' }, { nombre: 'Talle' }])
+  const atributosCategoria = categoriaSeleccionada?.atributos || [];
+
+  // Efecto para auto-seleccionar la primera categoría si está vacía en el formulario y evitar desincronización
+  useEffect(() => {
+    if (todasLasCategorias.length > 0 && !watchedCategoriaId && !product) {
+      setValue('categoria_id', todasLasCategorias[0].id);
+    }
+  }, [todasLasCategorias, watchedCategoriaId, setValue, product]);
   //Handlers --------------------------------------
-  const handleSubmit = (formData: any) => {
+  const handleSubmit = (formData: IProducto) => {
     const data: IProducto & { imagenesLocales?: IImagenLocal[] } = {
       ...formData,
       precio_base: formData.precio_base ? Number(formData.precio_base) : 0,
@@ -161,8 +179,14 @@ export default function ProductForm() {
       data.lotes = [];
       data.ofertas = [];
       data.imagenes = [];
+      data.atributos = [];
     } else {
       data.variantes = [];
+      if (data.atributos && data.atributos.length > 0) {
+        data.atributos = data.atributos.filter((attr: any) => attr.valor && attr.valor.trim() !== '');
+      } else {
+        data.atributos = [];
+      }
     }
 
     if (data.lotes && data.lotes.length > 0) {
@@ -445,15 +469,16 @@ export default function ProductForm() {
 
           {/* Imágenes Generales del Producto */}
           {!watchedTieneVariantes && (
-            <ImagenesSection 
-              imagenesLocales={imagenesLocales} 
-              setImagenesLocales={setImagenesLocales} 
+            <ImagenesSection
+              imagenesLocales={imagenesLocales}
+              setImagenesLocales={setImagenesLocales}
             />
           )}
 
           {/* Si NO tiene variantes, gestionamos Stock y Ofertas de forma general */}
           {!watchedTieneVariantes && (
             <>
+              <AtributosGeneralesSection atributosCategoria={atributosCategoria} />
               <StockSection namePrefix="stock" sucursales={sucursalesActivas} />
               <OfertasSection namePrefix="ofertas" />
               {watchedTieneVencimiento && <LotesSection namePrefix="lotes" />}
@@ -465,6 +490,7 @@ export default function ProductForm() {
             <VariantesSection
               tieneVencimiento={watchedTieneVencimiento}
               sucursales={sucursalesActivas}
+              atributosCategoria={atributosCategoria}
             />
           )}
         </form>

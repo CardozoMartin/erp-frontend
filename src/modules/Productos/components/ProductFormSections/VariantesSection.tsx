@@ -10,9 +10,10 @@ import { StockSection } from './StockSection';
 interface Props {
   tieneVencimiento: boolean;
   sucursales?: any[];
+  atributosCategoria?: any[];
 }
 
-export function VariantesSection({ tieneVencimiento, sucursales }: Props) {
+export function VariantesSection({ tieneVencimiento, sucursales, atributosCategoria = [] }: Props) {
   const { control, register, watch, setValue } = useFormContext();
   const { fields, append, remove } = useFieldArray({
     control,
@@ -87,7 +88,7 @@ export function VariantesSection({ tieneVencimiento, sucursales }: Props) {
               </div>
 
               {/* Nested Atributos */}
-              <AtributosSection variantIndex={index} />
+              <AtributosSection variantIndex={index} atributosCategoria={atributosCategoria} />
 
               <div className="mt-8 space-y-6 border-t border-[#efedef] pt-6">
                 <StockSection namePrefix={`variantes.${index}.stock`} sucursales={sucursales} />
@@ -110,17 +111,59 @@ export function VariantesSection({ tieneVencimiento, sucursales }: Props) {
   );
 }
 
-function AtributosSection({ variantIndex }: { variantIndex: number }) {
-  const { control, register } = useFormContext();
+function AtributosSection({ 
+  variantIndex, 
+  atributosCategoria 
+}: { 
+  variantIndex: number; 
+  atributosCategoria: any[]; 
+}) {
+  const { control, register, setValue } = useFormContext();
   const { fields, append, remove } = useFieldArray({
     control,
     name: `variantes.${variantIndex}.atributos`,
   });
 
+  // Caso A: La categoría seleccionada TIENE atributos predefinidos en el backend (ej: Sabor, Talle, etc.)
+  if (atributosCategoria && atributosCategoria.length > 0) {
+    return (
+      <div className="bg-[#fbf9fa] p-4 rounded-sm border border-[#efedef]">
+        <div className="mb-3">
+          <span className="text-sm font-medium text-[#041627]">
+            Atributos Requeridos por la Categoría
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          {atributosCategoria.map((attr, attrIndex) => {
+            // Guardamos el tipo (ej: "Sabor") automáticamente en el formulario
+            setValue(`variantes.${variantIndex}.atributos.${attrIndex}.tipo`, attr.nombre);
+
+            return (
+              <div key={attr.id || attrIndex} className="flex flex-col gap-1">
+                <label className="text-[12px] font-medium text-gray-600">
+                  {attr.nombre} {attr.requerido && <span className="text-red-500">*</span>}
+                </label>
+                <InputFormField
+                  label=""
+                  name={`variantes.${variantIndex}.atributos.${attrIndex}.valor`}
+                  registration={register(`variantes.${variantIndex}.atributos.${attrIndex}.valor`, {
+                    required: attr.requerido ? 'Este campo es obligatorio' : false,
+                  })}
+                  placeholder={`Ej: Escriba el ${attr.nombre.toLowerCase()}...`}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Caso B: Si la categoría no tiene atributos predefinidos (comportamiento manual clásico)
   return (
     <div className="bg-[#fbf9fa] p-4 rounded-sm border border-[#efedef]">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-medium text-[#041627]">Atributos</span>
+        <span className="text-sm font-medium text-[#041627]">Atributos Personalizados</span>
         <button
           type="button"
           onClick={() => append({ tipo: 'color', valor: '' })}

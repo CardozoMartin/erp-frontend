@@ -105,6 +105,7 @@ export interface IProducto {
   categoria?: ICategoria;
   imagenes?: IImagen[];
   variantes?: IVariante[];
+  atributos?: IAtributo[];
   stock?: IStock[];
   ofertas?: IOferta[];
   lotes?: ILote[];
