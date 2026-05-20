@@ -6,6 +6,7 @@ import ProductCategoryPages from "./modules/Productos/Pages/ProductCategoryPages
 import ProductForm from "./modules/Productos/components/ProductForm";
 import SucursalPages from "./modules/Sucursal/Pages/SucursalPages";
 import SucursalForm from "./modules/Sucursal/components/SucursalForm";
+import ProductsMarcaPage from "./modules/Productos/Pages/ProductsMarcaPage";
 
 const Router = () => {
   return (
@@ -20,6 +21,8 @@ const Router = () => {
         <Route path="/productos/nuevo" element={<ProductForm />} />
         <Route path="/productos/editar" element={<ProductForm />} />
         <Route path="/productos/category" element={<ProductCategoryPages />} />
+        <Route path="/productos/marca" element={<ProductsMarcaPage />} />
+        
         <Route path="/sucursales" element={<SucursalPages />} />
         <Route path="/sucursales/nuevo" element={<SucursalForm />} />
       </Routes>
