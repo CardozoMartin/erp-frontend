@@ -19,6 +19,7 @@ import {
   Pencil,
   LogOut,
   ArrowRight,
+  MarsStroke,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -74,6 +75,12 @@ const navItems: NavItem[] = [
         label: 'Nuevo producto',
         icon: <Plus size={15} />,
         link: '/productos/nuevo',
+        highlight: true,
+      },
+       {
+        label: 'Marca de Productos',
+        icon: <MarsStroke size={15} />,
+        link: '/productos/marca',
         highlight: true,
       },
       {
