@@ -2,7 +2,7 @@ import { Image as ImageIcon, Trash2, Upload } from 'lucide-react';
 import { useRef } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Card } from '../FormComponents';
-import type { IImagenLocal } from '../../types/productos.type';
+import type { IImagen, IImagenLocal } from '../../types/productos.type';
 
 interface Props {
   imagenesLocales?: IImagenLocal[];
@@ -27,6 +27,15 @@ export function ImagenesSection({ imagenesLocales, setImagenesLocales, namePrefi
         shouldDirty: true,
       });
     }
+  };
+
+  const fieldNameImagenesExistentes = namePrefix ? namePrefix.replace(/\.imagenes$/, '.imagenes') : 'imagenes';
+  const imagenesExistentes = (formContext.watch(fieldNameImagenesExistentes) ?? []) as IImagen[];
+
+  const removeImagenExistente = (index: number) => {
+    const nuevas = [...imagenesExistentes];
+    nuevas.splice(index, 1);
+    formContext.setValue(fieldNameImagenesExistentes, nuevas, { shouldDirty: true });
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,6 +91,39 @@ export function ImagenesSection({ imagenesLocales, setImagenesLocales, namePrefi
           />
         </div>
 
+        {/* Existing Images */}
+        {imagenesExistentes.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            {imagenesExistentes.map((img, index) => (
+              <div key={index} className="flex gap-3 p-3 border border-[#efedef] rounded-lg bg-white relative group">
+                <img
+                  src={img.url}
+                  alt={img.alt_text || 'imagen del producto'}
+                  className="w-20 h-20 object-cover rounded border border-[#efedef]"
+                />
+                <div className="flex flex-col flex-1 justify-center gap-1">
+                  <span className="text-[13px] font-medium text-[#041627] truncate">
+                    Imagen Guardada
+                  </span>
+                  {img.alt_text && (
+                    <span className="text-[12px] text-[#595f66] truncate">{img.alt_text}</span>
+                  )}
+                  <span className="text-[11px] text-[#595f66]">Orden: {img.orden}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeImagenExistente(index)}
+                  className="absolute top-2 right-2 p-1.5 bg-white rounded-full text-[#ba1a1a] opacity-0 group-hover:opacity-100 transition-opacity shadow-sm border border-[#efedef] hover:bg-[#fce8e8]"
+                  title="Eliminar imagen"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Local Images (To be uploaded) */}
         {imagenesActuales.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             {imagenesActuales.map((img, index) => (

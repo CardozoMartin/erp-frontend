@@ -110,7 +110,12 @@ const ProductRow = ({
   const handleEditProduct = (product:IProducto) => {
     console.log('Editar producto:', product);
     setProduct(product);
-    navigate('/productos/editar');
+    navigate('/productos/detalles', { state: { isEditing: true } });
+  }
+  const handleDetailProduct = (product:IProducto) => {
+    console.log('Detalle producto:', product);
+    setProduct(product);
+    navigate('/productos/detalles');
   }
 
   //cerar al clikear en cualquier lado fuera del menu
@@ -219,7 +224,12 @@ const ProductRow = ({
             >
               <PencilIcon size={14} /> Editar producto
             </button>
-
+            <button
+              onClick={() => handleDetailProduct(product)}
+              className="w-full px-4 py-2 text-left text-[13px] text-[#44474c] hover:bg-[#f5f3f4] flex items-center gap-2"
+            >
+              <PencilIcon size={14} /> Ver detalles
+            </button>
             <button
               onClick={() => {
                 onChangeImage(product.id);
@@ -229,9 +239,7 @@ const ProductRow = ({
             >
               <ImageIcon size={14} /> Cambiar imagen
             </button>
-
             <div className="my-1 border-t border-[#efedef]" />
-
             <button
               onClick={() => {
                 onAddStock?.(product.id);
@@ -241,7 +249,6 @@ const ProductRow = ({
             >
               <PackagePlusIcon size={14} /> Aumentar stock
             </button>
-
             <button
               onClick={() => {
                 onOffer?.(product.id);
@@ -254,9 +261,7 @@ const ProductRow = ({
               </span>
               <span className="text-[11px] bg-amber-100 text-amber-700 px-2 rounded-full">%</span>
             </button>
-
             <div className="my-1 border-t border-[#efedef]" />
-
             <button
               onClick={handleToggleStatus}
               className="w-full px-4 py-2 text-left text-[13px] text-[#ba1a1a] hover:bg-[#fce8e8] flex items-center gap-2"
