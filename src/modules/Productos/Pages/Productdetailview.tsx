@@ -1,15 +1,20 @@
 import {
-  AlertTriangle,
   Box,
   ChevronRight,
   Clock,
   DollarSign,
-  Image,
+  Image as ImageIcon,
   Info,
   Layers,
   Package,
+  Star,
+  Camera,
+  Trash2,
+  Check,
+  RotateCcw,
+  Printer
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
 import { useProductStore } from '../store/useProductStore';
@@ -25,22 +30,22 @@ export const formatPrice = (n: any) =>
   }).format(n ?? 0);
 
 const TABS = [
-  { id: 'resumen', label: 'Resumen', icon: Info },
-  { id: 'stock', label: 'Stock', icon: Package },
-  { id: 'precios', label: 'Precios y Ofertas', icon: DollarSign },
+  { id: 'resumen', label: 'Información General', icon: Info },
+  { id: 'stock', label: 'Stock e Inventario', icon: Package },
+  { id: 'precios', label: 'Tarifas y Ofertas', icon: DollarSign },
   { id: 'variantes', label: 'Variantes', icon: Layers },
-  { id: 'lotes', label: 'Lotes', icon: Clock },
-  { id: 'imagenes', label: 'Imágenes', icon: Image },
+  { id: 'lotes', label: 'Lotes y Trazabilidad', icon: Clock },
+  { id: 'imagenes', label: 'Galería de Imágenes', icon: ImageIcon },
 ];
 
 /* ─── StatusBadge ─── */
 export function StatusBadge({ active, labelOn = 'Activo', labelOff = 'Inactivo' }: any) {
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium
-        ${active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wide transition-all
+        ${active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-green-500' : 'bg-red-500'}`} />
+      <span className={`w-2 h-2 rounded-full ${active ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
       {active ? labelOn : labelOff}
     </span>
   );
@@ -55,7 +60,7 @@ import TabLotes from '../components/ProductoDetails/TabLotes';
 import TabImagenes from '../components/ProductoDetails/TabImagenes';
 
 /* ─────────────────────────────────────────────
-   COMPONENTE PRINCIPAL
+   COMPONENTE PRINCIPAL (Odoo Premium Style)
 ───────────────────────────────────────────── */
 export default function ProductDetailView() {
   const navigate = useNavigate();
@@ -65,10 +70,18 @@ export default function ProductDetailView() {
   const [showStockModal, setShowStockModal] = useState(false);
   const [isEditing, setIsEditing] = useState(location.state?.isEditing ?? false);
   const [imagenesLocales, setImagenesLocales] = useState<any[]>([]);
+  const [isFavorite, setIsFavorite] = useState(() => {
+    if (product?.id) {
+      return localStorage.getItem(`prod_fav_${product.id}`) === 'true';
+    }
+    return false;
+  });
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { mutate: putProducto } = usePutProducts();
   const methods = useForm<any>({ defaultValues: product || {} });
-  const { register, reset, watch, handleSubmit } = methods;
+  const { register, reset, watch, handleSubmit, setValue } = methods;
 
   const watchedNombre = watch('nombre') || product?.nombre;
   const watchedCodigoBarras = watch('codigo_barras') || product?.codigo_barras;
@@ -76,6 +89,7 @@ export default function ProductDetailView() {
   const watchedActivoPos = watch('activo_pos') ?? product?.activo_pos;
   const watchedActivoWeb = watch('activo_web') ?? product?.activo_web;
   const watchedPrecioBase = watch('precio_base') ?? product?.precio_base;
+  const watchedTieneVariantes = watch('tiene_variantes') ?? product?.tiene_variantes;
 
   useEffect(() => {
     if (product) {
@@ -99,8 +113,60 @@ export default function ProductDetailView() {
         ofertas: product.ofertas ?? [],
         atributos: product.atributos ?? [],
       });
+      setIsFavorite(localStorage.getItem(`prod_fav_${product.id}`) === 'true');
     }
   }, [product, reset]);
+
+  const toggleFavorite = () => {
+    if (product?.id) {
+      const next = !isFavorite;
+      setIsFavorite(next);
+      localStorage.setItem(`prod_fav_${product.id}`, String(next));
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: next ? 'success' : 'info',
+        title: next ? '¡Añadido a favoritos!' : 'Quitado de favoritos',
+        showConfirmButton: false,
+        timer: 1500,
+        background: '#fff',
+        color: '#041627'
+      });
+    }
+  };
+
+  // Manejar el cambio de la imagen principal en el encabezado
+  const handlePrincipalImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      const preview = URL.createObjectURL(file);
+      // Creamos la imagen en el array local
+      const newImg = { file, preview, orden: 0, alt_text: watchedNombre };
+      setImagenesLocales((prev) => [newImg, ...prev]);
+    }
+  };
+
+  const removePrincipalImage = () => {
+    Swal.fire({
+      title: '¿Quitar imagen?',
+      text: 'Se removerá la imagen principal seleccionada.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#075E54',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Sí, quitar',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setImagenesLocales([]);
+        // Si el producto original tenía imágenes, podemos limpiar la primera
+        if (product?.imagenes && product.imagenes.length > 0) {
+          setValue('imagenes', product.imagenes.slice(1));
+        }
+      }
+    });
+  };
 
   const onSubmit = (formData: any) => {
     const data = {
@@ -154,19 +220,19 @@ export default function ProductDetailView() {
         if (res?.data) {
           setProduct(res.data);
         }
-        Swal.fire({ icon: 'success', title: '¡Guardado!', text: 'Los cambios han sido guardados.', timer: 2000, showConfirmButton: false });
+        Swal.fire({ icon: 'success', title: '¡Guardado!', text: 'Los cambios han sido guardados con éxito.', timer: 2000, showConfirmButton: false });
       }
     });
   };
 
   if (!product) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 text-gray-400 gap-4">
-        <Box size={48} className="opacity-30" />
-        <p className="text-sm">No hay producto seleccionado.</p>
+      <div className="flex flex-col items-center justify-center py-28 text-gray-400 gap-4 bg-[#f8fafc] min-h-screen">
+        <Box size={56} className="opacity-20 stroke-[1.5] text-[#075E54]" />
+        <p className="text-sm font-medium">No hay ningún producto seleccionado.</p>
         <button
           onClick={() => navigate('/productos')}
-          className="px-5 py-2 bg-[#075E54] text-white rounded text-sm font-medium hover:bg-[#064d45] cursor-pointer"
+          className="px-6 py-2.5 bg-[#075E54] text-white rounded-md text-sm font-semibold hover:bg-[#064d45] transition shadow-md cursor-pointer"
         >
           Volver a productos
         </button>
@@ -178,14 +244,21 @@ export default function ProductDetailView() {
 
   const handleSaveStock = (newStock: any) => {
     setProduct({ ...product, stock: newStock });
-    // Conectar acá tu mutation: putProducto({ ...product, stock: newStock })
     Swal.fire({
       icon: 'success',
       title: '¡Stock actualizado!',
+      text: 'Se han guardado los cambios en el inventario.',
       timer: 2000,
       showConfirmButton: false,
     });
   };
+
+  // Determinar la imagen a mostrar en la cabecera
+  const principalImage = imagenesLocales.length > 0
+    ? imagenesLocales[0].preview
+    : (product.imagenes && product.imagenes.length > 0)
+      ? (product.imagenes[0].url ?? product.imagenes[0])
+      : null;
 
   return (
     <FormProvider {...methods}>
@@ -197,199 +270,322 @@ export default function ProductDetailView() {
         />
       )}
 
-      <div className="flex flex-col min-h-screen bg-[#fbf9fa]">
-        {/* ── TOP ACTION BAR ── */}
-        <div className="sticky top-16 z-10 bg-white border-b border-[#c4c6cd] px-6 py-2 flex flex-col gap-2">
-          {/* Breadcrumbs & Stat Buttons */}
-          <div className="flex justify-between items-start w-full">
-            <div className="flex items-center gap-1 text-[13px] text-gray-500 mb-2">
+      <div className="flex flex-col min-h-screen bg-[#f3f4f6]" style={{ fontFamily: 'Inter, sans-serif' }}>
+        {/* ── STICKY TOP ACTION BAR (Odoo Style) ── */}
+        <div className="top-16 z-20 bg-white border-b border-[#e2e8f0] px-8 py-3 flex items-center justify-between shadow-sm">
+          {/* Breadcrumbs */}
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-1 text-[13px] text-gray-500 font-medium">
               <span
-                className="text-[#075E54] cursor-pointer hover:underline"
+                className="text-[#075E54] cursor-pointer hover:underline hover:text-[#064d45] transition-colors"
                 onClick={() => navigate('/productos')}
               >
                 Productos
               </span>
-              <ChevronRight size={14} />
-              <span className="text-[#041627] font-medium truncate max-w-[300px]">{product.nombre}</span>
+              <ChevronRight size={14} className="text-gray-400" />
+              <span className="text-[#041627] font-semibold truncate max-w-[280px]">{product.nombre}</span>
             </div>
-
-            {/* Stat Buttons (Odoo style) */}
-            <div className="flex border border-gray-200 rounded-sm divide-x divide-gray-200 overflow-hidden bg-white shadow-sm">
-              <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
-                <DollarSign size={16} className="text-[#075E54]" />
-                <div className="flex flex-col">
-                  <span className="text-[10px] text-gray-500 uppercase leading-tight">Precio</span>
-                  <span className="text-[12px] font-semibold text-[#041627] leading-tight">{formatPrice(watchedPrecioBase)}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
-                <Package size={16} className="text-[#075E54]" />
-                <div className="flex flex-col">
-                  <span className="text-[10px] text-gray-500 uppercase leading-tight">Disponible</span>
-                  <span className="text-[12px] font-semibold text-[#041627] leading-tight">{totalStock} U</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
-                <AlertTriangle size={16} className="text-amber-500" />
-                <div className="flex flex-col">
-                  <span className="text-[10px] text-gray-500 uppercase leading-tight">Estado</span>
-                  <span className="text-[12px] font-semibold text-[#041627] leading-tight">{watchedActivo ? 'Activo' : 'Inactivo'}</span>
-                </div>
-              </div>
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 mt-1">
+              {isEditing ? (
+                <>
+                  <button
+                    onClick={handleSubmit(onSubmit)}
+                    className="px-5 py-1.5 bg-[#075E54] text-white text-[13px] font-semibold rounded hover:bg-[#064d45] transition shadow-sm cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Check size={14} /> Guardar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      reset({
+                        nombre: product.nombre,
+                        codigo_barras: product.codigo_barras ?? '',
+                        descripcion: product.descripcion ?? '',
+                        precio_base: product.precio_base,
+                        unidad_venta: product.unidad_venta,
+                        activo: product.activo,
+                        activo_pos: product.activo_pos,
+                        activo_web: product.activo_web,
+                        tiene_variantes: product.tiene_variantes,
+                        tiene_vencimiento: product.tiene_vencimiento,
+                        es_fraccionable: product.es_fraccionable,
+                        categoria_id: product.categoria_id ?? null,
+                        stock: (product.stock?.length ?? 0) > 0 ? product.stock : [{ sucursal_id: '', cantidad: 0, cantidad_minima: 0 }],
+                        variantes: product.variantes ?? [],
+                        imagenes: product.imagenes ?? [],
+                        lotes: product.lotes ?? [],
+                        ofertas: product.ofertas ?? [],
+                        atributos: product.atributos ?? [],
+                      });
+                      setImagenesLocales([]);
+                      setIsEditing(false);
+                    }}
+                    className="px-5 py-1.5 border border-gray-300 bg-white text-gray-700 text-[13px] font-semibold rounded hover:bg-gray-50 transition cursor-pointer flex items-center gap-1.5"
+                  >
+                    <RotateCcw size={14} /> Descartar
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="px-5 py-1.5 bg-[#075E54] text-white text-[13px] font-semibold rounded hover:bg-[#064d45] transition shadow-sm cursor-pointer"
+                  >
+                    Editar Ficha
+                  </button>
+                  <button
+                    onClick={() => setShowStockModal(true)}
+                    className="px-4 py-1.5 border border-gray-300 bg-white text-[#041627] text-[13px] font-semibold rounded hover:bg-gray-50 transition cursor-pointer"
+                  >
+                    Actualizar cantidad
+                  </button>
+                  <button className="px-4 py-1.5 border border-gray-300 bg-white text-[#041627] text-[13px] font-semibold rounded hover:bg-gray-50 transition cursor-pointer">
+                    Reabastecer
+                  </button>
+                  <button className="px-4 py-1.5 border border-gray-300 bg-white text-[#041627] text-[13px] font-semibold rounded hover:bg-gray-50 transition cursor-pointer flex items-center gap-1.5">
+                    <Printer size={13} /> Etiquetas
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowStockModal(true)}
-              className="px-3 py-1.5 bg-[#075E54] text-white text-[13px] font-medium rounded-sm hover:bg-[#064d45] cursor-pointer"
-            >
-              Actualizar cantidad
-            </button>
-            <button className="px-3 py-1.5 border border-[#c4c6cd] bg-white text-[#041627] text-[13px] font-medium rounded-sm hover:bg-gray-50 cursor-pointer">
-              Reabastecer
-            </button>
-            <button className="px-3 py-1.5 border border-[#c4c6cd] bg-white text-[#041627] text-[13px] font-medium rounded-sm hover:bg-gray-50 cursor-pointer">
-              Imprimir etiquetas
-            </button>
-            {isEditing ? (
-              <div className="flex gap-2 ml-auto">
-                <button
-                  type="button"
-                  onClick={() => {
-                    reset({
-                      nombre: product.nombre,
-                      codigo_barras: product.codigo_barras ?? '',
-                      descripcion: product.descripcion ?? '',
-                      precio_base: product.precio_base,
-                      unidad_venta: product.unidad_venta,
-                      activo: product.activo,
-                      activo_pos: product.activo_pos,
-                      activo_web: product.activo_web,
-                      tiene_variantes: product.tiene_variantes,
-                      tiene_vencimiento: product.tiene_vencimiento,
-                      es_fraccionable: product.es_fraccionable,
-                      categoria_id: product.categoria_id ?? null,
-                      stock: (product.stock?.length ?? 0) > 0 ? product.stock : [{ sucursal_id: '', cantidad: 0, cantidad_minima: 0 }],
-                      variantes: product.variantes ?? [],
-                      imagenes: product.imagenes ?? [],
-                      lotes: product.lotes ?? [],
-                      ofertas: product.ofertas ?? [],
-                      atributos: product.atributos ?? [],
-                    });
-                    setImagenesLocales([]);
-                    setIsEditing(false);
-                  }}
-                  className="px-3 py-1.5 border border-red-200 bg-red-50 text-red-700 text-[13px] font-medium rounded-sm hover:bg-red-100 cursor-pointer"
-                >
-                  Descartar
-                </button>
-                <button
-                  onClick={handleSubmit(onSubmit)}
-                  className="px-3 py-1.5 bg-[#075E54] text-white text-[13px] font-medium rounded-sm hover:bg-[#064d45] cursor-pointer"
-                >
-                  Guardar Cambios
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="px-3 py-1.5 border border-[#c4c6cd] bg-white text-[#041627] text-[13px] font-medium rounded-sm hover:bg-gray-50 cursor-pointer ml-auto"
-              >
-                Editar
-              </button>
-            )}
+          {/* Odoo Style Status info or actions (Visual only) */}
+          <div className="hidden sm:flex items-center gap-4 text-xs font-semibold text-gray-500">
+            <span className="flex items-center gap-1 bg-slate-100 px-3 py-1.5 rounded text-[#041627]">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              Sincronizado con POS
+            </span>
           </div>
         </div>
 
-        {/* ── PRODUCT TITLE AREA ── */}
-        <div className="px-6 py-6 bg-white flex justify-between items-start border-b border-[#c4c6cd]">
-          <div className="flex flex-col gap-2 max-w-3xl">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Producto</span>
-            <div className="flex items-center gap-3">
-              <span className="text-yellow-400 text-3xl">★</span>
-              <h1 className="text-3xl font-semibold text-[#041627] tracking-tight leading-tight">
-                {watchedNombre}
-              </h1>
-            </div>
-            {watchedCodigoBarras && (
-              <span className="text-sm text-gray-500 ml-10">[{watchedCodigoBarras}]</span>
-            )}
+        {/* ── MAIN ODOO DOCUMENT SHEET (.o_form_sheet) ── */}
+        <main className="flex-1 w-full max-w-5xl mx-auto px-4 py-6">
+          <div className="bg-white border border-[#e2e8f0] rounded-md shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-8 relative min-h-[550px] flex flex-col gap-6">
             
-            <div className="flex items-center gap-6 mt-4 ml-10 text-sm font-medium text-gray-600">
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isEditing ? undefined : watchedActivo}
-                  {...(isEditing ? register('activo') : {})}
-                  readOnly={!isEditing}
-                  className="accent-[#075E54] w-4 h-4"
-                />
-                Activo General
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isEditing ? undefined : watchedActivoPos}
-                  {...(isEditing ? register('activo_pos') : {})}
-                  readOnly={!isEditing}
-                  className="accent-[#075E54] w-4 h-4"
-                />
-                Punto de Venta
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isEditing ? undefined : watchedActivoWeb}
-                  {...(isEditing ? register('activo_web') : {})}
-                  readOnly={!isEditing}
-                  className="accent-[#075E54] w-4 h-4"
-                />
-                Tienda Web
-              </label>
+            {/* ── ROW 1: STAR, TITLE AREA & IMAGE & SMART BUTTONS ── */}
+            <div className="flex flex-col lg:flex-row justify-between gap-6 items-start">
+              
+              {/* Left Title Area */}
+              <div className="flex-1 flex flex-col gap-3 w-full">
+                
+                {/* Favorite Star & Product Label */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={toggleFavorite}
+                    className="p-1 rounded-full hover:bg-amber-50 text-gray-300 hover:text-amber-400 transition cursor-pointer"
+                    title={isFavorite ? 'Quitar de favoritos' : 'Marcar como favorito'}
+                  >
+                    <Star
+                      size={24}
+                      className={isFavorite ? 'fill-amber-400 stroke-amber-400 scale-110 transition-transform' : 'stroke-gray-400'}
+                    />
+                  </button>
+                  <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest bg-gray-100 px-2 py-0.5 rounded">
+                    Ficha de Producto
+                  </span>
+                </div>
+
+                {/* Big Title */}
+                <div className="w-full">
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      placeholder="Nombre del producto..."
+                      {...register('nombre', { required: true })}
+                      className="text-3xl font-bold text-[#041627] bg-[#f8fafc] border-b-2 border-[#075E54] focus:outline-none w-full px-2 py-1 placeholder:opacity-50"
+                    />
+                  ) : (
+                    <h1 className="text-3xl font-extrabold text-[#041627] tracking-tight leading-tight flex items-center gap-3">
+                      {watchedNombre}
+                    </h1>
+                  )}
+                </div>
+
+                {/* Barcode/Code Block */}
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs font-semibold text-gray-400">Código de Barras:</span>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      placeholder="Código de barras..."
+                      {...register('codigo_barras')}
+                      className="text-xs font-mono text-[#041627] bg-slate-50 border border-gray-200 rounded px-2 py-0.5 w-64 focus:border-[#075E54] outline-none"
+                    />
+                  ) : (
+                    <span className="text-xs font-mono font-semibold text-gray-600 bg-slate-100 px-2 py-0.5 rounded">
+                      {watchedCodigoBarras || 'SIN CÓDIGO'}
+                    </span>
+                  )}
+                </div>
+
+                {/* Odoo Style Quick Checkbox Badges */}
+                <div className="flex flex-wrap items-center gap-4 mt-3">
+                  <label className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold select-none cursor-pointer transition
+                    ${watchedActivo 
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                      : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
+                    <input
+                      type="checkbox"
+                      checked={isEditing ? undefined : watchedActivo}
+                      {...(isEditing ? register('activo') : {})}
+                      disabled={!isEditing}
+                      className="accent-[#075E54] w-4.5 h-4.5 rounded cursor-pointer disabled:opacity-80"
+                    />
+                    <span>Activo General</span>
+                  </label>
+
+                  <label className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold select-none cursor-pointer transition
+                    ${watchedActivoPos 
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                      : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
+                    <input
+                      type="checkbox"
+                      checked={isEditing ? undefined : watchedActivoPos}
+                      {...(isEditing ? register('activo_pos') : {})}
+                      disabled={!isEditing}
+                      className="accent-[#075E54] w-4.5 h-4.5 rounded cursor-pointer disabled:opacity-80"
+                    />
+                    <span>Vender en POS</span>
+                  </label>
+
+                  <label className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold select-none cursor-pointer transition
+                    ${watchedActivoWeb 
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                      : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
+                    <input
+                      type="checkbox"
+                      checked={isEditing ? undefined : watchedActivoWeb}
+                      {...(isEditing ? register('activo_web') : {})}
+                      disabled={!isEditing}
+                      className="accent-[#075E54] w-4.5 h-4.5 rounded cursor-pointer disabled:opacity-80"
+                    />
+                    <span>Vender en Tienda Web</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Right Side: Image Upload & Smart Buttons */}
+              <div className="flex flex-col lg:flex-row items-end lg:items-start gap-4 shrink-0 w-full lg:w-auto">
+                
+                {/* Odoo Style Smart Buttons (inside the sheet) */}
+                <div className="grid grid-cols-2 sm:flex sm:flex-row border border-gray-200 rounded divide-x divide-gray-200 overflow-hidden bg-white shadow-sm shrink-0 w-full sm:w-auto">
+                  <div className="flex flex-col items-center justify-center p-3 text-center min-w-[90px] hover:bg-slate-50 transition cursor-pointer">
+                    <DollarSign size={16} className="text-[#075E54] mb-1" />
+                    <span className="text-[9px] text-gray-400 uppercase font-bold tracking-wider leading-none">Precio</span>
+                    <span className="text-sm font-bold text-[#041627] mt-1">{formatPrice(watchedPrecioBase)}</span>
+                  </div>
+                  <div className="flex flex-col items-center justify-center p-3 text-center min-w-[90px] hover:bg-slate-50 transition cursor-pointer">
+                    <Package size={16} className="text-[#075E54] mb-1" />
+                    <span className="text-[9px] text-gray-400 uppercase font-bold tracking-wider leading-none">Stock Total</span>
+                    <span className="text-sm font-bold text-[#041627] mt-1">{watchedTieneVariantes ? 'VARIOS' : `${totalStock} U`}</span>
+                  </div>
+                  <div className="flex flex-col items-center justify-center p-3 text-center min-w-[90px] hover:bg-slate-50 transition cursor-pointer">
+                    <div className="w-4 h-4 flex items-center justify-center mb-1">
+                      <span className={`w-2.5 h-2.5 rounded-full ${watchedActivo ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+                    </div>
+                    <span className="text-[9px] text-gray-400 uppercase font-bold tracking-wider leading-none">Estado</span>
+                    <span className="text-sm font-bold text-[#041627] mt-1">{watchedActivo ? 'Activo' : 'Inactivo'}</span>
+                  </div>
+                  {watchedTieneVariantes && (
+                    <div className="flex flex-col items-center justify-center p-3 text-center min-w-[90px] hover:bg-slate-50 transition cursor-pointer">
+                      <Layers size={16} className="text-amber-500 mb-1" />
+                      <span className="text-[9px] text-gray-400 uppercase font-bold tracking-wider leading-none">Variantes</span>
+                      <span className="text-sm font-bold text-[#041627] mt-1">{(product.variantes ?? []).length} items</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Main Product Image Container */}
+                <div className="relative group w-32 h-32 border-2 border-dashed border-gray-200 rounded-lg bg-slate-50 shadow-sm flex items-center justify-center p-1 overflow-hidden shrink-0 mt-2 lg:mt-0">
+                  {principalImage ? (
+                    <>
+                      <img src={principalImage} alt={product.nombre} className="w-full h-full object-contain" />
+                      {isEditing && (
+                        <div className="absolute inset-0 bg-black/55 flex flex-col items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="p-1.5 bg-[#075E54] text-white rounded-full hover:bg-[#064d45] transition cursor-pointer"
+                            title="Cambiar imagen"
+                          >
+                            <Camera size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={removePrincipalImage}
+                            className="p-1.5 bg-rose-600 text-white rounded-full hover:bg-rose-700 transition cursor-pointer"
+                            title="Quitar imagen"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center text-center justify-center text-gray-300 gap-1 p-2">
+                      <ImageIcon size={32} className="stroke-[1.5]" />
+                      {isEditing && (
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="text-[10px] text-[#075E54] hover:underline font-bold transition cursor-pointer"
+                        >
+                          Cargar
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Input de archivo oculto */}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handlePrincipalImageChange}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                </div>
+              </div>
             </div>
+
+            <div className="w-full h-px bg-slate-100 my-2" />
+
+            {/* ── TABS SELECTOR (Inside Sheet) ── */}
+            <div className="flex border-b border-gray-100 overflow-x-auto scrollbar-none gap-2 bg-slate-50/50 p-1 rounded-t-md">
+              {TABS.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setActiveTab(id)}
+                  className={`flex items-center gap-2 px-5 py-3 text-[13px] font-semibold whitespace-nowrap border-b-2 transition-all cursor-pointer rounded-t
+                    ${
+                      activeTab === id
+                        ? 'text-[#075E54] border-[#075E54] bg-white shadow-sm'
+                        : 'text-gray-500 border-transparent hover:text-[#041627] hover:bg-slate-50'
+                    }`}
+                >
+                  <Icon size={14} className={activeTab === id ? 'text-[#075E54]' : 'text-gray-400'} />
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* ── TAB CONTENT AREA (Inside Sheet) ── */}
+            <div className="flex-1 bg-white pt-2">
+              {activeTab === 'resumen' && <TabResumen product={product} isEditing={isEditing} />}
+              {activeTab === 'stock' && (
+                <TabStock product={product} onOpenStockModal={() => setShowStockModal(true)} isEditing={isEditing} />
+              )}
+              {activeTab === 'precios' && <TabPrecios product={product} isEditing={isEditing} />}
+              {activeTab === 'variantes' && <TabVariantes product={product} isEditing={isEditing} />}
+              {activeTab === 'lotes' && <TabLotes product={product} isEditing={isEditing} />}
+              {activeTab === 'imagenes' && <TabImagenes product={product} isEditing={isEditing} imagenesLocales={imagenesLocales} setImagenesLocales={setImagenesLocales} />}
+            </div>
+
           </div>
-
-          {/* Product Image Placeholder */}
-          <div className="w-32 h-32 border border-gray-200 rounded-md bg-white shadow-sm flex items-center justify-center p-1 overflow-hidden shrink-0">
-             {product.imagenes && product.imagenes.length > 0 ? (
-                <img src={product.imagenes[0].url ?? product.imagenes[0]} alt={product.nombre} className="w-full h-full object-contain" />
-             ) : (
-                <Image size={48} className="text-gray-200" />
-             )}
-          </div>
-        </div>
-
-        {/* ── PESTAÑAS ── */}
-        <div className="flex border-b border-[#c4c6cd] px-6 bg-[#fbf9fa] overflow-x-auto">
-          {TABS.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-medium whitespace-nowrap border-b-2 transition-colors cursor-pointer
-                ${
-                  activeTab === id
-                    ? 'text-[#075E54] border-[#075E54]'
-                    : 'text-gray-500 border-transparent hover:text-[#041627]'
-                }`}
-            >
-              <Icon size={14} />
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* ── CONTENIDO ── */}
-        <main className="max-w-[1100px] w-full mx-auto px-6 py-5 flex-1">
-          {activeTab === 'resumen' && <TabResumen product={product} isEditing={isEditing} />}
-          {activeTab === 'stock' && (
-            <TabStock product={product} onOpenStockModal={() => setShowStockModal(true)} isEditing={isEditing} />
-          )}
-          {activeTab === 'precios' && <TabPrecios product={product} isEditing={isEditing} />}
-          {activeTab === 'variantes' && <TabVariantes product={product} isEditing={isEditing} />}
-          {activeTab === 'lotes' && <TabLotes product={product} isEditing={isEditing} />}
-          {activeTab === 'imagenes' && <TabImagenes product={product} isEditing={isEditing} imagenesLocales={imagenesLocales} setImagenesLocales={setImagenesLocales} />}
         </main>
       </div>
     </FormProvider>

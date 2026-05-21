@@ -6,11 +6,8 @@ import ProductCategoryPages from "./modules/Productos/Pages/ProductCategoryPages
 import ProductForm from "./modules/Productos/components/ProductForm";
 import SucursalPages from "./modules/Sucursal/Pages/SucursalPages";
 import SucursalForm from "./modules/Sucursal/components/SucursalForm";
-<<<<<<< HEAD
 import ProductDetailView from "./modules/Productos/Pages/Productdetailview";
-=======
 import ProductsMarcaPage from "./modules/Productos/Pages/ProductsMarcaPage";
->>>>>>> 8bed1d429d92d09b2b3b71b2b1850716548b5e4e
 
 const Router = () => {
   return (
