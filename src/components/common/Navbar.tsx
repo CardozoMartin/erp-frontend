@@ -101,8 +101,11 @@ const navItems: NavItem[] = [
   {
     id: 'empleados',
     label: 'Empleados',
-    icon: <UserRoundPen  size={15} />,
-    link: '/empleados',
+    icon: <UserRoundPen size={15} />,
+    subItems: [
+      { label: 'Todos los empleados', icon: <List size={15} />, link: '/empleados' },
+      { label: 'Nuevo empleado', icon: <Plus size={15} />, link: '/empleados/nuevo', highlight: true },
+    ],
   },
   {
     id: 'caja',

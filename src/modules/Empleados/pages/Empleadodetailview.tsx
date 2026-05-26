@@ -5,6 +5,7 @@ import {
   ChevronDown, ChevronUp, Search, X, Plus
 } from 'lucide-react';
 import { useState, useRef } from 'react';
+import { useEmpleadoStore } from '../store/useEmpleadoStore';
 
 // ─── MOCK DATA ────────────────────────────────────────────────────────────────
 
@@ -434,7 +435,16 @@ const TABS_DEF = [
 ];
 
 export default function EmpleadoDetailView() {
-  const [emp] = useState(EMPLEADO_MOCK);
+  const { empleado } = useEmpleadoStore();
+  const empleadoActual = empleado
+    ? {
+        ...EMPLEADO_MOCK,
+        ...empleado,
+        creadoEn: '2024-03-15',
+        ultimoAcceso: '2025-05-22T14:32:00',
+      }
+    : EMPLEADO_MOCK;
+  const [emp] = useState(empleadoActual);
   const [activeTab, setActiveTab] = useState('info');
   const [isEditing, setIsEditing] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);

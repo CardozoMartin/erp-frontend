@@ -1,4 +1,4 @@
-import { RouteObject } from 'react-router-dom';
+import type { RouteObject } from 'react-router';
 import SucursalPages from './Pages/SucursalPages';
 import SucursalForm from './components/SucursalForm';
 

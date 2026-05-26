@@ -1,4 +1,4 @@
-import { RouteObject } from 'react-router-dom';
+import type { RouteObject } from 'react-router';
 import PuntoDeVentaPages from './Pages/PuntoDeVentaPages';
 
 export const puntoDeVentaRoutes: RouteObject[] = [
