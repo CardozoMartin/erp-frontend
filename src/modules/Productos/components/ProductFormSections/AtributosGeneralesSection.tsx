@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function AtributosGeneralesSection({ atributosCategoria = [] }: Props) {
-  const { control, register, getValues } = useFormContext();
+  const { control, register, getValues, watch } = useFormContext();
   const { fields, replace } = useFieldArray({
     control,
     name: 'atributos',
@@ -52,7 +52,7 @@ export function AtributosGeneralesSection({ atributosCategoria = [] }: Props) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {fields.map((field, index) => {
             const catAttr = atributosCategoria[index];
-            const nombreAttr = field.tipo;
+            const nombreAttr = watch(`atributos.${index}.tipo`) || catAttr?.nombre || `Atributo ${index + 1}`;
             const esRequerido = catAttr?.requerido ?? false;
 
             return (

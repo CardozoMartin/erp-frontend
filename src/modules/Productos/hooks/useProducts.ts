@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getProductosFn, postProductoFn, updateProductoFn } from '../api/productoApi';
+import { adjustProductStockFn, getProductosFn, postProductoFn, updateProductoFn } from '../api/productoApi';
 import type { AxiosError } from 'axios';
 import type { IErrorResponse } from '../../../type/api.response.type';
 import { toast } from 'sonner';
@@ -37,10 +37,12 @@ export const useGetProducts = (page: number = 1, limit: number = 30) => {
 
 //hook para subir imagen standalone
 export const useUploadImage = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ productoId, imagen }: { productoId: string; imagen: IImagenLocal }) =>
       subirImagen(productoId, imagen),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
       toast.success('Imagen subida exitosamente');
     },
     onError: (error: AxiosError<IErrorResponse>) => {
@@ -65,6 +67,26 @@ export const usePutProducts = () => {
         data?.mensaje ||
         (Array.isArray(data?.errores) ? data.errores.join(', ') : undefined) ||
         'Error al actualizar el producto';
+      toast.error(mensaje);
+    },
+  });
+};
+
+//hook para aumentar o restar stock desde una sucursal o stock general
+export const useAdjustProductStock = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: adjustProductStockFn,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+    onError: (error: AxiosError<IErrorResponse>) => {
+      const data = error.response?.data as any;
+      const mensaje =
+        data?.message ||
+        data?.mensaje ||
+        (Array.isArray(data?.errores) ? data.errores.join(', ') : undefined) ||
+        'Error al ajustar el stock';
       toast.error(mensaje);
     },
   });

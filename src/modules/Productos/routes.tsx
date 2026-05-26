@@ -1,0 +1,34 @@
+import { RouteObject } from 'react-router-dom';
+import ProductForm from './components/ProductForm';
+import ProductCategoryPages from './Pages/ProductCategoryPages';
+import ProductDetailView from './Pages/Productdetailview';
+import ProductosPages from './Pages/ProductosPages';
+import ProductsMarcaPage from './Pages/ProductsMarcaPage';
+
+export const productosRoutes: RouteObject[] = [
+  {
+    path: 'productos',
+    children: [
+      {
+        index: true,
+        element: <ProductosPages />,
+      },
+      {
+        path: 'nuevo',
+        element: <ProductForm />,
+      },
+      {
+        path: 'detalles',
+        element: <ProductDetailView />,
+      },
+      {
+        path: 'category',
+        element: <ProductCategoryPages />,
+      },
+      {
+        path: 'marca',
+        element: <ProductsMarcaPage />,
+      },
+    ],
+  },
+];

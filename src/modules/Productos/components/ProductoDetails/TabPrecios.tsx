@@ -71,8 +71,10 @@ const TabPrecios = ({ product, isEditing }: any) => {
           <div className="flex flex-col gap-4">
             {ofertas.map((o: any, idx: number) => {
               // Calcular porcentaje si aplica
-              const tienePorcentaje = o.porcentaje_descuento > 0 || (product.precio_base > 0 && o.precio < product.precio_base);
-              const pct = o.porcentaje_descuento || Math.round((1 - (o.precio / product.precio_base)) * 100);
+              const precioOferta = Number(o.precio_oferta ?? o.precio ?? 0);
+              const precioBase = Number(product.precio_base ?? 0);
+              const tienePorcentaje = o.porcentaje_descuento > 0 || (precioBase > 0 && precioOferta < precioBase);
+              const pct = o.porcentaje_descuento || (precioBase > 0 ? Math.round((1 - (precioOferta / precioBase)) * 100) : 0);
 
               return (
                 <div
@@ -107,7 +109,7 @@ const TabPrecios = ({ product, isEditing }: any) => {
                       {formatPrice(product.precio_base)}
                     </span>
                     <p className="text-lg font-black text-[#075E54] tracking-tight leading-none mt-0.5">
-                      {formatPrice(o.precio)}
+                      {formatPrice(precioOferta)}
                     </p>
                   </div>
                 </div>

@@ -3,10 +3,11 @@ import { useGetProducts } from '../../hooks/useProducts';
 import ProductRow from './ProductRow';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import ModalImageUpload from './ModalImageUpload';
+import type { IProducto } from '../../types/productos.type';
 
 const TableProducts = () => {
   const [currentPage, setCurrentPage] = useState(1);
-  const [uploadModalProductId, setUploadModalProductId] = useState<number | null>(null);
+  const [uploadModalProduct, setUploadModalProduct] = useState<IProducto | null>(null);
   const LIMIT = 10;
 
   //Tquery-------------------------------------------
@@ -56,7 +57,7 @@ const TableProducts = () => {
                   product={product}
                   onEdit={(id) => console.log('Edit', id)}
                   onDelete={(id) => console.log('Delete', id)}
-                  onChangeImage={(id) => setUploadModalProductId(id)}
+                  onChangeImage={(selectedProduct) => setUploadModalProduct(selectedProduct as IProducto)}
                 />
               ))
             ) : (
@@ -122,10 +123,12 @@ const TableProducts = () => {
         </div>
       </div>
     </section>
-      {uploadModalProductId && (
+      {uploadModalProduct?.id && (
         <ModalImageUpload
-          productId={uploadModalProductId}
-          onClose={() => setUploadModalProductId(null)}
+          productId={uploadModalProduct.id}
+          productName={uploadModalProduct.nombre}
+          existingImages={uploadModalProduct.imagenes ?? []}
+          onClose={() => setUploadModalProduct(null)}
           onSuccess={() => {
             // Optional: refetch products or rely on query invalidation
             console.log('Images uploaded successfully');

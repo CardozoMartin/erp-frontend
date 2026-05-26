@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Minus, Package, Plus, X } from 'lucide-react';
+import { formatStockQuantity } from '../../utils/stockFormat';
 
 const StockQuickModal = ({ product, onClose, onSave }: any) => {
   const [stockValues, setStockValues] = useState(
-    (product?.stock ?? []).map((s: any) => ({ ...s, cantidad: s.cantidad ?? 0 }))
+    (product?.stock ?? []).map((s: any) => ({ ...s, cantidad: Number(s.cantidad ?? 0) }))
   );
 
   const handleChange = (idx: number, val: any) => {
@@ -45,7 +46,7 @@ const StockQuickModal = ({ product, onClose, onSave }: any) => {
                 <p className="text-sm font-medium text-[#041627]">
                   {s.sucursal_nombre ?? `Sucursal ${idx + 1}`}
                 </p>
-                <p className="text-[11px] text-gray-500">Mínimo: {s.cantidad_minima ?? 0} u.</p>
+                <p className="text-[11px] text-gray-500">Mínimo: {formatStockQuantity(s.cantidad_minima, product?.unidad_venta, product?.es_fraccionable)} u.</p>
               </div>
               <div className="flex items-center gap-2">
                 <button

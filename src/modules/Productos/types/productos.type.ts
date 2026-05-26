@@ -23,7 +23,7 @@ export interface IImagen {
   id: string;
   producto_id: string;
   variante_id?: string | null;
-  rol: 'PRINCIPAL' | 'GALERIA' | 'DESCRIPCION';
+  rol: 'PRINCIPAL' | 'PRINCIPAL_POS' | 'PRINCIPAL_WEB' | 'GALERIA' | 'DETALLE' | 'BANNER' | 'MINIATURA';
   url: string;
   alt_text?: string;
   orden: number;
@@ -118,6 +118,9 @@ export interface IImagenLocal {
   preview: string;
   alt_text?: string;
   orden?: number;
+  rol?: IImagen['rol'];
+  reemplazar_rol?: boolean;
+  reemplazar_imagen_id?: string;
 }
 
 

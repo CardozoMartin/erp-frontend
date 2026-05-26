@@ -1,10 +1,12 @@
-import { ImageIcon, PackagePlusIcon, PencilIcon, PenIcon, TagIcon, TrashIcon } from 'lucide-react';
+import { ImageIcon, PackagePlusIcon, PencilIcon, TagIcon, TrashIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Swal from 'sweetalert2';
 import { useProductStore } from '../../store/useProductStore';
 import type { IProducto } from '../../types/productos.type';
 import { useNavigate } from 'react-router-dom';
+import { formatStockQuantity } from '../../utils/stockFormat';
+import ModalUpdateStock from './ModalUpdateStock';
 
 type StockStatus = 'IN STOCK' | 'LOW STOCK' | 'OUT OF STOCK';
 type CategoryType = 'Footwear' | 'Electronics' | 'Apparel' | 'Accessories';
@@ -23,16 +25,20 @@ type ProductCategory =
   | undefined;
 
 interface Product {
-  id: number;
-  image: string;
+  id?: number | string;
+  image?: string;
+  imagenes?: { url?: string }[];
   nombre: string;
-  subtitle: string;
+  subtitle?: string;
   codigo_barras: string;
   categoria?: ProductCategory;
-  stockUnits: number;
-  stockStatus: StockStatus;
-  cost: number;
+  stock?: { cantidad?: number | string; cantidad_minima?: number | string }[];
+  stockUnits?: number;
+  stockStatus?: StockStatus;
+  cost?: number;
   precio_base: number;
+  unidad_venta?: string;
+  es_fraccionable?: boolean;
 }
 
 const stockBadge: Record<StockStatus, string> = {
@@ -65,18 +71,31 @@ const fmt = (n: number | null | undefined) =>
 
 const ProductRow = ({
   product,
-  onEdit,
-  onDelete,
   onChangeImage,
+  onOffer,
 }: {
   product: Product;
-  onEdit: (id: number) => void;
-  onDelete: (id: number) => void;
-  onChangeImage: (id: number) => void;
+  onEdit?: (id: number | string) => void;
+  onDelete?: (id: number | string) => void;
+  onChangeImage: (product: Product) => void;
+  onAddStock?: (id: number | string) => void;
+  onOffer?: (id: number | string) => void;
 }) => {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const rowRef = useRef<HTMLTableRowElement>(null);
+  const [openModalStock, setOpenModalStock] = useState(false);
   const navigate = useNavigate();
+
+  const stockUnits =
+    product.stockUnits ??
+    (product.stock ?? []).reduce((total, item) => total + Number(item.cantidad ?? 0), 0);
+  const stockMinimo = (product.stock ?? []).reduce(
+    (total, item) => total + Number(item.cantidad_minima ?? 0),
+    0
+  );
+  const stockStatus =
+    product.stockStatus ??
+    (stockUnits <= 0 ? 'OUT OF STOCK' : stockUnits <= stockMinimo ? 'LOW STOCK' : 'IN STOCK');
   //Zustand para guardar el producto seleccionado para editarlo en el formulario de producto
   const { setProduct } = useProductStore();
 
@@ -85,6 +104,12 @@ const ProductRow = ({
     e.preventDefault();
     setMenu({ x: e.clientX, y: e.clientY });
   };
+
+  //handle para abrir el modal de stock
+  const handleOpenModalStock = () => {
+    setOpenModalStock(true);
+    setMenu(null);
+  }
 
   //handler para activar o desactivar un producto
   const handleToggleStatus = () => {
@@ -107,14 +132,9 @@ const ProductRow = ({
   };
 
   //handlers para enviar los datos del producto al formulario
-  const handleEditProduct = (product:IProducto) => {
-    console.log('Editar producto:', product);
-    setProduct(product);
-    navigate('/productos/detalles', { state: { isEditing: true } });
-  }
-  const handleDetailProduct = (product:IProducto) => {
+  const handleDetailProduct = (product: Product) => {
     console.log('Detalle producto:', product);
-    setProduct(product);
+    setProduct(product as IProducto);
     navigate('/productos/detalles');
   }
 
@@ -145,7 +165,7 @@ const ProductRow = ({
         <td className="px-6 py-4">
           <div className="w-11 h-11 rounded-lg overflow-hidden bg-[#efedef] flex items-center justify-center border border-[#c4c6cd]">
             <img
-              src={product.image}
+              src={product.image || product.imagenes?.[0]?.url || 'https://via.placeholder.com/48x48?text=IMG'}
               alt={product.nombre}
               className="w-full h-full object-cover"
               onError={(e) => {
@@ -158,7 +178,7 @@ const ProductRow = ({
         {/* Nombre */}
         <td className="px-6 py-4">
           <p className="text-[15px] font-semibold text-[#041627] leading-tight">{product.nombre}</p>
-          <p className="text-[12px] text-[#595f66] mt-0.5">{product.subtitle}</p>
+          <p className="text-[12px] text-[#595f66] mt-0.5">{product.subtitle || product.unidad_venta || 'Producto'}</p>
         </td>
 
         {/* SKU */}
@@ -189,14 +209,16 @@ const ProductRow = ({
           <div className="flex items-center justify-center gap-2 flex-wrap">
             <div className="flex items-center gap-1.5">
               <span
-                className={`w-2 h-2 rounded-full flex-shrink-0 ${stockDot[product.stockStatus]}`}
+                className={`w-2 h-2 rounded-full flex-shrink-0 ${stockDot[stockStatus]}`}
               />
-              <span className="text-[13px] text-[#44474c]">{product.stockUnits} uds.</span>
+              <span className="text-[13px] text-[#44474c]">
+                {formatStockQuantity(stockUnits, product.unidad_venta, product.es_fraccionable)} uds.
+              </span>
             </div>
             <span
-              className={`text-[11px] font-bold px-2 py-0.5 rounded uppercase ${stockBadge[product.stockStatus]}`}
+              className={`text-[11px] font-bold px-2 py-0.5 rounded uppercase ${stockBadge[stockStatus]}`}
             >
-              {stockLabel[product.stockStatus]}
+              {stockLabel[stockStatus]}
             </span>
           </div>
         </td>
@@ -218,12 +240,7 @@ const ProductRow = ({
             style={{ top: menu.y, left: menu.x }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button
-              onClick={() => handleEditProduct(product)}
-              className="w-full px-4 py-2 text-left text-[13px] text-[#44474c] hover:bg-[#f5f3f4] flex items-center gap-2"
-            >
-              <PencilIcon size={14} /> Editar producto
-            </button>
+           
             <button
               onClick={() => handleDetailProduct(product)}
               className="w-full px-4 py-2 text-left text-[13px] text-[#44474c] hover:bg-[#f5f3f4] flex items-center gap-2"
@@ -232,7 +249,7 @@ const ProductRow = ({
             </button>
             <button
               onClick={() => {
-                onChangeImage(product.id);
+                onChangeImage(product);
                 setMenu(null);
               }}
               className="w-full px-4 py-2 text-left text-[13px] text-[#44474c] hover:bg-[#f5f3f4] flex items-center gap-2"
@@ -241,17 +258,14 @@ const ProductRow = ({
             </button>
             <div className="my-1 border-t border-[#efedef]" />
             <button
-              onClick={() => {
-                onAddStock?.(product.id);
-                setMenu(null);
-              }}
+              onClick={handleOpenModalStock}
               className="w-full px-4 py-2 text-left text-[13px] text-[#44474c] hover:bg-[#f5f3f4] flex items-center gap-2"
             >
               <PackagePlusIcon size={14} /> Aumentar stock
             </button>
             <button
               onClick={() => {
-                onOffer?.(product.id);
+                if (product.id) onOffer?.(product.id);
                 setMenu(null);
               }}
               className="w-full px-4 py-2 text-left text-[13px] text-[#44474c] hover:bg-[#f5f3f4] flex items-center gap-2 justify-between"
@@ -271,6 +285,15 @@ const ProductRow = ({
           </div>,
           document.body
         )}
+
+      {/* Modal para actualizar el stock */}
+      {openModalStock && (
+        <ModalUpdateStock
+          isActive={openModalStock}
+          onClose={() => setOpenModalStock(false)}
+          product={product}
+        />
+      )}
     </>
   );
 };

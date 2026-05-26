@@ -19,9 +19,18 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
 import { useProductStore } from '../store/useProductStore';
 import { usePutProducts } from '../hooks/useProducts';
+import { normalizeProductoPayload } from '../api/productoApi';
+import StockQuickModal from '../components/ProductoDetails/StockQuickModal';
+import TabResumen from '../components/ProductoDetails/TabResumen';
+import TabStock from '../components/ProductoDetails/tabStock';
+import TabPrecios from '../components/ProductoDetails/TabPrecios';
+import TabVariantes from '../components/ProductoDetails/TabVariantes';
+import TabLotes from '../components/ProductoDetails/TabLotes';
+import TabImagenes from '../components/ProductoDetails/TabImagenes';
 import Swal from 'sweetalert2';
+import { formatStockQuantity } from '../utils/stockFormat';
 
-/* ─── helpers ─── */
+
 export const formatPrice = (n: any) =>
   new Intl.NumberFormat('es-AR', {
     style: 'currency',
@@ -38,7 +47,7 @@ const TABS = [
   { id: 'imagenes', label: 'Galería de Imágenes', icon: ImageIcon },
 ];
 
-/* ─── StatusBadge ─── */
+
 export function StatusBadge({ active, labelOn = 'Activo', labelOff = 'Inactivo' }: any) {
   return (
     <span
@@ -51,17 +60,29 @@ export function StatusBadge({ active, labelOn = 'Activo', labelOff = 'Inactivo' 
   );
 }
 
-import StockQuickModal from '../components/ProductoDetails/StockQuickModal';
-import TabResumen from '../components/ProductoDetails/TabResumen';
-import TabStock from '../components/ProductoDetails/tabStock';
-import TabPrecios from '../components/ProductoDetails/TabPrecios';
-import TabVariantes from '../components/ProductoDetails/TabVariantes';
-import TabLotes from '../components/ProductoDetails/TabLotes';
-import TabImagenes from '../components/ProductoDetails/TabImagenes';
+const getProductFormDefaults = (product: any) => ({
+  nombre: product.nombre,
+  codigo_barras: product.codigo_barras ?? '',
+  descripcion: product.descripcion ?? '',
+  precio_base: product.precio_base,
+  unidad_venta: product.unidad_venta,
+  activo: product.activo,
+  activo_pos: product.activo_pos,
+  activo_web: product.activo_web,
+  tiene_variantes: product.tiene_variantes,
+  tiene_vencimiento: product.tiene_vencimiento,
+  es_fraccionable: product.es_fraccionable,
+  categoria_id: product.categoria_id ?? '',
+  stock: (product.stock?.length ?? 0) > 0 ? product.stock : [{ sucursal_id: '', cantidad: 0, cantidad_minima: 0 }],
+  variantes: product.variantes ?? [],
+  imagenes: product.imagenes ?? [],
+  lotes: product.lotes ?? [],
+  ofertas: product.ofertas ?? [],
+  atributos: product.atributos ?? [],
+});
 
-/* ─────────────────────────────────────────────
-   COMPONENTE PRINCIPAL (Odoo Premium Style)
-───────────────────────────────────────────── */
+
+
 export default function ProductDetailView() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -78,7 +99,7 @@ export default function ProductDetailView() {
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const { mutate: putProducto } = usePutProducts();
   const methods = useForm<any>({ defaultValues: product || {} });
   const { register, reset, watch, handleSubmit, setValue } = methods;
@@ -93,26 +114,7 @@ export default function ProductDetailView() {
 
   useEffect(() => {
     if (product) {
-      reset({
-        nombre: product.nombre,
-        codigo_barras: product.codigo_barras ?? '',
-        descripcion: product.descripcion ?? '',
-        precio_base: product.precio_base,
-        unidad_venta: product.unidad_venta,
-        activo: product.activo,
-        activo_pos: product.activo_pos,
-        activo_web: product.activo_web,
-        tiene_variantes: product.tiene_variantes,
-        tiene_vencimiento: product.tiene_vencimiento,
-        es_fraccionable: product.es_fraccionable,
-        categoria_id: product.categoria_id ?? null,
-        stock: (product.stock?.length ?? 0) > 0 ? product.stock : [{ sucursal_id: '', cantidad: 0, cantidad_minima: 0 }],
-        variantes: product.variantes ?? [],
-        imagenes: product.imagenes ?? [],
-        lotes: product.lotes ?? [],
-        ofertas: product.ofertas ?? [],
-        atributos: product.atributos ?? [],
-      });
+      reset(getProductFormDefaults(product));
       setIsFavorite(localStorage.getItem(`prod_fav_${product.id}`) === 'true');
     }
   }, [product, reset]);
@@ -169,59 +171,35 @@ export default function ProductDetailView() {
   };
 
   const onSubmit = (formData: any) => {
-    const data = {
+    const data = normalizeProductoPayload({
       ...formData,
-      precio_base: formData.precio_base ? Number(formData.precio_base) : 0,
       imagenesLocales: imagenesLocales.length > 0 ? imagenesLocales : undefined,
       id: product?.id,
-    };
-
-    if (!data.categoria_id || data.categoria_id === '') delete data.categoria_id;
-    if (!data.codigo_barras || data.codigo_barras.trim() === '') delete data.codigo_barras;
-
-    const normalizeStock = (stock: any[] = []) => stock.map((item) => ({
-      ...item,
-      sucursal_id: item.sucursal_id || null,
-      cantidad: Number(item.cantidad || 0),
-      cantidad_minima: Number(item.cantidad_minima || 0),
-    }));
-
-    if (data.stock && data.stock.length > 0) data.stock = normalizeStock(data.stock);
-
-    if (data.variantes && data.variantes.length > 0) {
-      data.variantes = data.variantes.map((v: any) => ({
-        ...v,
-        sku: v.sku?.trim() || undefined,
-        precio_extra: v.precio_extra ? Number(v.precio_extra) : 0,
-        stock: v.stock ? normalizeStock(v.stock) : [],
-        lotes: v.lotes ? v.lotes.map((l: any) => ({ ...l, sucursal_id: l.sucursal_id || null })) : [],
-      }));
-    }
-
-    if (data.tiene_variantes) {
-      data.stock = []; data.lotes = []; data.ofertas = []; data.imagenes = []; data.atributos = [];
-    } else {
-      data.variantes = [];
-      data.atributos = (data.atributos && data.atributos.length > 0) ? data.atributos.filter((attr: any) => attr.valor && attr.valor.trim() !== '') : [];
-    }
-
-    if (data.lotes && data.lotes.length > 0) {
-      data.lotes = data.lotes.filter((l: any) => l.fecha_vencimiento && l.fecha_vencimiento.trim() !== '').map((l: any) => ({ ...l, sucursal_id: l.sucursal_id || null }));
-    }
-
-    if (data.ofertas && data.ofertas.length > 0) {
-      data.ofertas = data.ofertas.filter((o: any) => o.fecha_inicio && o.fecha_fin && o.fecha_inicio.trim() !== '' && o.fecha_fin.trim() !== '');
-    }
+    });
 
     putProducto(data, {
       onSuccess: (res: any) => {
         setIsEditing(false);
         setImagenesLocales([]);
-        if (res?.data) {
-          setProduct(res.data);
+        const productoActualizado = res?.data ?? res;
+        if (productoActualizado?.id) {
+          setProduct(productoActualizado);
         }
         Swal.fire({ icon: 'success', title: '¡Guardado!', text: 'Los cambios han sido guardados con éxito.', timer: 2000, showConfirmButton: false });
-      }
+      },
+      onError: (error: any) => {
+        const data = error?.response?.data;
+        const mensaje =
+          (Array.isArray(data?.message) ? data.message.join('\n') : data?.message) ||
+          data?.mensaje ||
+          'Ocurrió un error al guardar los cambios. Verificá los datos e intentá nuevamente.';
+        Swal.fire({
+          icon: 'error',
+          title: 'Error al guardar',
+          text: mensaje,
+          confirmButtonColor: '#075E54',
+        });
+      },
     });
   };
 
@@ -240,16 +218,34 @@ export default function ProductDetailView() {
     );
   }
 
-  const totalStock = (product.stock ?? []).reduce((a: number, s: any) => a + (s.cantidad ?? 0), 0);
+  const totalStock = (product.stock ?? []).reduce((a: number, s: any) => a + Number(s.cantidad ?? 0), 0);
 
   const handleSaveStock = (newStock: any) => {
-    setProduct({ ...product, stock: newStock });
-    Swal.fire({
-      icon: 'success',
-      title: '¡Stock actualizado!',
-      text: 'Se han guardado los cambios en el inventario.',
-      timer: 2000,
-      showConfirmButton: false,
+    putProducto(normalizeProductoPayload({ id: product.id, stock: newStock }), {
+      onSuccess: (res: any) => {
+        const productoActualizado = res?.data ?? res;
+        setProduct(productoActualizado?.id ? productoActualizado : { ...product, stock: newStock });
+        Swal.fire({
+          icon: 'success',
+          title: '¡Stock actualizado!',
+          text: 'Se han guardado los cambios en el inventario.',
+          timer: 2000,
+          showConfirmButton: false,
+        });
+      },
+      onError: (error: any) => {
+        const data = error?.response?.data;
+        const mensaje =
+          (Array.isArray(data?.message) ? data.message.join('\n') : data?.message) ||
+          data?.mensaje ||
+          'No se pudo actualizar el stock.';
+        Swal.fire({
+          icon: 'error',
+          title: 'Error al actualizar stock',
+          text: mensaje,
+          confirmButtonColor: '#075E54',
+        });
+      },
     });
   };
 
@@ -298,26 +294,7 @@ export default function ProductDetailView() {
                   <button
                     type="button"
                     onClick={() => {
-                      reset({
-                        nombre: product.nombre,
-                        codigo_barras: product.codigo_barras ?? '',
-                        descripcion: product.descripcion ?? '',
-                        precio_base: product.precio_base,
-                        unidad_venta: product.unidad_venta,
-                        activo: product.activo,
-                        activo_pos: product.activo_pos,
-                        activo_web: product.activo_web,
-                        tiene_variantes: product.tiene_variantes,
-                        tiene_vencimiento: product.tiene_vencimiento,
-                        es_fraccionable: product.es_fraccionable,
-                        categoria_id: product.categoria_id ?? null,
-                        stock: (product.stock?.length ?? 0) > 0 ? product.stock : [{ sucursal_id: '', cantidad: 0, cantidad_minima: 0 }],
-                        variantes: product.variantes ?? [],
-                        imagenes: product.imagenes ?? [],
-                        lotes: product.lotes ?? [],
-                        ofertas: product.ofertas ?? [],
-                        atributos: product.atributos ?? [],
-                      });
+                      reset(getProductFormDefaults(product));
                       setImagenesLocales([]);
                       setIsEditing(false);
                     }}
@@ -361,15 +338,16 @@ export default function ProductDetailView() {
         </div>
 
         {/* ── MAIN ODOO DOCUMENT SHEET (.o_form_sheet) ── */}
-        <main className="flex-1 w-full max-w-5xl mx-auto px-4 py-6">
-          <div className="bg-white border border-[#e2e8f0] rounded-md shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-8 relative min-h-[550px] flex flex-col gap-6">
-            
+        <main className="flex-1 w-full max-w-[1480px] mx-auto px-4 py-6">
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,980px)_360px] gap-6 items-start">
+            <div className="bg-white border border-[#e2e8f0] rounded-md shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-8 relative min-h-[550px] flex flex-col gap-6">
+
             {/* ── ROW 1: STAR, TITLE AREA & IMAGE & SMART BUTTONS ── */}
             <div className="flex flex-col lg:flex-row justify-between gap-6 items-start">
-              
+
               {/* Left Title Area */}
               <div className="flex-1 flex flex-col gap-3 w-full">
-                
+
                 {/* Favorite Star & Product Label */}
                 <div className="flex items-center gap-2">
                   <button
@@ -424,44 +402,68 @@ export default function ProductDetailView() {
                 {/* Odoo Style Quick Checkbox Badges */}
                 <div className="flex flex-wrap items-center gap-4 mt-3">
                   <label className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold select-none cursor-pointer transition
-                    ${watchedActivo 
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                    ${watchedActivo
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                       : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
-                    <input
-                      type="checkbox"
-                      checked={isEditing ? undefined : watchedActivo}
-                      {...(isEditing ? register('activo') : {})}
-                      disabled={!isEditing}
-                      className="accent-[#075E54] w-4.5 h-4.5 rounded cursor-pointer disabled:opacity-80"
-                    />
+                    {isEditing ? (
+                      <input
+                        type="checkbox"
+                        {...register('activo')}
+                        className="accent-[#075E54] w-4 h-4 rounded cursor-pointer"
+                      />
+                    ) : (
+                      <input
+                        type="checkbox"
+                        checked={!!watchedActivo}
+                        readOnly
+                        disabled
+                        className="accent-[#075E54] w-4 h-4 rounded cursor-pointer disabled:opacity-80"
+                      />
+                    )}
                     <span>Activo General</span>
                   </label>
 
                   <label className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold select-none cursor-pointer transition
-                    ${watchedActivoPos 
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                    ${watchedActivoPos
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                       : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
-                    <input
-                      type="checkbox"
-                      checked={isEditing ? undefined : watchedActivoPos}
-                      {...(isEditing ? register('activo_pos') : {})}
-                      disabled={!isEditing}
-                      className="accent-[#075E54] w-4.5 h-4.5 rounded cursor-pointer disabled:opacity-80"
-                    />
+                    {isEditing ? (
+                      <input
+                        type="checkbox"
+                        {...register('activo_pos')}
+                        className="accent-[#075E54] w-4 h-4 rounded cursor-pointer"
+                      />
+                    ) : (
+                      <input
+                        type="checkbox"
+                        checked={!!watchedActivoPos}
+                        readOnly
+                        disabled
+                        className="accent-[#075E54] w-4 h-4 rounded cursor-pointer disabled:opacity-80"
+                      />
+                    )}
                     <span>Vender en POS</span>
                   </label>
 
                   <label className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold select-none cursor-pointer transition
-                    ${watchedActivoWeb 
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                    ${watchedActivoWeb
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                       : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
-                    <input
-                      type="checkbox"
-                      checked={isEditing ? undefined : watchedActivoWeb}
-                      {...(isEditing ? register('activo_web') : {})}
-                      disabled={!isEditing}
-                      className="accent-[#075E54] w-4.5 h-4.5 rounded cursor-pointer disabled:opacity-80"
-                    />
+                    {isEditing ? (
+                      <input
+                        type="checkbox"
+                        {...register('activo_web')}
+                        className="accent-[#075E54] w-4 h-4 rounded cursor-pointer"
+                      />
+                    ) : (
+                      <input
+                        type="checkbox"
+                        checked={!!watchedActivoWeb}
+                        readOnly
+                        disabled
+                        className="accent-[#075E54] w-4 h-4 rounded cursor-pointer disabled:opacity-80"
+                      />
+                    )}
                     <span>Vender en Tienda Web</span>
                   </label>
                 </div>
@@ -469,7 +471,7 @@ export default function ProductDetailView() {
 
               {/* Right Side: Image Upload & Smart Buttons */}
               <div className="flex flex-col lg:flex-row items-end lg:items-start gap-4 shrink-0 w-full lg:w-auto">
-                
+
                 {/* Odoo Style Smart Buttons (inside the sheet) */}
                 <div className="grid grid-cols-2 sm:flex sm:flex-row border border-gray-200 rounded divide-x divide-gray-200 overflow-hidden bg-white shadow-sm shrink-0 w-full sm:w-auto">
                   <div className="flex flex-col items-center justify-center p-3 text-center min-w-[90px] hover:bg-slate-50 transition cursor-pointer">
@@ -480,7 +482,11 @@ export default function ProductDetailView() {
                   <div className="flex flex-col items-center justify-center p-3 text-center min-w-[90px] hover:bg-slate-50 transition cursor-pointer">
                     <Package size={16} className="text-[#075E54] mb-1" />
                     <span className="text-[9px] text-gray-400 uppercase font-bold tracking-wider leading-none">Stock Total</span>
-                    <span className="text-sm font-bold text-[#041627] mt-1">{watchedTieneVariantes ? 'VARIOS' : `${totalStock} U`}</span>
+                    <span className="text-sm font-bold text-[#041627] mt-1">
+                      {watchedTieneVariantes
+                        ? 'VARIOS'
+                        : `${formatStockQuantity(totalStock, product.unidad_venta, product.es_fraccionable)} U`}
+                    </span>
                   </div>
                   <div className="flex flex-col items-center justify-center p-3 text-center min-w-[90px] hover:bg-slate-50 transition cursor-pointer">
                     <div className="w-4 h-4 flex items-center justify-center mb-1">
@@ -585,6 +591,29 @@ export default function ProductDetailView() {
               {activeTab === 'imagenes' && <TabImagenes product={product} isEditing={isEditing} imagenesLocales={imagenesLocales} setImagenesLocales={setImagenesLocales} />}
             </div>
 
+            </div>
+            <aside className="hidden xl:flex min-h-[550px] flex-col rounded-md border border-[#e2e8f0] bg-[#f8fafc] shadow-[0_4px_20px_rgba(0,0,0,0.03)] overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-200 bg-white">
+                <h2 className="text-sm font-extrabold text-[#041627] uppercase tracking-wider">
+                  Historial
+                </h2>
+                <p className="text-xs text-gray-400 mt-1">
+                  Movimientos y actualizaciones del producto
+                </p>
+              </div>
+
+              <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-10">
+                <div className="w-12 h-12 rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm">
+                  <Clock size={20} className="text-[#075E54] stroke-[1.75]" />
+                </div>
+                <p className="text-sm font-bold text-[#041627] mt-4">
+                  Sin movimientos cargados
+                </p>
+                <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                  Acá se verá el registro de cambios, ajustes de stock, precios, ofertas e imágenes.
+                </p>
+              </div>
+            </aside>
           </div>
         </main>
       </div>

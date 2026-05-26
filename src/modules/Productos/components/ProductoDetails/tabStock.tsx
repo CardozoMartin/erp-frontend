@@ -2,6 +2,7 @@ import { AlertTriangle, Package, MapPin, Layers, Building2, HelpCircle } from 'l
 import { StockSection } from '../ProductFormSections/StockSection';
 import { useGetSucursales } from '../../../Sucursal/hooks/useSucursal';
 import { useFormContext } from 'react-hook-form';
+import { formatStockQuantity } from '../../utils/stockFormat';
 
 const TabStock = ({ product, onOpenStockModal, isEditing }: any) => {
   const { data: sucursales } = useGetSucursales();
@@ -63,7 +64,9 @@ const TabStock = ({ product, onOpenStockModal, isEditing }: any) => {
       {/* Branch Stocks Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {stocks.map((s: any, idx: number) => {
-          const bajo = (s.cantidad ?? 0) <= (s.cantidad_minima ?? 0);
+          const cantidad = Number(s.cantidad ?? 0);
+          const cantidadMinima = Number(s.cantidad_minima ?? 0);
+          const bajo = cantidad <= cantidadMinima;
           return (
             <div
               key={idx}
@@ -82,7 +85,7 @@ const TabStock = ({ product, onOpenStockModal, isEditing }: any) => {
                     {s.sucursal_nombre ?? `Sucursal ${idx + 1}`}
                   </p>
                   <p className="text-[11px] text-gray-400 font-semibold mt-0.5">
-                    Stock Mínimo: <span className="font-bold text-gray-600">{s.cantidad_minima ?? 0} U</span>
+                    Stock Mínimo: <span className="font-bold text-gray-600">{formatStockQuantity(cantidadMinima, product?.unidad_venta, product?.es_fraccionable)} U</span>
                   </p>
                 </div>
               </div>
@@ -95,7 +98,7 @@ const TabStock = ({ product, onOpenStockModal, isEditing }: any) => {
                 )}
                 <div className="text-right">
                   <p className={`text-3xl font-black tracking-tight leading-none ${bajo ? 'text-rose-600' : 'text-[#075E54]'}`}>
-                    {s.cantidad ?? 0}
+                    {formatStockQuantity(cantidad, product?.unidad_venta, product?.es_fraccionable)}
                   </p>
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">unidades</p>
                 </div>

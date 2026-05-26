@@ -1,13 +1,11 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
-import Navbar from "./components/common/Navbar";
-import ProductosPages from "./modules/Productos/Pages/ProductosPages";
-import PuntoDeVentaPages from "./modules/PuntoDeVenta/Pages/PuntoDeVentaPages";
-import ProductCategoryPages from "./modules/Productos/Pages/ProductCategoryPages";
-import ProductForm from "./modules/Productos/components/ProductForm";
-import SucursalPages from "./modules/Sucursal/Pages/SucursalPages";
-import SucursalForm from "./modules/Sucursal/components/SucursalForm";
-import ProductDetailView from "./modules/Productos/Pages/Productdetailview";
-import ProductsMarcaPage from "./modules/Productos/Pages/ProductsMarcaPage";
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import Navbar from './components/common/Navbar';
+// Importar rutas de cada módulo
+import { cajasRoutes } from './modules/Cajas/routes';
+import { empleadosRoutes } from './modules/Empleados/routes';
+import { productosRoutes } from './modules/Productos/routes';
+import { puntoDeVentaRoutes } from './modules/PuntoDeVenta/routes';
+import { sucursalRoutes } from './modules/Sucursal/routes';
 
 const Router = () => {
   return (
@@ -16,17 +14,22 @@ const Router = () => {
       <Routes>
         <Route path="/" element={<div>Home</div>} />
 
-        <Route path="/punto-venta" element={<PuntoDeVentaPages />} />
-        {/* Rutas del Modulo de Producto */}
-        <Route path="/productos" element={<ProductosPages />} />
-        <Route path="/productos/nuevo" element={<ProductForm />} />
-        <Route path="/productos/detalles" element={<ProductDetailView />} />
-
-        <Route path="/productos/category" element={<ProductCategoryPages />} />
-        <Route path="/productos/marca" element={<ProductsMarcaPage />} />
-        
-        <Route path="/sucursales" element={<SucursalPages />} />
-        <Route path="/sucursales/nuevo" element={<SucursalForm />} />
+        {/* Rutas de Módulos */}
+        {puntoDeVentaRoutes.map((route) => (
+          <Route key={route.path} {...route} />
+        ))}
+        {productosRoutes.map((route) => (
+          <Route key={route.path} {...route} />
+        ))}
+        {sucursalRoutes.map((route) => (
+          <Route key={route.path} {...route} />
+        ))}
+        {empleadosRoutes.map((route) => (
+          <Route key={route.path} {...route} />
+        ))}
+        {cajasRoutes.map((route) => (
+          <Route key={route.path} {...route} />
+        ))}
       </Routes>
     </BrowserRouter>
   );

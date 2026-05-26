@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { Download, Plus, Search } from "lucide-react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import TableProducts from "../components/Products/TableProducts";
-import { useGetProducts } from "../hooks/useProducts";
 import { useGetSucursales } from "../../Sucursal/hooks/useSucursal";
 import NoBranchModal from "../../Sucursal/components/NoBranchModal";
 
@@ -71,7 +70,7 @@ const ProductosPages = () => {
 
       {/* ── Content ── */}
       <div
-        className="max-w-[1280px] mx-auto px-6 py-6 flex flex-col gap-6"
+        className="w-[90vw] max-w-none mx-auto px-6 py-6 flex flex-col gap-6"
         style={{ fontFamily: "Inter, sans-serif" }}
       >
         <section className="bg-white border border-[#c4c6cd] rounded-xl shadow-sm overflow-hidden">
@@ -94,7 +93,6 @@ const ProductosPages = () => {
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
-                  setCurrentPage(1);
                 }}
                 placeholder="Buscar por nombre, SKU o categoría..."
                 className="w-full bg-white border border-[#c4c6cd] pl-8 pr-4 py-1 rounded text-[14px] leading-5 focus:border-[#041627] outline-none"
