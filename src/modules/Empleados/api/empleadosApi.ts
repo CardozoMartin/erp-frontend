@@ -47,3 +47,11 @@ export const getEmpleadosFn = async (
   });
   return data;
 };
+
+export const putEmpleadoFn = async (
+  id: string,
+  payload: Partial<ICreateEmpleadoPayload>,
+): Promise<IEmpleado> => {
+  const { data } = await api.patch<IEmpleado>(`/empleados/${id}`, payload);
+  return data;
+}

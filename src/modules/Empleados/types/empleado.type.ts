@@ -42,6 +42,7 @@ export interface ICreateEmpleadoPayload {
   direccion: string;
   cargo: string;
   contrasena: string;
+  activo?: boolean;
   foto_url?: string;
   rolesIds?: string[];
   sucursalId?: string;
