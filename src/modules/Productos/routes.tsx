@@ -4,10 +4,12 @@ import ProductCategoryPages from './Pages/ProductCategoryPages';
 import ProductDetailView from './Pages/Productdetailview';
 import ProductosPages from './Pages/ProductosPages';
 import ProductsMarcaPage from './Pages/ProductsMarcaPage';
+import { RutaProtegida } from '../../components/common/RutaProtegida';
 
 export const productosRoutes: RouteObject[] = [
   {
     path: 'productos',
+    element:<RutaProtegida permiso ="productos.ver" /> ,
     children: [
       {
         index: true,
