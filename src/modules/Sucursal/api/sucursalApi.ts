@@ -26,5 +26,6 @@ export const getSucursalesFn = async (page: number = 1, limit: number = 30) => {
 
 export const postSucursalFn = async (data: INewSucursalPayload) => {
   const response = await api.post<ISuccessResponse<ISucursal>>('/sucursales', data);
+  console.log('Respuesta del servidor:', response.data);
   return response.data;
 };

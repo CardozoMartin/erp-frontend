@@ -2,7 +2,6 @@
 import type { RouteObject } from 'react-router'
 import { BrowserRouter, useRoutes } from 'react-router-dom'
 import { RutaProtegida } from './components/common/RutaProtegida'
-import Navbar from './components/common/Navbar'
 
 import { cajasRoutes } from './modules/Cajas/routes'
 import { empleadosRoutes } from './modules/Empleados/routes'

@@ -1,3 +1,4 @@
+import { usePermisos } from '../../../store/usePermisos';
 import type { ISucursal } from '../types/sucursal.type';
 
 interface Props {
@@ -6,7 +7,7 @@ interface Props {
 
 export default function SucursalTable({ sucursales }: Props) {
 
-  console.log('Renderizando SucursalTable con sucursales:', sucursales);
+ 
   return (
     <section className="bg-white border-t border-[#c4c6cd] overflow-hidden">
       <div className="overflow-x-auto">
