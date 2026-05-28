@@ -24,12 +24,15 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Token expirado o inválido → cerrar sesión
+    const status = error.response?.status;
+    const url = error.config?.url ?? "";
+
+    if (status === 401 && !url.includes("/auth/login")) {
+      // Token expirado o inválido en solicitudes protegidas → cerrar sesión
       useAuthStore.getState().cerrarSesion();
       window.location.href = "/login";
     }
-    if (error.response?.status === 403) {
+    if (status === 403) {
       // Sin permiso → redirigir o mostrar error
       console.warn("Sin permisos para esta acción");
     }
