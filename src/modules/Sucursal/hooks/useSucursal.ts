@@ -21,9 +21,6 @@ export const usePostSucursal = () => {
       queryClient.invalidateQueries({ queryKey: ['sucursales'] });
       toast.success('Sucursal creada correctamente');
     },
-    onError: (error: AxiosError<IErrorResponse>) => {
-      console.error('Error al crear la sucursal:', error);
-      toast.error('Error al crear la sucursal');
-    },
+    // Sin onError acá — el componente lo maneja con setError('root.serverError')
   });
 };

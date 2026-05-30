@@ -14,4 +14,5 @@ export interface IErrorResponse {
   ok: false;
   mensaje: string;
   errores?: string[];
+  message?: string;
 }
