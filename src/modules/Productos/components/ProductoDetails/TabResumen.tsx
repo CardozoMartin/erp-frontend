@@ -29,6 +29,11 @@ const TabResumen = ({ product, isEditing }: any) => {
   const watchedTieneVariantes = watch('tiene_variantes');
   const watchedTieneVencimiento = watch('tiene_vencimiento');
   const watchedEsFraccionable = watch('es_fraccionable');
+  const watchedPrecioCosto = Number(watch('precio_costo') ?? product?.precio_costo ?? 0);
+  const watchedPrecioVenta = Number(watch('precio_venta') ?? product?.precio_venta ?? product?.precio_base ?? 0);
+  const margen =
+    product?.margen_ganancia ??
+    (watchedPrecioCosto > 0 ? ((watchedPrecioVenta - watchedPrecioCosto) / watchedPrecioCosto) * 100 : 0);
 
   // Helper de badge Sí / No
   const renderBooleanBadge = (val: boolean) => (
@@ -102,11 +107,11 @@ const TabResumen = ({ product, isEditing }: any) => {
             </div>
           </div>
 
-          {/* Precio Base */}
+          {/* Precio Costo */}
           <div className="flex items-center justify-between min-h-[40px] py-1 border-b border-slate-50">
             <span className="text-[13px] text-gray-500 font-semibold flex items-center gap-2">
               <DollarSign size={14} className="text-gray-400" />
-              Precio de Venta (Base)
+              Precio de Costo
             </span>
             <div className="w-2/3 flex justify-end">
               {isEditing ? (
@@ -116,16 +121,52 @@ const TabResumen = ({ product, isEditing }: any) => {
                     type="number"
                     step="any"
                     placeholder="0.00"
-                    {...register('precio_base', { valueAsNumber: true })}
+                    {...register('precio_costo', { valueAsNumber: true })}
+                    className="w-full h-9 border border-gray-300 rounded pl-7 pr-3 text-sm focus:ring-2 focus:ring-[#075E54]/20 focus:border-[#075E54] outline-none text-[#041627] font-semibold bg-white"
+                  />
+                </div>
+              ) : (
+                <span className="text-lg font-black text-[#44474c]">
+                  {formatPrice(product?.precio_costo)}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Precio Venta */}
+          <div className="flex items-center justify-between min-h-[40px] py-1 border-b border-slate-50">
+            <span className="text-[13px] text-gray-500 font-semibold flex items-center gap-2">
+              <DollarSign size={14} className="text-gray-400" />
+              Precio de Venta
+            </span>
+            <div className="w-2/3 flex justify-end">
+              {isEditing ? (
+                <div className="relative w-full max-w-[280px]">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-bold">$</span>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="0.00"
+                    {...register('precio_venta', { valueAsNumber: true })}
                     className="w-full h-9 border border-gray-300 rounded pl-7 pr-3 text-sm focus:ring-2 focus:ring-[#075E54]/20 focus:border-[#075E54] outline-none text-[#041627] font-semibold bg-white"
                   />
                 </div>
               ) : (
                 <span className="text-lg font-black text-[#075E54]">
-                  {formatPrice(product?.precio_base)}
+                  {formatPrice(product?.precio_venta ?? product?.precio_base)}
                 </span>
               )}
             </div>
+          </div>
+
+          <div className="flex items-center justify-between min-h-[40px] py-1 border-b border-slate-50">
+            <span className="text-[13px] text-gray-500 font-semibold flex items-center gap-2">
+              <DollarSign size={14} className="text-gray-400" />
+              Margen de Ganancia
+            </span>
+            <span className={`text-lg font-black ${Number(margen) >= 0 ? 'text-[#075E54]' : 'text-red-600'}`}>
+              {Number(margen).toFixed(2)}%
+            </span>
           </div>
         </div>
 

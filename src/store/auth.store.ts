@@ -37,6 +37,7 @@ interface AuthState {
   cerrarSesion: () => void
   tienePermiso: (permiso: string) => boolean
   setSucursalActiva: (sucursal: Sucursal) => void
+  cambiarSucursalActiva: (token: string, sucursal: Pick<Sucursal, 'id' | 'nombre'>) => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -57,7 +58,7 @@ export const useAuthStore = create<AuthState>()(
         rutas: data.rutas,
         rutaInicio: data.rutaInicio,
         sucursales: data.sucursales,
-        sucursalActiva: data.sucursales.find(s => s.esPrincipal) ?? data.sucursales[0] ?? null,
+        sucursalActiva: data.sucursales.find(s => s.id === data.sucursalActivaId) ?? data.sucursales.find(s => s.esPrincipal) ?? data.sucursales[0] ?? null,
       }),
 
       cerrarSesion: () => set({
@@ -73,6 +74,22 @@ export const useAuthStore = create<AuthState>()(
       tienePermiso: (permiso) => get().permisos.includes(permiso),
 
       setSucursalActiva: (sucursal) => set({ sucursalActiva: sucursal }),
+      cambiarSucursalActiva: (token, sucursal) =>
+        set((state) => {
+          const sucursalEnSesion =
+            state.sucursales.find((item) => item.id === sucursal.id) ?? {
+              ...sucursal,
+              esPrincipal: false,
+            };
+
+          return {
+            token,
+            sucursales: state.sucursales.some((item) => item.id === sucursal.id)
+              ? state.sucursales
+              : [...state.sucursales, sucursalEnSesion],
+            sucursalActiva: sucursalEnSesion,
+          };
+        }),
     }),
     {
       name: 'auth-session', // clave en localStorage

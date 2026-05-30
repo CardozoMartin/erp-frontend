@@ -1,42 +1,95 @@
-// SucursalForm.tsx
-import { useNavigate } from "react-router-dom";
-import { useForm } from "react-hook-form";
-
-import { z } from "zod";
-import { Card, Input, Label } from "../../Productos/components/FormComponents";
-import { usePostSucursal } from "../hooks/useSucursal";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { useNavigate } from "react-router-dom";
 import { ShieldAlert } from "lucide-react";
 import AlertModal from "../../../components/modals/Permisos/NoAutorizado";
-import { useAuthStore } from "../../../store/auth.store";
 import { usePermisos } from "../../../store/usePermisos";
+import { Card, Input, Label } from "../../Productos/components/FormComponents";
+import { usePostSucursal } from "../hooks/useSucursal";
 
 const DEFAULT_EMPRESA_ID =
   import.meta.env.VITE_DEMO_EMPRESA_ID ||
   "00000000-0000-0000-0000-000000000001";
 
-// Schema de validación con Zod
-const sucursalSchema = z.object({
-  empresa_id: z.string().uuid("ID de empresa inválido"),
-  nombre: z
-    .string()
-    .min(1, "El nombre es requerido")
-    .max(100, "Máximo 100 caracteres"),
-  direccion: z.string().max(200, "Máximo 200 caracteres").optional(),
-  telefono: z.string().max(20, "Máximo 20 caracteres").optional(),
-  activa: z.boolean(),
-});
+type SucursalFormValues = {
+  empresa_id: string;
+  nombre: string;
+  nombreFantasia: string;
+  direccion: string;
+  localidad: string;
+  provincia: string;
+  codigoPostal: string;
+  telefono: string;
+  email: string;
+  cuit: string;
+  razonSocial: string;
+  condicionIva: string;
+  puntoVentaArca: string;
+  ingresosBrutos: string;
+  inicioActividades: string;
+  logoUrl: string;
+  mensajePieTicket: string;
+  emailComprobantes: string;
+  tipoImpresora: "TERMICA" | "FISCAL_HASAR" | "FISCAL_EPSON" | "PDF";
+  anchoTicket: "58mm" | "80mm";
+  activa: boolean;
+};
 
-type SucursalFormValues = z.infer<typeof sucursalSchema>;
+const condicionIvaOptions = [
+  { value: "", label: "Sin especificar" },
+  { value: "RESPONSABLE_INSCRIPTO", label: "Responsable inscripto" },
+  { value: "MONOTRIBUTISTA", label: "Monotributista" },
+  { value: "EXENTO", label: "Exento" },
+  { value: "CONSUMIDOR_FINAL", label: "Consumidor final" },
+];
+
+const tipoImpresoraOptions = [
+  { value: "TERMICA", label: "Termica" },
+  { value: "FISCAL_HASAR", label: "Fiscal Hasar" },
+  { value: "FISCAL_EPSON", label: "Fiscal Epson" },
+  { value: "PDF", label: "PDF" },
+];
+
+const cleanText = (value?: string) => value?.trim() || null;
 
 export default function SucursalForm() {
   const navigate = useNavigate();
   const { tiene } = usePermisos();
-
   const { mutate, isPending } = usePostSucursal();
   const [showUnauthorizedModal, setShowUnauthorizedModal] = useState(false);
-  //ahora vamos a veriricar si tiene el permisos para crear y si no tiene mostrmoas el modal de no autorizado
-  if (!tiene("sucursal.crear")) {
+
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors },
+  } = useForm<SucursalFormValues>({
+    defaultValues: {
+      empresa_id: DEFAULT_EMPRESA_ID,
+      nombre: "",
+      nombreFantasia: "",
+      direccion: "",
+      localidad: "",
+      provincia: "",
+      codigoPostal: "",
+      telefono: "",
+      email: "",
+      cuit: "",
+      razonSocial: "",
+      condicionIva: "",
+      puntoVentaArca: "",
+      ingresosBrutos: "",
+      inicioActividades: "",
+      logoUrl: "",
+      mensajePieTicket: "",
+      emailComprobantes: "",
+      tipoImpresora: "TERMICA",
+      anchoTicket: "80mm",
+      activa: true,
+    },
+  });
+
+  if (!tiene("sucursales.crear")) {
     return (
       <AlertModal
         isOpen={true}
@@ -45,7 +98,7 @@ export default function SucursalForm() {
         iconBgColor="bg-red-100"
         iconColor="text-red-600"
         title="Sin permisos"
-        description="No tenés autorización para crear sucursales. Contactá a tu administrador si creés que es un error."
+        description="No tenes autorizacion para crear sucursales. Contacta a tu administrador si crees que es un error."
         actions={[
           {
             label: "Entendido",
@@ -56,64 +109,64 @@ export default function SucursalForm() {
       />
     );
   }
-  const {
-    register,
-    handleSubmit,
-    setError,
-    formState: { errors },
-  } = useForm<SucursalFormValues>({
-    defaultValues: {
-      empresa_id: DEFAULT_EMPRESA_ID,
-      nombre: "",
-      direccion: "",
-      telefono: "",
-      activa: true,
-    },
-  });
 
   const onSubmit = (values: SucursalFormValues) => {
-    //agregamos validacion de permisos antes de llamar a mutate
-    if (!tiene("sucursal.crear")) {
+    if (!tiene("sucursales.crear")) {
       setShowUnauthorizedModal(true);
       return;
     }
+
     mutate(
       {
         empresa_id: values.empresa_id,
         nombre: values.nombre.trim(),
-        direccion: values.direccion?.trim() || null,
-        telefono: values.telefono?.trim() || null,
+        nombreFantasia: cleanText(values.nombreFantasia),
+        direccion: cleanText(values.direccion),
+        localidad: cleanText(values.localidad),
+        provincia: cleanText(values.provincia),
+        codigoPostal: cleanText(values.codigoPostal),
+        telefono: cleanText(values.telefono),
+        email: cleanText(values.email),
+        cuit: cleanText(values.cuit),
+        razonSocial: cleanText(values.razonSocial),
+        condicionIva: (values.condicionIva || null) as
+          | "RESPONSABLE_INSCRIPTO"
+          | "MONOTRIBUTISTA"
+          | "EXENTO"
+          | "CONSUMIDOR_FINAL"
+          | null,
+        puntoVentaArca: cleanText(values.puntoVentaArca),
+        ingresosBrutos: cleanText(values.ingresosBrutos),
+        inicioActividades: values.inicioActividades || null,
+        logoUrl: cleanText(values.logoUrl),
+        mensajePieTicket: cleanText(values.mensajePieTicket),
+        emailComprobantes: cleanText(values.emailComprobantes),
+        tipoImpresora: values.tipoImpresora,
+        anchoTicket: values.anchoTicket,
         activa: values.activa,
       },
       {
         onSuccess: () => navigate("/sucursales"),
         onError: (error) => {
-          const status = error.response?.status;
-          const serverMessage = error.response?.data?.message;
+          const apiError = error as any;
+          const status = apiError.response?.status;
+          const serverMessage = apiError.response?.data?.message;
 
-          if (status === 403) {
-            // Seteamos error a nivel de root para mostrarlo en el form
-            setShowUnauthorizedModal(true);
-            setError("root.serverError", {
-              message:
-                serverMessage || "No tenés permisos para realizar esta acción",
-            });
-          } else if (status === 400) {
-            setError("root.serverError", {
-              message: serverMessage || "Datos inválidos",
-            });
-          } else {
-            setError("root.serverError", {
-              message: serverMessage || "Error inesperado. Intentá de nuevo.",
-            });
-          }
+          if (status === 403) setShowUnauthorizedModal(true);
+          setError("root.serverError", {
+            message:
+              serverMessage ||
+              (status === 400
+                ? "Datos invalidos"
+                : "Error inesperado. Intenta de nuevo."),
+          });
         },
       },
     );
   };
 
   return (
-    <div className="max-w-[900px] mx-auto px-6 py-8">
+    <div className="mx-auto max-w-[1100px] px-6 py-8">
       <AlertModal
         isOpen={showUnauthorizedModal}
         onClose={() => setShowUnauthorizedModal(false)}
@@ -121,7 +174,7 @@ export default function SucursalForm() {
         iconBgColor="bg-red-100"
         iconColor="text-red-600"
         title="Sin permisos"
-        description="No tenés autorización para crear sucursales. Contactá a tu administrador si creés que es un error."
+        description="No tenes autorizacion para crear sucursales. Contacta a tu administrador si crees que es un error."
         actions={[
           {
             label: "Entendido",
@@ -130,94 +183,179 @@ export default function SucursalForm() {
           },
         ]}
       />
+
       <header className="mb-6">
         <h2 className="text-2xl font-semibold text-[#041627]">
           Crear nueva sucursal
         </h2>
-        <p className="text-sm text-[#5f6771] mt-2">
-          Registra una nueva sucursal para asignar stock y operaciones por
-          ubicación.
+        <p className="mt-2 text-sm text-[#5f6771]">
+          Registra los datos operativos, fiscales y de ticket para operar por
+          sucursal.
         </p>
       </header>
 
       <Card>
-        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-6">
-          {/* Error global del servidor (403, 500, etc.) */}
+        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-7">
           {errors.root?.serverError && (
-            <div className="px-4 py-3 rounded-sm bg-red-50 border border-red-200 text-sm text-red-700">
+            <div className="rounded-sm border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {errors.root.serverError.message}
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <Label>Empresa ID</Label>
-              <Input
-                type="text"
-                placeholder="ID de la empresa"
-                {...register("empresa_id")}
-              />
-              {errors.empresa_id && (
-                <p className="text-xs text-red-600 mt-1">
-                  {errors.empresa_id.message}
-                </p>
-              )}
+          <section className="grid gap-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-[#041627]">
+              Datos operativos
+            </h3>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+              <div>
+                <Label>Empresa ID</Label>
+                <Input {...register("empresa_id", { required: true })} />
+              </div>
+              <div>
+                <Label>Nombre</Label>
+                <Input
+                  placeholder="Casa Central"
+                  {...register("nombre", { required: "El nombre es obligatorio" })}
+                />
+                {errors.nombre && (
+                  <p className="mt-1 text-xs text-red-600">{errors.nombre.message}</p>
+                )}
+              </div>
+              <div>
+                <Label>Nombre fantasia</Label>
+                <Input placeholder="Local Centro" {...register("nombreFantasia")} />
+              </div>
             </div>
-            <div>
-              <Label>Nombre de la sucursal</Label>
-              <Input
-                type="text"
-                placeholder="Ej. Casa Central"
-                {...register("nombre")}
-              />
-              {errors.nombre && (
-                <p className="text-xs text-red-600 mt-1">
-                  {errors.nombre.message}
-                </p>
-              )}
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <Label>Dirección</Label>
-              <Input
-                type="text"
-                placeholder="Av. San Martín 1234"
-                {...register("direccion")}
-              />
-              {errors.direccion && (
-                <p className="text-xs text-red-600 mt-1">
-                  {errors.direccion.message}
-                </p>
-              )}
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+              <div>
+                <Label>Direccion</Label>
+                <Input placeholder="Av. San Martin 1234" {...register("direccion")} />
+              </div>
+              <div>
+                <Label>Localidad</Label>
+                <Input placeholder="San Miguel de Tucuman" {...register("localidad")} />
+              </div>
+              <div>
+                <Label>Provincia</Label>
+                <Input placeholder="Tucuman" {...register("provincia")} />
+              </div>
             </div>
-            <div>
-              <Label>Teléfono</Label>
-              <Input
-                type="text"
-                placeholder="381 123 4567"
-                {...register("telefono")}
-              />
-              {errors.telefono && (
-                <p className="text-xs text-red-600 mt-1">
-                  {errors.telefono.message}
-                </p>
-              )}
+
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-4">
+              <div>
+                <Label>Codigo postal</Label>
+                <Input placeholder="4000" {...register("codigoPostal")} />
+              </div>
+              <div>
+                <Label>Telefono</Label>
+                <Input placeholder="381 123 4567" {...register("telefono")} />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Email</Label>
+                <Input type="email" placeholder="sucursal@empresa.com" {...register("email")} />
+              </div>
             </div>
-          </div>
+          </section>
+
+          <section className="grid gap-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-[#041627]">
+              Datos fiscales
+            </h3>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+              <div>
+                <Label>CUIT</Label>
+                <Input placeholder="20-12345678-9" {...register("cuit")} />
+              </div>
+              <div>
+                <Label>Razon social</Label>
+                <Input placeholder="Empresa SRL" {...register("razonSocial")} />
+              </div>
+              <div>
+                <Label>Condicion IVA</Label>
+                <select
+                  {...register("condicionIva")}
+                  className="h-10 w-full rounded-sm border border-[#c4c6cd] bg-white px-3 text-sm"
+                >
+                  {condicionIvaOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+              <div>
+                <Label>Punto venta ARCA</Label>
+                <Input placeholder="0001" {...register("puntoVentaArca")} />
+              </div>
+              <div>
+                <Label>Ingresos brutos</Label>
+                <Input {...register("ingresosBrutos")} />
+              </div>
+              <div>
+                <Label>Inicio actividades</Label>
+                <Input type="date" {...register("inicioActividades")} />
+              </div>
+            </div>
+          </section>
+
+          <section className="grid gap-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-[#041627]">
+              Ticket y comprobantes
+            </h3>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+              <div>
+                <Label>Tipo impresora</Label>
+                <select
+                  {...register("tipoImpresora")}
+                  className="h-10 w-full rounded-sm border border-[#c4c6cd] bg-white px-3 text-sm"
+                >
+                  {tipoImpresoraOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label>Ancho ticket</Label>
+                <select
+                  {...register("anchoTicket")}
+                  className="h-10 w-full rounded-sm border border-[#c4c6cd] bg-white px-3 text-sm"
+                >
+                  <option value="80mm">80mm</option>
+                  <option value="58mm">58mm</option>
+                </select>
+              </div>
+              <div>
+                <Label>Email comprobantes</Label>
+                <Input type="email" {...register("emailComprobantes")} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <div>
+                <Label>Logo URL</Label>
+                <Input placeholder="https://..." {...register("logoUrl")} />
+              </div>
+              <div>
+                <Label>Mensaje pie ticket</Label>
+                <Input placeholder="Gracias por su compra" {...register("mensajePieTicket")} />
+              </div>
+            </div>
+          </section>
 
           <div className="flex items-center gap-3">
             <input
               id="activa"
               type="checkbox"
-              className="h-4 w-4 text-[#041627] border-gray-300 rounded"
+              className="h-4 w-4 rounded border-gray-300 text-[#041627]"
               {...register("activa")}
             />
-            <label
-              htmlFor="activa"
-              className="text-sm text-[#44474c] font-medium"
-            >
+            <label htmlFor="activa" className="text-sm font-medium text-[#44474c]">
               Sucursal activa
             </label>
           </div>
@@ -226,27 +364,17 @@ export default function SucursalForm() {
             <button
               type="button"
               onClick={() => navigate("/sucursales")}
-              className="px-5 py-2 text-sm font-medium border border-[#c4c6cd] rounded-sm text-[#44474c] hover:bg-[#efedef] transition-colors"
+              className="rounded-sm border border-[#c4c6cd] px-5 py-2 text-sm font-medium text-[#44474c] transition-colors hover:bg-[#efedef]"
             >
               Cancelar
             </button>
-            {!tiene("sucursal.crear") ? (
-              <button
-                type="button"
-                disabled
-                className="px-5 py-2 text-sm font-medium bg-[#075E54] hover:bg-[#1e8e4f] text-white rounded-sm transition-colors disabled:opacity-50 cursor-not-allowed"
-              >
-                Guardar sucursal
-              </button>
-            ) : (
-              <button
-                type="submit"
-                disabled={isPending}
-                className="px-5 py-2 text-sm font-medium bg-[#075E54] hover:bg-[#1e8e4f] text-white rounded-sm transition-colors disabled:opacity-50"
-              >
-                {isPending ? "Guardando..." : "Guardar sucursal"}
-              </button>
-            )}
+            <button
+              type="submit"
+              disabled={isPending}
+              className="rounded-sm bg-[#075E54] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1e8e4f] disabled:opacity-50"
+            >
+              {isPending ? "Guardando..." : "Guardar sucursal"}
+            </button>
           </div>
         </form>
       </Card>

@@ -7,6 +7,7 @@ import {
   useGetSucursalesActivas,
   usePostEmpleado,
 } from '../hooks/useEmpleados';
+import { asignarEmpleadoSucursalFn } from '../api/empleadosApi';
 
 export default function EmpleadoCreatePage() {
   const navigate = useNavigate();
@@ -15,7 +16,7 @@ export default function EmpleadoCreatePage() {
   const postEmpleado = usePostEmpleado();
 
   const handleSubmit = async (data: EmpleadoCreatePayload) => {
-    await postEmpleado.mutateAsync({
+    const empleado = await postEmpleado.mutateAsync({
       nombreCompleto: data.nombreCompleto.trim(),
       email: data.email.trim(),
       telefono: data.telefono.trim(),
@@ -26,6 +27,18 @@ export default function EmpleadoCreatePage() {
       sucursalId: data.sucursalId || undefined,
       esSucursalPrincipal: data.sucursalId ? true : undefined,
     });
+
+    const sucursalesExtra = data.sucursalIds.filter(
+      (sucursalId) => sucursalId !== data.sucursalId,
+    );
+
+    if (sucursalesExtra.length > 0) {
+      await Promise.all(
+        sucursalesExtra.map((sucursalId) =>
+          asignarEmpleadoSucursalFn(empleado.id, sucursalId, false),
+        ),
+      );
+    }
 
     navigate('/empleados');
   };

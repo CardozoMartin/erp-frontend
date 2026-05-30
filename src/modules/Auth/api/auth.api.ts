@@ -10,3 +10,11 @@ export const postLoginFn = async (data: {
   const res = await api.post<LoginResponse>('/auth/login', data);
   return res.data;
 };
+
+export const seleccionarSucursalFn = async (sucursalId: string) => {
+  const res = await api.post<{
+    token: string;
+    sucursal: { id: string; nombre: string };
+  }>('/auth/seleccionar-sucursal', { sucursalId });
+  return res.data;
+};

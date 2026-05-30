@@ -45,5 +45,6 @@ export interface ICreateEmpleadoPayload {
   foto_url?: string;
   rolesIds?: string[];
   sucursalId?: string;
+  sucursalIds?: string[];
   esSucursalPrincipal?: boolean;
 }

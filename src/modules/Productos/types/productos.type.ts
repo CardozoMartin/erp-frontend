@@ -94,6 +94,9 @@ export interface IProducto {
   codigo_barras: string;
   descripcion: string;
   precio_base: number;
+  precio_costo?: number;
+  precio_venta?: number;
+  margen_ganancia?: number;
   unidad_venta: 'UNIDAD' | 'KILOGRAMO' | 'LITRO' | 'METRO';
   activo: boolean;
   activo_pos: boolean;
@@ -109,6 +112,9 @@ export interface IProducto {
   stock?: IStock[];
   ofertas?: IOferta[];
   lotes?: ILote[];
+  todas_sucursales?: boolean;
+  sucursales_habilitadas_ids?: string[];
+  sucursales_disponibles_ids?: string[];
   created_at?: string;
   updated_at?: string;
 }
