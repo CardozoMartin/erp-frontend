@@ -2,18 +2,46 @@ import {
   User, ChevronRight, Shield, Check, RotateCcw, Camera, Trash2,
   Mail, Phone, MapPin, Briefcase, Key, ToggleLeft, ToggleRight,
   ShieldCheck, ShieldOff, Clock, Star, UserCheck, AlertCircle,
-  ChevronDown, ChevronUp, Search, X, Plus
+  Search, X, Plus
 } from 'lucide-react';
-import { useState, useRef } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import type { FieldErrors, UseFormRegister, UseFormSetValue } from 'react-hook-form';
+import { useGetRoles, usePutEmpleado } from '../hooks/useEmpleados';
 import { useEmpleadoStore } from '../store/useEmpleadoStore';
-import type { IEmpleadoSucursalAsignada } from '../types/empleado.type';
-import {
-  useAsignarEmpleadoSucursal,
-  useDesasignarEmpleadoSucursal,
-  useGetSucursalesActivas,
-  useSetEmpleadoSucursalPrincipal,
-} from '../hooks/useEmpleados';
+import type { ICreateEmpleadoPayload, IEmpleado, IEmpleadoRol } from '../types/empleado.type';
+
+type EmpleadoDetailFormValues = {
+  nombreCompleto: string;
+  email: string;
+  telefono: string;
+  direccion: string;
+  cargo: string;
+  contrasena: string;
+  activo: boolean;
+  activo_pos: boolean;
+  activo_web: boolean;
+  rolesIds: string[];
+};
+
+type RolAsignado = Pick<IEmpleadoRol, 'id' | 'nombre' | 'rutaInicio'>;
+type RoleColorKey = 'green' | 'amber' | 'purple' | 'blue' | 'gray';
+type RoleOption = IEmpleadoRol & { color?: RoleColorKey };
+type DetailEmpleado = IEmpleado & {
+  creadoEn: string;
+  ultimoAcceso: string;
+  activo_pos?: boolean;
+  activo_web?: boolean;
+};
+
+type TabInfoProps = {
+  emp: EmpleadoDetailFormValues;
+  isEditing: boolean;
+  form: EmpleadoDetailFormValues;
+  register: UseFormRegister<EmpleadoDetailFormValues>;
+  setValue: UseFormSetValue<EmpleadoDetailFormValues>;
+  errors: FieldErrors<EmpleadoDetailFormValues>;
+};
 
 // ─── MOCK DATA ────────────────────────────────────────────────────────────────
 
@@ -39,7 +67,7 @@ const EMPLEADO_MOCK = {
   ultimoAcceso: '2025-05-22T14:32:00',
 };
 
-const ROLES_DISPONIBLES = [
+const ROLES_DISPONIBLES: RoleOption[] = [
   { id: 'rol-1', nombre: 'Vendedor', descripcion: 'Puede crear y gestionar ventas', rutaInicio: '/punto-de-venta', color: 'green' },
   { id: 'rol-2', nombre: 'Cajero', descripcion: 'Puede cobrar y gestionar caja', rutaInicio: '/caja', color: 'amber' },
   { id: 'rol-3', nombre: 'Depósito', descripcion: 'Puede cargar y editar productos', rutaInicio: '/deposito', color: 'purple' },
@@ -47,7 +75,7 @@ const ROLES_DISPONIBLES = [
   { id: 'rol-5', nombre: 'Administrador', descripcion: 'Acceso total al sistema', rutaInicio: '/admin', color: 'gray' },
 ];
 
-const TODOS_LOS_PERMISOS = {
+const TODOS_LOS_PERMISOS: Record<string, string[]> = {
   VENTAS: ['ventas.crear', 'ventas.ver', 'ventas.eliminar'],
   CAJA: ['caja.cobrar', 'caja.abrir', 'caja.cerrar'],
   PRODUCTOS: ['productos.ver', 'productos.cargar', 'productos.editar', 'productos.eliminar'],
@@ -55,7 +83,7 @@ const TODOS_LOS_PERMISOS = {
   REPORTES: ['reportes.ver'],
 };
 
-const PERM_LABELS = {
+const PERM_LABELS: Record<string, string> = {
   'ventas.crear': 'Crear ventas',
   'ventas.ver': 'Ver ventas',
   'ventas.eliminar': 'Eliminar ventas',
@@ -72,7 +100,7 @@ const PERM_LABELS = {
   'reportes.ver': 'Ver reportes',
 };
 
-const ROL_COLORS = {
+const ROL_COLORS: Record<RoleColorKey, { bg: string; text: string; border: string; dot: string }> = {
   green: { bg: '#EAF3DE', text: '#3B6D11', border: '#C0DD97', dot: '#639922' },
   amber: { bg: '#FAEEDA', text: '#854F0B', border: '#FAC775', dot: '#BA7517' },
   purple: { bg: '#EEEDFE', text: '#534AB7', border: '#CECBF6', dot: '#7F77DD' },
@@ -80,7 +108,7 @@ const ROL_COLORS = {
   gray: { bg: '#F1EFE8', text: '#5F5E5A', border: '#D3D1C7', dot: '#888780' },
 };
 
-const MODULE_COLORS = {
+const MODULE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   VENTAS: { bg: '#EAF3DE', text: '#3B6D11', border: '#C0DD97' },
   CAJA: { bg: '#FAEEDA', text: '#854F0B', border: '#FAC775' },
   PRODUCTOS: { bg: '#EEEDFE', text: '#534AB7', border: '#CECBF6' },
@@ -90,21 +118,21 @@ const MODULE_COLORS = {
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
-function getInitials(name) {
+function getInitials(name: string) {
   return name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
 }
 
-function formatDate(iso) {
+function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function formatDateTime(iso) {
+function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 // ─── SUB-COMPONENTS ───────────────────────────────────────────────────────────
 
-function StatusBadge({ active }) {
+function StatusBadge({ active }: { active: boolean }) {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -124,8 +152,17 @@ function StatusBadge({ active }) {
   );
 }
 
-function RolBadge({ rol, onRemove, isEditing }) {
-  const rc = ROL_COLORS[ROLES_DISPONIBLES.find(r => r.id === rol.id)?.color] || ROL_COLORS.gray;
+function RolBadge({
+  rol,
+  onRemove,
+  isEditing,
+}: {
+  rol: RolAsignado;
+  onRemove: (id: string) => void;
+  isEditing: boolean;
+}) {
+  const color = (ROLES_DISPONIBLES.find(r => r.id === rol.id)?.color ?? 'gray') as RoleColorKey;
+  const rc = ROL_COLORS[color] || ROL_COLORS.gray;
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -148,31 +185,45 @@ function RolBadge({ rol, onRemove, isEditing }) {
 
 // ─── TABS ─────────────────────────────────────────────────────────────────────
 
-function TabInfo({ emp, isEditing, form, setForm }) {
+function TabInfo({ emp, isEditing, form, register, setValue, errors }: TabInfoProps) {
+  type TextFieldKey = 'nombreCompleto' | 'email' | 'telefono' | 'cargo';
+  const getRules = (key: TextFieldKey) => ({
+    nombreCompleto: { required: 'El nombre es requerido' },
+    email: { required: 'El email es requerido', pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Email invalido' } },
+    telefono: { required: 'El telefono es requerido' },
+    cargo: { required: 'El cargo es requerido' },
+  })[key];
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-        {[
+        {([
           { label: 'Nombre completo', key: 'nombreCompleto', icon: User },
           { label: 'Email', key: 'email', icon: Mail },
           { label: 'Teléfono', key: 'telefono', icon: Phone },
           { label: 'Cargo', key: 'cargo', icon: Briefcase },
-        ].map(({ label, key, icon: Icon }) => (
+        ] as Array<{ label: string; key: TextFieldKey; icon: typeof User }>).map(({ label, key, icon: Icon }) => (
           <div key={key}>
             <label style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
               <Icon size={12} /> {label}
             </label>
             {isEditing ? (
-              <input
-                value={form[key] || ''}
-                onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                style={{
-                  width: '100%', padding: '8px 12px', fontSize: 14, fontWeight: 500,
-                  border: '1.5px solid #e2e8f0', borderRadius: 6, outline: 'none',
-                  color: '#041627', background: '#f8fafc', fontFamily: 'inherit',
-                  borderBottom: '2px solid #075E54',
-                }}
-              />
+              <>
+                <input
+                  {...register(key, getRules(key))}
+                  style={{
+                    width: '100%', padding: '8px 12px', fontSize: 14, fontWeight: 500,
+                    border: `1.5px solid ${errors[key] ? '#fca5a5' : '#e2e8f0'}`, borderRadius: 6, outline: 'none',
+                    color: '#041627', background: errors[key] ? '#fef2f2' : '#f8fafc', fontFamily: 'inherit',
+                    borderBottom: '2px solid #075E54',
+                  }}
+                />
+                {errors[key]?.message && (
+                  <div style={{ marginTop: 4, fontSize: 11, color: '#dc2626', fontWeight: 600 }}>
+                    {errors[key].message}
+                  </div>
+                )}
+              </>
             ) : (
               <div style={{ fontSize: 14, fontWeight: 600, color: '#041627', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
                 {emp[key] || <span style={{ color: '#ccc', fontWeight: 400 }}>Sin datos</span>}
@@ -187,16 +238,22 @@ function TabInfo({ emp, isEditing, form, setForm }) {
           <MapPin size={12} /> Dirección
         </label>
         {isEditing ? (
-          <input
-            value={form.direccion || ''}
-            onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))}
-            style={{
-              width: '100%', padding: '8px 12px', fontSize: 14, fontWeight: 500,
-              border: '1.5px solid #e2e8f0', borderRadius: 6, outline: 'none',
-              color: '#041627', background: '#f8fafc', fontFamily: 'inherit',
-              borderBottom: '2px solid #075E54',
-            }}
-          />
+          <>
+            <input
+              {...register('direccion', { required: 'La direccion es requerida' })}
+              style={{
+                width: '100%', padding: '8px 12px', fontSize: 14, fontWeight: 500,
+                border: `1.5px solid ${errors.direccion ? '#fca5a5' : '#e2e8f0'}`, borderRadius: 6, outline: 'none',
+                color: '#041627', background: errors.direccion ? '#fef2f2' : '#f8fafc', fontFamily: 'inherit',
+                borderBottom: '2px solid #075E54',
+              }}
+            />
+            {errors.direccion?.message && (
+              <div style={{ marginTop: 4, fontSize: 11, color: '#dc2626', fontWeight: 600 }}>
+                {errors.direccion.message}
+              </div>
+            )}
+          </>
         ) : (
           <div style={{ fontSize: 14, fontWeight: 600, color: '#041627', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
             {emp.direccion}
@@ -212,23 +269,31 @@ function TabInfo({ emp, isEditing, form, setForm }) {
           <input
             type="password"
             placeholder="Dejar vacío para no cambiar"
+            {...register('contrasena', {
+              minLength: { value: 8, message: 'Minimo 8 caracteres' },
+            })}
             style={{
               width: '100%', padding: '8px 12px', fontSize: 14,
-              border: '1.5px solid #e2e8f0', borderRadius: 6, outline: 'none',
-              color: '#041627', background: '#fff', fontFamily: 'inherit',
+              border: `1.5px solid ${errors.contrasena ? '#fca5a5' : '#e2e8f0'}`, borderRadius: 6, outline: 'none',
+              color: '#041627', background: errors.contrasena ? '#fef2f2' : '#fff', fontFamily: 'inherit',
               borderBottom: '2px solid #075E54',
             }}
           />
+          {errors.contrasena?.message && (
+            <div style={{ marginTop: 4, fontSize: 11, color: '#dc2626', fontWeight: 600 }}>
+              {errors.contrasena.message}
+            </div>
+          )}
           <p style={{ fontSize: 11, color: '#aaa', marginTop: 6 }}>Mínimo 8 caracteres. Solo completar si se desea cambiar.</p>
         </div>
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-        {[
+        {([
           { label: 'Activo General', key: 'activo' },
           { label: 'Activo en POS', key: 'activo_pos' },
           { label: 'Activo en Web', key: 'activo_web' },
-        ].map(({ label, key }) => {
+        ] as Array<{ label: string; key: 'activo' | 'activo_pos' | 'activo_web' }>).map(({ label, key }) => {
           const val = form[key] ?? emp[key] ?? false;
           return (
             <label key={key} style={{
@@ -239,7 +304,7 @@ function TabInfo({ emp, isEditing, form, setForm }) {
               transition: 'all .15s',
             }}>
               <div
-                onClick={() => isEditing && setForm(f => ({ ...f, [key]: !val }))}
+                onClick={() => isEditing && setValue(key, !val, { shouldDirty: true })}
                 style={{ color: val ? '#3B6D11' : '#ccc', cursor: isEditing ? 'pointer' : 'default' }}
               >
                 {val ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
@@ -253,9 +318,20 @@ function TabInfo({ emp, isEditing, form, setForm }) {
   );
 }
 
-function TabRoles({ emp, isEditing, rolesAsignados, setRolesAsignados }) {
+function TabRoles({
+  isEditing,
+  rolesAsignados,
+  setRolesAsignados,
+  availableRoles = ROLES_DISPONIBLES,
+}: {
+  isEditing: boolean;
+  rolesAsignados: RolAsignado[];
+  setRolesAsignados: (updater: RolAsignado[] | ((roles: RolAsignado[]) => RolAsignado[])) => void;
+  availableRoles?: RoleOption[];
+}) {
   const [search, setSearch] = useState('');
-  const disponibles = ROLES_DISPONIBLES.filter(r =>
+  const rolesParaMostrar = availableRoles.length > 0 ? availableRoles : ROLES_DISPONIBLES;
+  const disponibles = rolesParaMostrar.filter(r =>
     !rolesAsignados.find(a => a.id === r.id) &&
     r.nombre.toLowerCase().includes(search.toLowerCase())
   );
@@ -308,8 +384,8 @@ function TabRoles({ emp, isEditing, rolesAsignados, setRolesAsignados }) {
           </div>
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {(isEditing ? disponibles : ROLES_DISPONIBLES).map(rol => {
-            const rc = ROL_COLORS[rol.color];
+          {(isEditing ? disponibles : rolesParaMostrar).map(rol => {
+            const rc = ROL_COLORS[(rol.color ?? ROLES_DISPONIBLES.find(r => r.id === rol.id)?.color ?? 'gray') as RoleColorKey];
             const yaAsignado = !!rolesAsignados.find(r => r.id === rol.id);
             return (
               <div key={rol.id} style={{
@@ -347,7 +423,7 @@ function TabRoles({ emp, isEditing, rolesAsignados, setRolesAsignados }) {
   );
 }
 
-function TabPermisos({ emp, rolesAsignados }) {
+function TabPermisos({ rolesAsignados }: { rolesAsignados: RolAsignado[] }) {
   const permisosActivos = [...new Set(
     rolesAsignados.flatMap(ra => {
       const rolDef = ROLES_DISPONIBLES.find(r => r.id === ra.id);
@@ -615,8 +691,9 @@ const TABS_DEF = [
 ];
 
 export default function EmpleadoDetailView() {
-  const { empleado } = useEmpleadoStore();
-  const empleadoActual = empleado
+  const { empleado, setEmpleado } = useEmpleadoStore();
+  const rolesQuery = useGetRoles();
+  const empleadoActual: DetailEmpleado = empleado
     ? {
         ...EMPLEADO_MOCK,
         ...empleado,
@@ -624,45 +701,90 @@ export default function EmpleadoDetailView() {
         ultimoAcceso: '2025-05-22T14:32:00',
       }
     : EMPLEADO_MOCK;
-  const [emp] = useState(empleadoActual);
+  const emp = empleadoActual;
+  const putEmpleado = usePutEmpleado(emp.id);
   const [activeTab, setActiveTab] = useState('info');
   const [isEditing, setIsEditing] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
-  const [form, setForm] = useState({
+  const defaultFormValues: EmpleadoDetailFormValues = {
     nombreCompleto: emp.nombreCompleto,
     email: emp.email,
     telefono: emp.telefono,
     direccion: emp.direccion,
     cargo: emp.cargo,
+    contrasena: '',
     activo: emp.activo,
     activo_pos: true,
     activo_web: false,
+    rolesIds: emp.roles.map((rol) => rol.id),
+  };
+  const {
+    register,
+    watch,
+    setValue,
+    reset,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<EmpleadoDetailFormValues>({
+    defaultValues: defaultFormValues,
   });
-  const [rolesAsignados, setRolesAsignados] = useState(emp.roles);
-  const [sucursalesAsignadas, setSucursalesAsignadas] = useState<
-    IEmpleadoSucursalAsignada[]
-  >(
-    emp.sucursales ?? [],
+  const form = watch();
+  const rolesDisponibles: RoleOption[] = rolesQuery.data ?? ROLES_DISPONIBLES;
+  const rolesAsignados = useMemo(
+    () =>
+      form.rolesIds
+        .map((id) => {
+          const rol = rolesDisponibles.find((role) => role.id === id);
+          if (rol) return { id: rol.id, nombre: rol.nombre, rutaInicio: rol.rutaInicio };
+          return emp.roles.find((role) => role.id === id) ?? null;
+        })
+        .filter((role): role is RolAsignado => Boolean(role)),
+    [emp.roles, form.rolesIds, rolesDisponibles],
   );
+  const setRolesAsignados = (updater: RolAsignado[] | ((roles: RolAsignado[]) => RolAsignado[])) => {
+    const nextRoles = typeof updater === 'function' ? updater(rolesAsignados) : updater;
+    setValue('rolesIds', nextRoles.map((rol) => rol.id), {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
   const [fotoPreview, setFotoPreview] = useState(emp.foto_url);
-  const fileRef = useRef(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   const handleDiscard = () => {
-    setForm({
-      nombreCompleto: emp.nombreCompleto,
-      email: emp.email,
-      telefono: emp.telefono,
-      direccion: emp.direccion,
-      cargo: emp.cargo,
-      activo: emp.activo,
-      activo_pos: true,
-      activo_web: false,
-    });
-    setRolesAsignados(emp.roles);
-    setSucursalesAsignadas(emp.sucursales ?? []);
+    reset(defaultFormValues);
     setFotoPreview(emp.foto_url);
     setIsEditing(false);
   };
+
+  const handleSave = handleSubmit(async (data) => {
+    const payload: Partial<ICreateEmpleadoPayload> = {
+      nombreCompleto: data.nombreCompleto.trim(),
+      email: data.email.trim(),
+      telefono: data.telefono.trim(),
+      direccion: data.direccion.trim(),
+      cargo: data.cargo.trim(),
+      activo: data.activo,
+      rolesIds: data.rolesIds,
+    };
+
+    if (data.contrasena.trim()) {
+      payload.contrasena = data.contrasena;
+    }
+
+    try {
+      const empleadoActualizado = await putEmpleado.mutateAsync(payload);
+      setEmpleado(empleadoActualizado);
+      reset({
+        ...data,
+        contrasena: '',
+        rolesIds: empleadoActualizado.roles.map((rol) => rol.id),
+      });
+      setIsEditing(false);
+    } catch {
+      // El hook ya muestra el toast con el mensaje del backend.
+    }
+  });
 
   const permisoCount = [...new Set(
     rolesAsignados.flatMap(ra => {
@@ -704,12 +826,13 @@ export default function EmpleadoDetailView() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
             {isEditing ? (
               <>
-                <button onClick={() => setIsEditing(false)} style={{
+                <button onClick={handleSave} disabled={putEmpleado.isPending} style={{
                   display: 'flex', alignItems: 'center', gap: 5,
                   padding: '6px 16px', background: '#075E54', color: '#fff',
-                  border: 'none', borderRadius: 5, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  border: 'none', borderRadius: 5, fontSize: 13, fontWeight: 700, cursor: putEmpleado.isPending ? 'wait' : 'pointer',
+                  opacity: putEmpleado.isPending ? 0.7 : 1,
                 }}>
-                  <Check size={13} /> Guardar
+                  <Check size={13} /> {putEmpleado.isPending ? 'Guardando...' : 'Guardar'}
                 </button>
                 <button onClick={handleDiscard} style={{
                   display: 'flex', alignItems: 'center', gap: 5,
@@ -740,7 +863,7 @@ export default function EmpleadoDetailView() {
                   border: `1px solid ${form.activo ? '#F7C1C1' : '#C0DD97'}`,
                   borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: 'pointer',
                 }}
-                  onClick={() => setForm(f => ({ ...f, activo: !f.activo }))}
+                  onClick={() => setValue('activo', !form.activo, { shouldDirty: true })}
                 >
                   {form.activo ? <><ShieldOff size={13} /> Desactivar</> : <><ShieldCheck size={13} /> Activar</>}
                 </button>
@@ -792,8 +915,8 @@ export default function EmpleadoDetailView() {
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                         opacity: 0, transition: 'opacity .15s',
                       }}
-                        onMouseEnter={e => e.currentTarget.style.opacity = 1}
-                        onMouseLeave={e => e.currentTarget.style.opacity = 0}
+                        onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                        onMouseLeave={e => e.currentTarget.style.opacity = '0'}
                       >
                         <button onClick={() => fileRef.current?.click()} style={{ padding: 6, background: '#075E54', border: 'none', borderRadius: '50%', cursor: 'pointer', color: '#fff', display: 'flex' }}>
                           <Camera size={13} />
@@ -883,10 +1006,25 @@ export default function EmpleadoDetailView() {
 
             {/* ── TAB CONTENT ── */}
             <div style={{ flex: 1, paddingTop: 4 }}>
-              {activeTab === 'info' && <TabInfo emp={form} isEditing={isEditing} form={form} setForm={setForm} />}
-              {activeTab === 'roles' && <TabRoles emp={emp} isEditing={isEditing} rolesAsignados={rolesAsignados} setRolesAsignados={setRolesAsignados} />}
-              {activeTab === 'sucursales' && <TabSucursales emp={emp} isEditing={isEditing} sucursalesAsignadas={sucursalesAsignadas} setSucursalesAsignadas={setSucursalesAsignadas} />}
-              {activeTab === 'permisos' && <TabPermisos emp={emp} rolesAsignados={rolesAsignados} />}
+              {activeTab === 'info' && (
+                <TabInfo
+                  emp={form}
+                  isEditing={isEditing}
+                  form={form}
+                  register={register}
+                  setValue={setValue}
+                  errors={errors}
+                />
+              )}
+              {activeTab === 'roles' && (
+                <TabRoles
+                  isEditing={isEditing}
+                  rolesAsignados={rolesAsignados}
+                  setRolesAsignados={setRolesAsignados}
+                  availableRoles={rolesDisponibles}
+                />
+              )}
+              {activeTab === 'permisos' && <TabPermisos rolesAsignados={rolesAsignados} />}
               {activeTab === 'actividad' && <TabActividad />}
             </div>
           </div>
