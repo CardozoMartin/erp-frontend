@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { Download, Plus, Search } from "lucide-react";
+import { AlertCircle, Download, Plus, Search, Warehouse } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import TableProducts from "../components/Products/TableProducts";
 import { useGetSucursales } from "../../Sucursal/hooks/useSucursal";
 import NoBranchModal from "../../Sucursal/components/NoBranchModal";
+import { usePermisos } from "../../../store/usePermisos";
+import { useAuthStore } from "../../../store/auth.store";
 
 const ProductosPages = () => {
   const navigate = useNavigate();
@@ -13,6 +15,8 @@ const ProductosPages = () => {
     location.state?.showNoBranchModal ?? false,
   );
   const [noActive, setNoActive] = useState(false);
+  const { tiene } = usePermisos();
+  const sucursalActiva = useAuthStore((state) => state.sucursalActiva);
 
   //Tquery-------------------------------------------
   const { data: sucursales, isSuccess } = useGetSucursales();
@@ -46,9 +50,18 @@ const ProductosPages = () => {
         className="top-16 z-10 bg-[#fbf9fa] border-b border-[#c4c6cd] px-6 py-3 flex items-center justify-between"
         style={{ fontFamily: "Inter, sans-serif" }}
       >
-        <h2 className="text-2xl font-semibold tracking-tight text-[#041627]">
-          Inventario de Productos
-        </h2>
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight text-[#041627]">
+            Inventario de Productos
+          </h2>
+          <div className="mt-1 flex items-center gap-1.5 text-[13px] text-[#44474c]">
+            <Warehouse size={15} className="text-[#075E54]" />
+            <span>Sucursal activa:</span>
+            <span className="font-semibold text-[#041627]">
+              {sucursalActiva?.nombre ?? "Sin sucursal seleccionada"}
+            </span>
+          </div>
+        </div>
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -57,6 +70,8 @@ const ProductosPages = () => {
             <Download size={15} />
             Exportar
           </button>
+          {
+            tiene('productos.crear') && (
           <button
             type="button"
             onClick={handlerChangePageProducts}
@@ -64,7 +79,9 @@ const ProductosPages = () => {
           >
             <Plus size={15} />
             Nuevo Producto
-          </button>
+              </button>
+            )
+          }
         </div>
       </header>
 
@@ -73,6 +90,12 @@ const ProductosPages = () => {
         className="w-[90vw] max-w-none mx-auto px-6 py-6 flex flex-col gap-6"
         style={{ fontFamily: "Inter, sans-serif" }}
       >
+        {!sucursalActiva && (
+          <div className="flex items-center gap-2 border border-amber-300 bg-amber-50 px-4 py-3 text-[14px] text-amber-800">
+            <AlertCircle size={16} />
+            No tenés una sucursal activa en la sesión. Volvé a iniciar sesión o pedí que te asignen una sucursal.
+          </div>
+        )}
         <section className="bg-white border border-[#c4c6cd] rounded-xl shadow-sm overflow-hidden">
           {/* Toolbar */}
           <div className="px-6 py-4 border-b border-[#c4c6cd] flex justify-between items-center bg-[#fbf9fa]">

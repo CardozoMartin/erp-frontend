@@ -31,6 +31,7 @@ export interface EmpleadoCreatePayload {
   password: string;
   rolesIds: string[];
   sucursalId: string;
+  sucursalIds: string[];
 }
 
 interface Props {
@@ -139,11 +140,13 @@ export default function FormEmployers({
       password: "",
       rolesIds: [],
       sucursalId: "",
+      sucursalIds: [],
     },
   });
 
   const selectedRoleIds = watch("rolesIds");
   const selectedSucursalId = watch("sucursalId");
+  const selectedSucursalIds = watch("sucursalIds");
   const rolesActivos = useMemo(
     () => availableRoles.filter((role) => role.activo !== false),
     [availableRoles],
@@ -196,6 +199,15 @@ export default function FormEmployers({
   const selectedSucursal = availableSucursales.find(
     (sucursal) => sucursal.id === selectedSucursalId,
   );
+
+  const handleSucursalPrincipalChange = (sucursalId: string) => {
+    setValue("sucursalId", sucursalId, { shouldValidate: true });
+    if (sucursalId && !selectedSucursalIds.includes(sucursalId)) {
+      setValue("sucursalIds", [...selectedSucursalIds, sucursalId], {
+        shouldValidate: true,
+      });
+    }
+  };
 
   const submitForm = async (data: EmpleadoCreatePayload) => {
     setIsSubmitting(true);
@@ -436,6 +448,9 @@ export default function FormEmployers({
                       render={({ field }) => (
                         <select
                           {...field}
+                          onChange={(event) =>
+                            handleSucursalPrincipalChange(event.target.value)
+                          }
                           className={`w-full rounded-md border px-3 py-2 text-sm font-medium text-[#041627] outline-none transition-all focus:border-[#075E54] focus:bg-white focus:ring-1 focus:ring-[#075E54]/20 ${
                             errors.sucursalId
                               ? "border-red-300 bg-red-50"
@@ -457,6 +472,60 @@ export default function FormEmployers({
                   El empleado se crea activo por defecto en backend. La ruta de
                   inicio se calcula segun el primer rol asignado.
                 </p>
+              </section>
+
+              <section>
+                <h2 className="mb-4 flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-gray-400">
+                  <MapPin size={13} /> Sucursales habilitadas
+                </h2>
+                <Controller
+                  name="sucursalIds"
+                  control={control}
+                  rules={{
+                    validate: (value) =>
+                      value.length > 0 || "Selecciona al menos una sucursal",
+                  }}
+                  render={() => (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {availableSucursales.map((sucursal) => {
+                        const selected = selectedSucursalIds.includes(
+                          sucursal.id,
+                        );
+                        const isPrincipal = selectedSucursalId === sucursal.id;
+                        return (
+                          <label
+                            key={sucursal.id}
+                            className={`flex items-center justify-between rounded-lg border px-4 py-3 text-sm font-semibold ${
+                              selected
+                                ? "border-[#075E54] bg-[#EAF3DE] text-[#041627]"
+                                : "border-gray-200 bg-slate-50 text-gray-600"
+                            }`}
+                          >
+                            <span className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                value={sucursal.id}
+                                {...register("sucursalIds")}
+                                className="h-4 w-4"
+                              />
+                              {sucursal.nombre}
+                            </span>
+                            {isPrincipal ? (
+                              <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase text-[#075E54]">
+                                Principal
+                              </span>
+                            ) : null}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                />
+                {errors.sucursalIds ? (
+                  <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-red-500">
+                    <AlertCircle size={11} /> {errors.sucursalIds.message}
+                  </span>
+                ) : null}
               </section>
 
               <div className="h-px bg-slate-100" />

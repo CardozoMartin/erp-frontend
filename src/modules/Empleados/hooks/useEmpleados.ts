@@ -4,6 +4,8 @@ import { toast } from 'sonner';
 import type { IErrorResponse } from '../../../type/api.response.type';
 import { getErrorMessage } from '../../../api/ApiError';
 import {
+  asignarEmpleadoSucursalFn,
+  desasignarEmpleadoSucursalFn,
   getEmpleadosFn,
   getRolesFn,
   getSucursalesActivasFn,
@@ -53,6 +55,71 @@ export const usePutEmpleado = (id: string) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['empleados'] });
       toast.success('Empleado actualizado correctamente');
+    },
+    onError: (error: AxiosError<IErrorResponse>) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+};
+
+export const useAsignarEmpleadoSucursal = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      empleadoId,
+      sucursalId,
+      esPrincipal = false,
+    }: {
+      empleadoId: string;
+      sucursalId: string;
+      esPrincipal?: boolean;
+    }) => asignarEmpleadoSucursalFn(empleadoId, sucursalId, esPrincipal),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["empleados"] });
+      toast.success("Sucursal asignada correctamente");
+    },
+    onError: (error: AxiosError<IErrorResponse>) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+};
+
+export const useSetEmpleadoSucursalPrincipal = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      empleadoId,
+      sucursalId,
+    }: {
+      empleadoId: string;
+      sucursalId: string;
+    }) => setEmpleadoSucursalPrincipalFn(empleadoId, sucursalId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["empleados"] });
+      toast.success("Sucursal principal actualizada");
+    },
+    onError: (error: AxiosError<IErrorResponse>) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+};
+
+export const useDesasignarEmpleadoSucursal = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      empleadoId,
+      sucursalId,
+    }: {
+      empleadoId: string;
+      sucursalId: string;
+    }) => desasignarEmpleadoSucursalFn(empleadoId, sucursalId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["empleados"] });
+      toast.success("Acceso a sucursal quitado");
     },
     onError: (error: AxiosError<IErrorResponse>) => {
       toast.error(getErrorMessage(error));

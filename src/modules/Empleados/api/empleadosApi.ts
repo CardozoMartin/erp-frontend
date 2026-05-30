@@ -38,6 +38,39 @@ export const postEmpleadoFn = async (
   return data;
 };
 
+export const asignarEmpleadoSucursalFn = async (
+  empleadoId: string,
+  sucursalId: string,
+  esPrincipal: boolean = false,
+) => {
+  const { data } = await api.post(`/empleados/${empleadoId}/sucursales`, {
+    sucursalId,
+    esPrincipal,
+  });
+  return data;
+};
+
+export const setEmpleadoSucursalPrincipalFn = async (
+  empleadoId: string,
+  sucursalId: string,
+) => {
+  const { data } = await api.patch(
+    `/empleados/${empleadoId}/sucursales/principal`,
+    { sucursalId },
+  );
+  return data;
+};
+
+export const desasignarEmpleadoSucursalFn = async (
+  empleadoId: string,
+  sucursalId: string,
+) => {
+  const { data } = await api.delete(`/empleados/${empleadoId}/sucursales`, {
+    data: { sucursalId },
+  });
+  return data;
+};
+
 export const getEmpleadosFn = async (
   page: number = 1,
   limit: number = 10,

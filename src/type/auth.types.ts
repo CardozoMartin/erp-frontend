@@ -24,4 +24,6 @@ export interface LoginResponse {
     nombre: string
     esPrincipal: boolean
   }[]
+
+  sucursalActivaId?: string | null
 }

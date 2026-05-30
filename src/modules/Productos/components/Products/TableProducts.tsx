@@ -4,24 +4,43 @@ import ProductRow from './ProductRow';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import ModalImageUpload from './ModalImageUpload';
 import type { IProducto } from '../../types/productos.type';
+import { useAuthStore } from '../../../../store/auth.store';
 
 const TableProducts = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [uploadModalProduct, setUploadModalProduct] = useState<IProducto | null>(null);
   const LIMIT = 10;
+  const sucursalActiva = useAuthStore((state) => state.sucursalActiva);
 
   //Tquery-------------------------------------------
-  const { data: productsResponse } = useGetProducts(currentPage, LIMIT);
-  console.log('Products response:', productsResponse);
+  const {
+    data: productsResponse,
+    isLoading,
+    isError,
+    error,
+  } = useGetProducts(currentPage, LIMIT);
 
   // Ajuste según la estructura real de la respuesta
-  const productsData = productsResponse?.data || [];
-  const totalProducts = productsResponse?.meta?.total || productsData.length;
-  const totalPages = productsResponse?.meta?.totalPages || Math.ceil(totalProducts / LIMIT);
+  const productsData = Array.isArray(productsResponse)
+    ? productsResponse
+    : productsResponse?.data || [];
+  const totalProducts = Array.isArray(productsResponse)
+    ? productsResponse.length
+    : productsResponse?.meta?.total || productsData.length;
+  const totalPages = Array.isArray(productsResponse)
+    ? Math.max(1, Math.ceil(totalProducts / LIMIT))
+    : productsResponse?.meta?.totalPages || Math.ceil(totalProducts / LIMIT);
 
   // Si la API ya devuelve los datos paginados, no es necesario hacer .slice()
   // Usamos los datos directamente si la página coincide
   const paginatedProducts = productsData;
+  const emptyMessage = !sucursalActiva
+    ? 'No hay una sucursal activa para consultar productos.'
+    : isLoading
+      ? 'Cargando productos de la sucursal activa...'
+      : isError
+        ? ((error as any)?.response?.data?.message ?? 'No se pudieron cargar los productos.')
+        : 'No se encontraron productos para esta sucursal.';
 
   return (
     <>
@@ -37,7 +56,9 @@ const TableProducts = () => {
                 { label: 'Categoría', align: 'text-left' },
                 { label: 'Stock', align: 'text-center' },
                 { label: 'Costo', align: 'text-right' },
-                { label: 'Precio', align: 'text-right' },
+                { label: 'Venta', align: 'text-right' },
+                { label: 'Margen', align: 'text-right' },
+                { label: 'Vencimiento', align: 'text-center' },
                
               ].map(({ label, align }) => (
                 <th
@@ -62,8 +83,8 @@ const TableProducts = () => {
               ))
             ) : (
               <tr>
-                <td colSpan={8} className="px-6 py-8 text-center text-[14px] text-[#44474c]">
-                  No se encontraron productos.
+                <td colSpan={9} className="px-6 py-8 text-center text-[14px] text-[#44474c]">
+                  {emptyMessage}
                 </td>
               </tr>
             )}

@@ -5,12 +5,15 @@ import type { IErrorResponse } from '../../../type/api.response.type';
 import { toast } from 'sonner';
 import { subirImagen } from '../api/productoApi';
 import type { IImagenLocal } from '../types/productos.type';
+import { useAuthStore } from '../../../store/auth.store';
 
 //hook para crear un nuevo producto
 export const usePostProducts = () => {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: postProductoFn,
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
       toast.success('Producto creado exitosamente');
     },
     onError: (error: AxiosError<IErrorResponse>) => {
@@ -28,10 +31,11 @@ export const usePostProducts = () => {
 
 //hooks para obtener todos los productos con paginacion
 export const useGetProducts = (page: number = 1, limit: number = 30) => {
+  const sucursalActivaId = useAuthStore((state) => state.sucursalActiva?.id);
   return useQuery({
-    queryKey: ['products'],
+    queryKey: ['products', sucursalActivaId, page, limit],
     queryFn: () => getProductosFn(page, limit),
-    enabled: true,
+    enabled: !!sucursalActivaId,
   });
 };
 

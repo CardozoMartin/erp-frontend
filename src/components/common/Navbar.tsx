@@ -21,9 +21,15 @@ import {
   ArrowRight,
   MarsStroke,
   UserRoundPen,
+  LogOutIcon,
 } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuthStore } from '../../store/auth.store';
+import Swal from 'sweetalert2';
+import { seleccionarSucursalFn } from '../../modules/Auth/api/auth.api';
+import type { AxiosError } from 'axios';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -203,6 +209,29 @@ export default function Navbar() {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const navRef = useRef<HTMLElement>(null);
+  const queryClient = useQueryClient();
+  const { cerrarSesion, empleado, sucursales, sucursalActiva, cambiarSucursalActiva } =
+    useAuthStore();
+  const seleccionarSucursalMutation = useMutation({
+    mutationFn: seleccionarSucursalFn,
+    onSuccess: (data) => {
+      cambiarSucursalActiva(data.token, data.sucursal);
+      queryClient.invalidateQueries();
+    },
+    onError: (error: AxiosError<{ message?: string; mensaje?: string }>) => {
+      const mensaje =
+        error.response?.data?.message ||
+        error.response?.data?.mensaje ||
+        'No se pudo cambiar la sucursal activa.';
+
+      Swal.fire({
+        title: 'Sucursal no disponible',
+        text: mensaje,
+        icon: 'warning',
+        confirmButtonText: 'Entendido',
+      });
+    },
+  });
 
   const activeId = navItems.find((item) => {
     if (item.link) return location.pathname === item.link;
@@ -228,6 +257,30 @@ export default function Navbar() {
   const toggleUserMenu = () => {
     setOpenMenu(null);
     setUserMenuOpen((v) => !v);
+  };
+
+  const handleSucursalChange = (sucursalId: string) => {
+    if (!sucursalId || sucursalId === sucursalActiva?.id) return;
+    seleccionarSucursalMutation.mutate(sucursalId);
+  };
+
+  //Handler para cerrar session
+  const handleLogout = () => {
+    Swal.fire({
+      title: '¿Cerrar sesión?',
+      text: '¿Estás seguro de que deseas cerrar sesión?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Sí, cerrar sesión',
+      cancelButtonText: 'Cancelar',
+    }).then((result) => {
+      if (result.isConfirmed) {
+        cerrarSesion();
+        Swal.fire('Sesión cerrada', 'Has cerrado sesión exitosamente.', 'success');
+      }
+    });
   };
 
   return (
@@ -306,12 +359,37 @@ export default function Navbar() {
 
       {/* ── Derecha ── */}
       <div className="flex items-center gap-2">
+        <div className="flex h-8 items-center gap-2 rounded-md border border-gray-300 bg-white px-2 text-[12px] text-gray-500">
+          <Warehouse size={14} className="text-[#075E54]" />
+          <span className="font-semibold text-gray-600">Sucursal:</span>
+          {sucursales.length > 0 ? (
+            <select
+              value={sucursalActiva?.id ?? ''}
+              onChange={(event) => handleSucursalChange(event.target.value)}
+              disabled={seleccionarSucursalMutation.isPending}
+              className="h-6 max-w-[220px] bg-transparent text-[13px] font-bold text-[#041627] outline-none"
+              title="Sucursal activa"
+            >
+              {sucursales.map((sucursal) => (
+                <option key={sucursal.id} value={sucursal.id}>
+                  {sucursal.nombre}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="font-bold text-red-600">
+              Sin sucursal asignada
+            </span>
+          )}
+        </div>
+
         <button
           type="button"
-          className="flex cursor-pointer items-center gap-[5px] rounded-md px-[10px] py-[6px] text-[13px] text-gray-500 transition-colors hover:bg-gray-500/10 hover:text-gray-800"
+          className="flex cursor-pointer items-center gap-[5px] rounded-md px-[10px] py-[6px] text-[13px] text-white transition-colors hover:bg-red-700 hover:text-gray-800 border-red-600 border bg-red-500 "
+          onClick={()=> handleLogout() }
         >
-          <Settings size={15} className="text-gray-400" />
-          Ajustes
+          <LogOutIcon size={15} />
+          Cerrar sesión
         </button>
 
         <div className="h-4 w-px bg-gray-300" />
@@ -329,7 +407,7 @@ export default function Navbar() {
             <div className="flex h-6 w-6 items-center justify-center rounded-full border border-gray-300/60 bg-gray-200 text-[10px] font-semibold text-gray-600">
               MD
             </div>
-            <span>Martín</span>
+            <span>{empleado?.nombreCompleto?.split(' ')[0] ?? 'Usuario'}</span>
             <ChevronDown
               size={12}
               className={`text-gray-400 transition-transform duration-150 ${userMenuOpen ? 'rotate-180' : ''}`}

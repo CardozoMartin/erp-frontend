@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useGetEmpleados } from '../../hooks/useEmpleados';
 import RowEmployer from './RowEmployer';
+import { useAuthStore } from '../../../../store/auth.store';
 
 type Props = {
   search?: string;
@@ -11,6 +12,7 @@ const LIMIT = 10;
 
 const TableEmployer = ({ search = '' }: Props) => {
   const [currentPage, setCurrentPage] = useState(1);
+  const sucursalActivaId = useAuthStore((state) => state.sucursalActiva?.id);
 
   // La API ya pagina, asi que en frontend solo consumimos la pagina actual
   // y aplicamos un filtro visual liviano sobre esos registros.
@@ -25,9 +27,15 @@ const TableEmployer = ({ search = '' }: Props) => {
 
   const filteredEmpleados = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return empleados;
-
     return empleados.filter((empleado) => {
+      const perteneceSucursalActiva = sucursalActivaId
+        ? empleado.sucursales.some(
+            (sucursal) => sucursal.id === sucursalActivaId && sucursal.activo,
+          )
+        : true;
+      if (!perteneceSucursalActiva) return false;
+      if (!term) return true;
+
       const roles = empleado.roles.map((rol) => rol.nombre).join(' ');
       return (
         empleado.nombreCompleto.toLowerCase().includes(term) ||
@@ -36,7 +44,7 @@ const TableEmployer = ({ search = '' }: Props) => {
         roles.toLowerCase().includes(term)
       );
     });
-  }, [empleados, search]);
+  }, [empleados, search, sucursalActivaId]);
 
   return (
     <section className="overflow-hidden border-t border-[#c4c6cd] bg-white">

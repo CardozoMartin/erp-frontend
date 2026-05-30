@@ -65,6 +65,8 @@ const getProductFormDefaults = (product: any) => ({
   codigo_barras: product.codigo_barras ?? '',
   descripcion: product.descripcion ?? '',
   precio_base: product.precio_base,
+  precio_costo: product.precio_costo ?? 0,
+  precio_venta: product.precio_venta ?? product.precio_base ?? 0,
   unidad_venta: product.unidad_venta,
   activo: product.activo,
   activo_pos: product.activo_pos,
@@ -110,6 +112,12 @@ export default function ProductDetailView() {
   const watchedActivoPos = watch('activo_pos') ?? product?.activo_pos;
   const watchedActivoWeb = watch('activo_web') ?? product?.activo_web;
   const watchedPrecioBase = watch('precio_base') ?? product?.precio_base;
+  const watchedPrecioCosto = Number(watch('precio_costo') ?? product?.precio_costo ?? 0);
+  const watchedPrecioVenta = Number(watch('precio_venta') ?? product?.precio_venta ?? watchedPrecioBase ?? 0);
+  const watchedMargen =
+    watchedPrecioCosto > 0
+      ? Number((((watchedPrecioVenta - watchedPrecioCosto) / watchedPrecioCosto) * 100).toFixed(2))
+      : 0;
   const watchedTieneVariantes = watch('tiene_variantes') ?? product?.tiene_variantes;
 
   useEffect(() => {
@@ -173,6 +181,8 @@ export default function ProductDetailView() {
   const onSubmit = (formData: any) => {
     const data = normalizeProductoPayload({
       ...formData,
+      precio_base: formData.precio_venta ?? formData.precio_base,
+      margen_ganancia: watchedMargen,
       imagenesLocales: imagenesLocales.length > 0 ? imagenesLocales : undefined,
       id: product?.id,
     });

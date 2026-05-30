@@ -16,6 +16,9 @@ type ProductoSavePayload = Omit<
   marca_id?: string | null;
   ofertas?: any[];
   stock?: any[];
+  todas_sucursales?: boolean;
+  sucursales_habilitadas_ids?: string[];
+  sucursales_disponibles_ids?: string[];
   variantes?: any[];
 };
 
@@ -100,8 +103,16 @@ const cleanVariantes = (variantes: any[] = []) =>
 export const normalizeProductoPayload = (productoData: ProductoSavePayload): ProductoSavePayload => {
   const payload: ProductoSavePayload = {
     ...productoData,
+    precio_costo:
+      productoData.precio_costo === undefined ? undefined : toNumber(productoData.precio_costo),
+    precio_venta:
+      productoData.precio_venta === undefined ? undefined : toNumber(productoData.precio_venta),
     precio_base:
-      productoData.precio_base === undefined ? undefined : toNumber(productoData.precio_base),
+      productoData.precio_venta === undefined
+        ? productoData.precio_base === undefined
+          ? undefined
+          : toNumber(productoData.precio_base)
+        : toNumber(productoData.precio_venta),
     codigo_barras:
       productoData.codigo_barras === undefined
         ? undefined
@@ -165,6 +176,7 @@ const prepararProductoParaGuardar = (
   productoSinImagenes: ProductoSavePayload;
 } => {
   const { imagenesLocales, ...restoProducto } = normalizeProductoPayload(productoData);
+  delete restoProducto.sucursales_disponibles_ids;
   const variantes = (restoProducto.variantes ?? []).map((variante: any) => {
     const { imagenesLocales: _imagenesLocales, ...varianteSinLocales } = variante;
     return varianteSinLocales;
@@ -189,7 +201,6 @@ export const postProductoFn = async (
   // Separar imágenes locales del resto del payload
   const { imagenesLocales, imagenesPorVariante, productoSinImagenes } =
     prepararProductoParaGuardar(productoData);
-
   // 1. Crear el producto (JSON normal)
   const { data } = await api.post<any>('/producto', productoSinImagenes);
 
@@ -229,13 +240,27 @@ export const postProductoFn = async (
 
 //funcion para obtener todos los productos con paginacion
 export const getProductosFn = async (page: number = 1, limit: number = 30) => {
-  const response = await api.get<ISuccessResponse<IProducto[]>>('/producto', {
+  const response = await api.get<ISuccessResponse<IProducto[]> | IProducto[]>('/producto', {
     params: {
       page,
       limit,
     },
   });
-  console.log('Respuesta del servidor:', response.data);
+
+  if (Array.isArray(response.data)) {
+    return {
+      ok: true,
+      mensaje: 'Productos obtenidos correctamente',
+      data: response.data,
+      meta: {
+        page,
+        limit,
+        total: response.data.length,
+        totalPages: Math.max(1, Math.ceil(response.data.length / limit)),
+      },
+    } satisfies ISuccessResponse<IProducto[]>;
+  }
+
   return response.data;
 };
 
