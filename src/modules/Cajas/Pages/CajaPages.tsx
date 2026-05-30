@@ -1,9 +1,5 @@
-import React from 'react'
-
 const CajaPages = () => {
-  return (
-    <div>CajaPages</div>
-  )
-}
+  return <div>CajaPages</div>;
+};
 
-export default CajaPages
+export default CajaPages;

@@ -1,1 +1,24 @@
 @import "tailwindcss";
+
+* {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont,
+        'Helvetica Neue', Helvetica, Arial, sans-serif;
+
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: ;
+    
+}
+
+.text_color {
+    color: #111111!important;
+}
+
+.text_color * {
+    color: inherit;
+}
+
+.text_color svg {
+    color: currentColor;
+    stroke: currentColor;
+}
