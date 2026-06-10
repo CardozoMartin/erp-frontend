@@ -14,12 +14,13 @@ import {
   RotateCcw,
   Printer
 } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
 import { useProductStore } from '../store/useProductStore';
 import { usePutProducts } from '../hooks/useProducts';
 import { normalizeProductoPayload } from '../api/productoApi';
+import FichaHistoryPanel from '../../../components/common/FichaHistoryPanel';
 import StockQuickModal from '../components/ProductoDetails/StockQuickModal';
 import TabResumen from '../components/ProductoDetails/TabResumen';
 import TabStock from '../components/ProductoDetails/tabStock';
@@ -29,6 +30,9 @@ import TabLotes from '../components/ProductoDetails/TabLotes';
 import TabImagenes from '../components/ProductoDetails/TabImagenes';
 import Swal from 'sweetalert2';
 import { formatStockQuantity } from '../utils/stockFormat';
+import { useAuditoriaAux } from '../../POSAuxiliares/hooks/usePosAux';
+import { dateTime } from '../../POSAuxiliares/utils/format';
+import { useGetEmpleados } from '../../Empleados/hooks/useEmpleados';
 
 
 export const formatPrice = (n: any) =>
@@ -75,13 +79,98 @@ const getProductFormDefaults = (product: any) => ({
   tiene_vencimiento: product.tiene_vencimiento,
   es_fraccionable: product.es_fraccionable,
   categoria_id: product.categoria_id ?? '',
-  stock: (product.stock?.length ?? 0) > 0 ? product.stock : [{ sucursal_id: '', cantidad: 0, cantidad_minima: 0 }],
+  stock:
+    (product.stock?.length ?? 0) > 0
+      ? product.stock
+      : [
+          {
+            sucursal_id: '',
+            cantidad: 0,
+            cantidad_minima: 0,
+            deposito: '',
+            pasillo: '',
+            estante: '',
+            sector: '',
+            codigo_ubicacion: '',
+            ubicacion_referencia: '',
+          },
+        ],
   variantes: product.variantes ?? [],
   imagenes: product.imagenes ?? [],
   lotes: product.lotes ?? [],
   ofertas: product.ofertas ?? [],
   atributos: product.atributos ?? [],
 });
+
+const removeUneditedRelationFields = (data: Record<string, unknown>, activeTab: string) => {
+  const relationFieldsByTab: Record<string, string[]> = {
+    stock: ['stock'],
+    precios: ['ofertas'],
+    variantes: ['variantes'],
+    lotes: ['lotes'],
+    imagenes: ['imagenes'],
+    resumen: ['atributos'],
+  };
+  const fieldsToKeep = new Set(relationFieldsByTab[activeTab] ?? []);
+
+  ['stock', 'ofertas', 'variantes', 'lotes', 'imagenes', 'atributos'].forEach((field) => {
+    if (!fieldsToKeep.has(field)) {
+      delete data[field];
+    }
+  });
+};
+
+const productHistoryLabels: Record<string, string> = {
+  CREAR_PRODUCTO: 'Creo el producto',
+  ACTUALIZAR_PRODUCTO: 'Actualizo la ficha',
+  ACTUALIZAR_STOCK_PRODUCTO: 'Actualizo stock',
+  AJUSTAR_STOCK_PRODUCTO: 'Ajusto stock',
+  CAMBIAR_ESTADO_PRODUCTO_SUCURSAL: 'Cambio disponibilidad',
+  ELIMINAR_PRODUCTO: 'Elimino el producto',
+};
+
+const fieldLabels: Record<string, string> = {
+  nombre: 'Nombre',
+  codigo_barras: 'Codigo de barras',
+  descripcion: 'Descripcion',
+  precio_base: 'Precio base',
+  precio_costo: 'Precio costo',
+  precio_venta: 'Precio venta',
+  margen_ganancia: 'Margen',
+  unidad_venta: 'Unidad de venta',
+  activo: 'Activo',
+  activo_pos: 'Activo POS',
+  activo_web: 'Activo web',
+  tiene_variantes: 'Tiene variantes',
+  tiene_vencimiento: 'Tiene vencimiento',
+  es_fraccionable: 'Fraccionable',
+  categoria_id: 'Categoria',
+  marca_id: 'Marca',
+  stock: 'Stock',
+  precios: 'Precios',
+  lotes: 'Lotes',
+  ofertas: 'Ofertas',
+  imagenes: 'Imagenes',
+  variantes: 'Variantes',
+  atributos: 'Atributos',
+};
+
+const formatHistoryValue = (value: any) => {
+  if (value === null || value === undefined || value === '') return 'vacio';
+  if (typeof value === 'boolean') return value ? 'Si' : 'No';
+  if (Array.isArray(value)) return `${value.length} item(s)`;
+  if (typeof value === 'object') return 'datos actualizados';
+  return String(value);
+};
+
+const productChanges = (before?: Record<string, any> | null, after?: Record<string, any> | null) => {
+  if (!before && after) return ['Alta inicial del producto'];
+  if (!before || !after) return [];
+
+  return Object.keys(fieldLabels)
+    .filter((key) => JSON.stringify(before[key] ?? null) !== JSON.stringify(after[key] ?? null))
+    .map((key) => `${fieldLabels[key]}: ${formatHistoryValue(before[key])} -> ${formatHistoryValue(after[key])}`);
+};
 
 
 
@@ -103,6 +192,17 @@ export default function ProductDetailView() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { mutate: putProducto } = usePutProducts();
+  const historialQuery = useAuditoriaAux(
+    {
+      page: 1,
+      limit: 30,
+      modulo: 'productos',
+      entidad: 'producto',
+      entidad_id: product?.id ?? '',
+    },
+    !!product?.id,
+  );
+  const empleadosQuery = useGetEmpleados(1, 100, !!product?.id);
   const methods = useForm<any>({ defaultValues: product || {} });
   const { register, reset, watch, handleSubmit, setValue } = methods;
 
@@ -119,6 +219,11 @@ export default function ProductDetailView() {
       ? Number((((watchedPrecioVenta - watchedPrecioCosto) / watchedPrecioCosto) * 100).toFixed(2))
       : 0;
   const watchedTieneVariantes = watch('tiene_variantes') ?? product?.tiene_variantes;
+  const empleadosById = useMemo(() => {
+    const empleados = empleadosQuery.data?.data ?? [];
+    return new Map(empleados.map((empleado) => [empleado.id, empleado]));
+  }, [empleadosQuery.data]);
+  const historialProducto = historialQuery.data?.data ?? [];
 
   useEffect(() => {
     if (product) {
@@ -186,6 +291,7 @@ export default function ProductDetailView() {
       imagenesLocales: imagenesLocales.length > 0 ? imagenesLocales : undefined,
       id: product?.id,
     });
+    removeUneditedRelationFields(data, activeTab);
 
     putProducto(data, {
       onSuccess: (res: any) => {
@@ -600,9 +706,22 @@ export default function ProductDetailView() {
               {activeTab === 'lotes' && <TabLotes product={product} isEditing={isEditing} />}
               {activeTab === 'imagenes' && <TabImagenes product={product} isEditing={isEditing} imagenesLocales={imagenesLocales} setImagenesLocales={setImagenesLocales} />}
             </div>
-
             </div>
-            <aside className="hidden xl:flex min-h-[550px] flex-col rounded-md border border-[#e2e8f0] bg-[#f8fafc] shadow-[0_4px_20px_rgba(0,0,0,0.03)] overflow-hidden">
+            <FichaHistoryPanel
+              title="Historial"
+              subtitle="Movimientos y actualizaciones del producto"
+              events={historialProducto}
+              isLoading={historialQuery.isLoading}
+              labels={productHistoryLabels}
+              maxChanges={6}
+              emptyDescription="Aca se vera el registro de cambios, ajustes de stock, precios, ofertas e imagenes."
+              getActorName={(evento: any) => {
+                const empleado = evento.empleado_id ? empleadosById.get(evento.empleado_id) : null;
+                return empleado?.nombreCompleto ?? 'Sistema';
+              }}
+              getChanges={(evento: any) => productChanges(evento.antes, evento.despues)}
+            />
+            <aside className="hidden">
               <div className="px-5 py-4 border-b border-slate-200 bg-white">
                 <h2 className="text-sm font-extrabold text-[#041627] uppercase tracking-wider">
                   Historial
@@ -612,6 +731,70 @@ export default function ProductDetailView() {
                 </p>
               </div>
 
+              {historialQuery.isLoading ? (
+                <div className="flex flex-1 flex-col items-center justify-center text-center text-sm font-semibold text-gray-400">
+                  <Clock size={20} className="mb-2 text-[#075E54]" />
+                  Cargando historial...
+                </div>
+              ) : historialProducto.length ? (
+                <div className="flex-1 overflow-y-auto px-5 py-5">
+                  <div className="flex flex-col gap-4">
+                    {historialProducto.map((evento: any) => {
+                      const empleado = evento.empleado_id ? empleadosById.get(evento.empleado_id) : null;
+                      const cambios = productChanges(evento.antes, evento.despues);
+                      return (
+                        <div key={evento.id} className="flex gap-3">
+                          <div className="flex flex-col items-center">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#075E54] text-[11px] font-bold text-white shadow-sm">
+                              {(empleado?.nombreCompleto ?? 'S').slice(0, 2).toUpperCase()}
+                            </div>
+                            <div className="mt-2 h-full w-px bg-slate-200" />
+                          </div>
+                          <div className="flex-1 rounded-md border border-slate-200 bg-white p-3 shadow-sm">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="text-[13px] font-extrabold text-[#041627]">
+                                  {empleado?.nombreCompleto ?? 'Sistema'}
+                                </p>
+                                <p className="mt-0.5 text-[11px] font-semibold uppercase text-[#075E54]">
+                                  {productHistoryLabels[evento.accion] ?? evento.accion}
+                                </p>
+                              </div>
+                              <span className="shrink-0 text-[11px] font-semibold text-gray-400">
+                                {dateTime(evento.created_at)}
+                              </span>
+                            </div>
+
+                            {evento.descripcion ? (
+                              <p className="mt-2 text-[12px] leading-relaxed text-gray-600">
+                                {evento.descripcion}
+                              </p>
+                            ) : null}
+
+                            {cambios.length ? (
+                              <div className="mt-3 flex flex-col gap-1.5">
+                                {cambios.slice(0, 6).map((cambio) => (
+                                  <div
+                                    key={cambio}
+                                    className="rounded border border-slate-100 bg-slate-50 px-2 py-1.5 text-[11px] font-medium text-gray-600"
+                                  >
+                                    {cambio}
+                                  </div>
+                                ))}
+                                {cambios.length > 6 ? (
+                                  <span className="text-[11px] font-semibold text-gray-400">
+                                    +{cambios.length - 6} cambios mas
+                                  </span>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-10">
                 <div className="w-12 h-12 rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm">
                   <Clock size={20} className="text-[#075E54] stroke-[1.75]" />
@@ -623,6 +806,7 @@ export default function ProductDetailView() {
                   Acá se verá el registro de cambios, ajustes de stock, precios, ofertas e imágenes.
                 </p>
               </div>
+              )}
             </aside>
           </div>
         </main>

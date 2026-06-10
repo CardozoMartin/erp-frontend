@@ -48,10 +48,10 @@ export const useGetAllProductCategoriesActives = (page:number=1, limit:number=10
 }
 
 //hook para cambiar el estado de una categoria (activar/desactivar)
-export const useToggleProductCategoryStatus = (id: string) => {
+export const useToggleProductCategoryStatus = (id: number) => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => toggleProductCategoryStatusFn(id),
+    mutationFn: () => toggleProductCategoryStatusFn(String(id)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productCategoriesActives'] });
       toast.success('Estado de categoría actualizado correctamente');

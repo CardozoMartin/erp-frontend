@@ -45,7 +45,19 @@ const defaultProductValues = {
   tiene_vencimiento: false,
   es_fraccionable: false,
   categoria_id: null,
-  stock: [{ sucursal_id: '', cantidad: 0, cantidad_minima: 0 }],
+  stock: [
+    {
+      sucursal_id: '',
+      cantidad: 0,
+      cantidad_minima: 0,
+      deposito: '',
+      pasillo: '',
+      estante: '',
+      sector: '',
+      codigo_ubicacion: '',
+      ubicacion_referencia: '',
+    },
+  ],
   variantes: [],
   imagenes: [],
   lotes: [],
@@ -205,6 +217,12 @@ export default function ProductForm() {
         sucursal_id: item.sucursal_id || null,
         cantidad: Number(item.cantidad || 0),
         cantidad_minima: Number(item.cantidad_minima || 0),
+        deposito: item.deposito?.trim?.() || null,
+        pasillo: item.pasillo?.trim?.() || null,
+        estante: item.estante?.trim?.() || null,
+        sector: item.sector?.trim?.() || null,
+        codigo_ubicacion: item.codigo_ubicacion?.trim?.() || null,
+        ubicacion_referencia: item.ubicacion_referencia?.trim?.() || null,
       }));
 
     if (data.stock && data.stock.length > 0) {

@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import type { IImagen, IImagenLocal } from '../../types/productos.type';
 import { useUploadImage } from '../../hooks/useProducts';
 import { toast } from 'sonner';
+import { useConfiguracionCloudinary } from '../../../POSAuxiliares/hooks/usePosAux';
 
 type ImageRole = IImagen['rol'];
 
@@ -43,6 +44,8 @@ export default function ModalImageUpload({
   });
   const defaultRole = watch('defaultRole');
   const { mutate: uploadImage, isPending } = useUploadImage();
+  const cloudinaryQuery = useConfiguracionCloudinary();
+  const cloudinaryDisponible = !!cloudinaryQuery.data?.disponible;
   const currentListImage = existingImages[0];
   const currentImagesByRole = IMAGE_ROLES.map((role) => ({
     ...role,
@@ -80,6 +83,10 @@ export default function ModalImageUpload({
   const handleUpload = async () => {
     if (imagenesLocales.length === 0) {
       toast.error('Selecciona al menos una imagen');
+      return;
+    }
+    if (!cloudinaryDisponible) {
+      toast.error('Configure y pruebe Cloudinary antes de subir imagenes');
       return;
     }
 
@@ -126,6 +133,11 @@ export default function ModalImageUpload({
         </div>
 
         <div className="p-6 overflow-y-auto max-h-[68vh] flex flex-col gap-5">
+          {!cloudinaryDisponible ? (
+            <div className="rounded border border-[#f6d58f] bg-[#fff8e6] px-4 py-3 text-[13px] font-semibold text-[#8a5a00]">
+              Cloudinary todavia no esta habilitado. Cargue las credenciales y pruebe la conexion desde Configuracion POS.
+            </div>
+          ) : null}
           <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-4">
             <div
               className="border-2 border-dashed border-[#c4c6cd] rounded-lg p-8 flex flex-col items-center justify-center bg-white hover:bg-[#f5f3f4] transition-colors cursor-pointer"
@@ -404,7 +416,7 @@ export default function ModalImageUpload({
           </button>
           <button
             onClick={handleUpload}
-            disabled={imagenesLocales.length === 0 || isPending}
+            disabled={imagenesLocales.length === 0 || isPending || !cloudinaryDisponible}
             className="px-4 py-2 text-[13px] font-medium bg-[#075E54] text-white rounded-sm hover:bg-[#064d45] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {isPending ? 'Subiendo...' : 'Subir imagenes'}

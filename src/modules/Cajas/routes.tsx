@@ -3,21 +3,14 @@ import CajaPages from './Pages/CajaPages';
 
 export const cajasRoutes: RouteObject[] = [
   {
-    path: 'cajas',
+    path: 'caja',
     children: [
-      {
-        index: true,
-        element: <CajaPages />,
-      },
-      // Agrega más rutas aquí según sea necesario
-      // {
-      //   path: "nuevo",
-      //   element: <CajaForm />,
-      // },
-      // {
-      //   path: ":id/movimientos",
-      //   element: <CajaMovimientos />,
-      // },
+      { index: true, element: <CajaPages /> },
+      { path: 'movimientos', element: <CajaPages /> },
+      { path: 'cierre', element: <CajaPages /> },
+      { path: 'ingreso', element: <CajaPages /> },
+      { path: ':cajaId', element: <CajaPages /> },
+      { path: ':cajaId/cierre', element: <CajaPages /> },
     ],
   },
 ];

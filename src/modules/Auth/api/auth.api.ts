@@ -18,3 +18,7 @@ export const seleccionarSucursalFn = async (sucursalId: string) => {
   }>('/auth/seleccionar-sucursal', { sucursalId });
   return res.data;
 };
+
+export const logoutFn = async () => {
+  await api.post('/auth/logout');
+};

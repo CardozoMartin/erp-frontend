@@ -6,4 +6,16 @@ export const clientesRoutes: RouteObject[] = [
     path: 'clientes',
     element: <ClientesPage />,
   },
+  {
+    path: 'clientes/nuevo',
+    element: <ClientesPage />,
+  },
+  {
+    path: 'clientes/:clienteId',
+    element: <ClientesPage />,
+  },
+  {
+    path: 'clientes/:clienteId/cuenta',
+    element: <ClientesPage />,
+  },
 ];

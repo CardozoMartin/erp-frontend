@@ -33,6 +33,11 @@ export interface ICliente {
   email?: string | null;
   telefono?: string | null;
   direccion?: string | null;
+  altura?: string | null;
+  barrio?: string | null;
+  localidad?: string | null;
+  codigo_postal?: string | null;
+  referencia_entrega?: string | null;
   activo: boolean;
   cuentaCorriente?: ICuentaCorrienteCliente | null;
   created_at?: string;
@@ -49,6 +54,11 @@ export interface IClientePayload {
   email?: string | null;
   telefono?: string | null;
   direccion?: string | null;
+  altura?: string | null;
+  barrio?: string | null;
+  localidad?: string | null;
+  codigo_postal?: string | null;
+  referencia_entrega?: string | null;
   cuentaCorriente?: {
     limite_credito?: number;
     planPago?: {

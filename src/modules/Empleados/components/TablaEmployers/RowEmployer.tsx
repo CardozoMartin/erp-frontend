@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import type { IEmpleado } from '../../types/empleado.type';
-import { ImageIcon, PackagePlusIcon, PencilIcon, TagIcon, TrashIcon } from 'lucide-react';
-import { createPortal } from 'react-dom';
+import { PencilIcon, ShieldOff, UserCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useEmpleadoStore } from '../../store/useEmpleadoStore';
+import TableContextMenu from '../../../../components/common/TableContextMenu';
 
 type Props = {
   empleado: IEmpleado;
@@ -19,7 +19,6 @@ const getInitials = (nombreCompleto: string) =>
 
 const RowEmployer = ({ empleado }: Props) => {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
-  const rowRef = useRef<HTMLTableRowElement>(null);
   const navigate = useNavigate();
   const { setEmpleado } = useEmpleadoStore();
   // Usamos la sucursal principal cuando exista; si no, mostramos la primera.
@@ -38,22 +37,6 @@ const RowEmployer = ({ empleado }: Props) => {
       event.preventDefault();
       setMenu({x: event.clientX, y: event.clientY});
     }
-     //cerar al clikear en cualquier lado fuera del menu
-      useEffect(() => {
-        const close = () => setMenu(null);
-        const handleGlobalContextMenu = (event: MouseEvent) => {
-          if (rowRef.current && !rowRef.current.contains(event.target as Node)) {
-            setMenu(null);
-          }
-        };
-    
-        window.addEventListener('click', close);
-        window.addEventListener('contextmenu', handleGlobalContextMenu);
-        return () => {
-          window.removeEventListener('click', close);
-          window.removeEventListener('contextmenu', handleGlobalContextMenu);
-        };
-      }, []);
   return (
     <>
     <tr className="border-b border-[#c4c6cd] transition-colors last:border-b-0 hover:bg-[#f5f3f4]"
@@ -119,52 +102,17 @@ const RowEmployer = ({ empleado }: Props) => {
         </span>
       </td>
     </tr>
-    {menu &&
-        createPortal(
-          <div
-            className="fixed z-50 bg-white border border-[#c4c6cd] rounded-lg shadow-lg py-1 min-w-[220px]"
-            style={{ top: menu.y, left: menu.x }}
-            onClick={(e) => e.stopPropagation()}
-          >
-           
-            <button
-              onClick={handleDetailEmployer}
-              className="w-full px-4 py-2 text-left text-[13px] text-[#44474c] hover:bg-[#f5f3f4] flex items-center gap-2"
-            >
-              <PencilIcon size={14} /> Ver detalles
-            </button>
-            <button
-             
-              className="w-full px-4 py-2 text-left text-[13px] text-[#44474c] hover:bg-[#f5f3f4] flex items-center gap-2"
-            >
-              <ImageIcon size={14} /> Cambiar imagen
-            </button>
-            <div className="my-1 border-t border-[#efedef]" />
-            <button
-             
-              className="w-full px-4 py-2 text-left text-[13px] text-[#44474c] hover:bg-[#f5f3f4] flex items-center gap-2"
-            >
-              <PackagePlusIcon size={14} /> Aumentar stock
-            </button>
-            <button
-              
-              className="w-full px-4 py-2 text-left text-[13px] text-[#44474c] hover:bg-[#f5f3f4] flex items-center gap-2 justify-between"
-            >
-              <span className="flex items-center gap-2">
-                <TagIcon size={14} /> Aplicar oferta
-              </span>
-              <span className="text-[11px] bg-amber-100 text-amber-700 px-2 rounded-full">%</span>
-            </button>
-            <div className="my-1 border-t border-[#efedef]" />
-            <button
-              
-              className="w-full px-4 py-2 text-left text-[13px] text-[#ba1a1a] hover:bg-[#fce8e8] flex items-center gap-2"
-            >
-              <TrashIcon size={14} /> Desactivar producto
-            </button>
-          </div>,
-          document.body
-        )}
+    {menu && (
+      <TableContextMenu
+        x={menu.x}
+        y={menu.y}
+        onClose={() => setMenu(null)}
+        actions={[
+          { label: 'Ver detalles', icon: <PencilIcon size={14} />, onClick: handleDetailEmployer },
+          { label: empleado.activo ? 'Desactivar empleado' : 'Activar empleado', icon: empleado.activo ? <ShieldOff size={14} /> : <UserCheck size={14} />, danger: empleado.activo, dividerBefore: true },
+        ]}
+      />
+    )}
     </>
   );
 };

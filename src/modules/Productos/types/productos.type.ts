@@ -40,6 +40,12 @@ export interface IStock {
   sucursal_id?: string | null;
   cantidad: number;
   cantidad_minima: number;
+  deposito?: string | null;
+  pasillo?: string | null;
+  estante?: string | null;
+  sector?: string | null;
+  codigo_ubicacion?: string | null;
+  ubicacion_referencia?: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -1,5 +1,4 @@
 import { Plus } from 'lucide-react'
-import React from 'react'
 import TableMarcaProducts from '../components/MarcaProducts/TableMarcaProducts'
 
 const ProductsMarcaPage = () => {

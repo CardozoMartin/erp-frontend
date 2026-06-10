@@ -7,7 +7,13 @@ import {
 import { useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { FieldErrors, UseFormRegister, UseFormSetValue } from 'react-hook-form';
-import { useGetRoles, usePutEmpleado } from '../hooks/useEmpleados';
+import FichaHistoryPanel from '../../../components/common/FichaHistoryPanel';
+import {
+  useGetEmpleados,
+  useGetRoles,
+  usePutEmpleado,
+} from '../hooks/useEmpleados';
+import { useAuditoriaAux } from '../../POSAuxiliares/hooks/usePosAux';
 import { useEmpleadoStore } from '../store/useEmpleadoStore';
 import type { ICreateEmpleadoPayload, IEmpleado, IEmpleadoRol } from '../types/empleado.type';
 
@@ -129,6 +135,45 @@ function formatDate(iso: string) {
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
+
+const empleadoHistoryLabels: Record<string, string> = {
+  LOGIN: 'Inicio sesion',
+  LOGOUT: 'Cerro sesion',
+  CREAR_EMPLEADO: 'Creo el empleado',
+  ACTUALIZAR_EMPLEADO: 'Actualizo la ficha',
+  ACTUALIZAR_ROLES_EMPLEADO: 'Actualizo roles',
+  ASIGNAR_SUCURSAL_EMPLEADO: 'Asigno sucursal',
+  QUITAR_SUCURSAL_EMPLEADO: 'Quito sucursal',
+  CAMBIAR_SUCURSAL_PRINCIPAL_EMPLEADO: 'Cambio sucursal principal',
+};
+
+const empleadoFieldLabels: Record<string, string> = {
+  nombreCompleto: 'Nombre',
+  email: 'Email',
+  telefono: 'Telefono',
+  direccion: 'Direccion',
+  cargo: 'Cargo',
+  activo: 'Activo',
+  roles: 'Roles',
+  permisos: 'Permisos',
+  sucursales: 'Sucursales',
+};
+
+const formatAuditValue = (value: any) => {
+  if (value === null || value === undefined || value === '') return 'vacio';
+  if (typeof value === 'boolean') return value ? 'Si' : 'No';
+  if (Array.isArray(value)) return `${value.length} item(s)`;
+  if (typeof value === 'object') return 'datos actualizados';
+  return String(value);
+};
+
+const empleadoChanges = (before?: Record<string, any> | null, after?: Record<string, any> | null) => {
+  if (!before && after) return ['Alta inicial del empleado'];
+  if (!before || !after) return [];
+  return Object.keys(empleadoFieldLabels)
+    .filter((key) => JSON.stringify(before[key] ?? null) !== JSON.stringify(after[key] ?? null))
+    .map((key) => `${empleadoFieldLabels[key]}: ${formatAuditValue(before[key])} -> ${formatAuditValue(after[key])}`);
+};
 
 // ─── SUB-COMPONENTS ───────────────────────────────────────────────────────────
 
@@ -512,176 +557,6 @@ function TabActividad() {
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
-function TabSucursales({
-  emp,
-  isEditing,
-  sucursalesAsignadas,
-  setSucursalesAsignadas,
-}: {
-  emp: { id: string };
-  isEditing: boolean;
-  sucursalesAsignadas: IEmpleadoSucursalAsignada[];
-  setSucursalesAsignadas: Dispatch<SetStateAction<IEmpleadoSucursalAsignada[]>>;
-}) {
-  const [selectedSucursalId, setSelectedSucursalId] = useState('');
-  const { data: sucursalesDisponiblesCatalogo = [] } = useGetSucursalesActivas();
-  const asignarSucursal = useAsignarEmpleadoSucursal();
-  const setPrincipal = useSetEmpleadoSucursalPrincipal();
-  const desasignarSucursal = useDesasignarEmpleadoSucursal();
-
-  const asignadasIds = new Set(sucursalesAsignadas.map((s) => s.id));
-  const sucursalesParaAgregar = sucursalesDisponiblesCatalogo.filter(
-    (sucursal) => !asignadasIds.has(sucursal.id),
-  );
-  const isMutating =
-    asignarSucursal.isPending ||
-    setPrincipal.isPending ||
-    desasignarSucursal.isPending;
-
-  const handleAsignar = async () => {
-    if (!selectedSucursalId) return;
-    const sucursal = sucursalesDisponiblesCatalogo.find(
-      (item) => item.id === selectedSucursalId,
-    );
-    if (!sucursal) return;
-
-    const esPrincipal = sucursalesAsignadas.length === 0;
-    await asignarSucursal.mutateAsync({
-      empleadoId: emp.id,
-      sucursalId: selectedSucursalId,
-      esPrincipal,
-    });
-
-    setSucursalesAsignadas((prev) => [
-      ...prev.map((item) => ({
-        ...item,
-        esPrincipal: esPrincipal ? false : item.esPrincipal,
-      })),
-      {
-        id: sucursal.id,
-        nombre: sucursal.nombre,
-        activo: true,
-        esPrincipal,
-      },
-    ]);
-    setSelectedSucursalId('');
-  };
-
-  const handleSetPrincipal = async (sucursalId: string) => {
-    await setPrincipal.mutateAsync({ empleadoId: emp.id, sucursalId });
-    setSucursalesAsignadas((prev) =>
-      prev.map((item) => ({ ...item, esPrincipal: item.id === sucursalId })),
-    );
-  };
-
-  const handleQuitar = async (sucursalId: string) => {
-    const removedWasPrincipal = sucursalesAsignadas.find(
-      (item) => item.id === sucursalId,
-    )?.esPrincipal;
-    await desasignarSucursal.mutateAsync({ empleadoId: emp.id, sucursalId });
-
-    const remaining = sucursalesAsignadas.filter((item) => item.id !== sucursalId);
-    const next =
-      removedWasPrincipal && remaining.length > 0
-        ? remaining.map((item, index) => ({ ...item, esPrincipal: index === 0 }))
-        : remaining;
-
-    setSucursalesAsignadas(next);
-    if (removedWasPrincipal && next[0]) {
-      await setPrincipal.mutateAsync({
-        empleadoId: emp.id,
-        sucursalId: next[0].id,
-      });
-    }
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <div style={{ padding: '12px 16px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#666' }}>
-        <span style={{ fontWeight: 700, color: '#041627' }}>{sucursalesAsignadas.length}</span> sucursales asignadas. El empleado solo puede operar en las sucursales habilitadas.
-      </div>
-
-      {isEditing && (
-        <div style={{ display: 'flex', gap: 10, padding: 12, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}>
-          <select
-            value={selectedSucursalId}
-            onChange={(event) => setSelectedSucursalId(event.target.value)}
-            style={{ flex: 1, padding: '8px 12px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, fontWeight: 600, color: '#041627', outline: 'none' }}
-          >
-            <option value="">Seleccionar sucursal para agregar</option>
-            {sucursalesParaAgregar.map((sucursal) => (
-              <option key={sucursal.id} value={sucursal.id}>
-                {sucursal.nombre}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={handleAsignar}
-            disabled={!selectedSucursalId || isMutating}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: '#075E54', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: selectedSucursalId ? 'pointer' : 'not-allowed', opacity: !selectedSucursalId || isMutating ? 0.6 : 1 }}
-          >
-            <Plus size={13} /> Asignar
-          </button>
-        </div>
-      )}
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {sucursalesAsignadas.length > 0 ? (
-          sucursalesAsignadas.map((sucursal) => (
-            <div key={sucursal.id} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '12px 16px', borderRadius: 8,
-              border: `1px solid ${sucursal.esPrincipal ? '#C0DD97' : '#e2e8f0'}`,
-              background: sucursal.esPrincipal ? '#EAF3DE' : '#fff',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <MapPin size={16} style={{ color: sucursal.esPrincipal ? '#075E54' : '#888' }} />
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#041627' }}>{sucursal.nombre}</div>
-                  {sucursal.esPrincipal && (
-                    <span style={{ display: 'inline-block', marginTop: 3, fontSize: 10, fontWeight: 800, color: '#075E54', background: '#fff', borderRadius: 999, padding: '2px 8px' }}>
-                      Principal
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {isEditing && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {!sucursal.esPrincipal && (
-                    <button
-                      type="button"
-                      onClick={() => handleSetPrincipal(sucursal.id)}
-                      disabled={isMutating}
-                      style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #075E54', background: '#fff', color: '#075E54', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                    >
-                      Principal
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => handleQuitar(sucursal.id)}
-                    disabled={isMutating}
-                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 6, border: '1px solid #F7C1C1', background: '#fff', color: '#A32D2D', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                  >
-                    <Trash2 size={12} /> Quitar
-                  </button>
-                </div>
-              )}
-            </div>
-          ))
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', background: '#FCEBEB', borderRadius: 8, border: '1px solid #F7C1C1', color: '#A32D2D', fontSize: 13, fontWeight: 700 }}>
-            <AlertCircle size={14} />
-            Este empleado todavia no tiene sucursales asignadas.
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 const TABS_DEF = [
   { id: 'info', label: 'Información General', icon: User },
   { id: 'roles', label: 'Roles', icon: Shield },
@@ -693,6 +568,7 @@ const TABS_DEF = [
 export default function EmpleadoDetailView() {
   const { empleado, setEmpleado } = useEmpleadoStore();
   const rolesQuery = useGetRoles();
+  const empleadosQuery = useGetEmpleados(1, 100);
   const empleadoActual: DetailEmpleado = empleado
     ? {
         ...EMPLEADO_MOCK,
@@ -729,6 +605,20 @@ export default function EmpleadoDetailView() {
     defaultValues: defaultFormValues,
   });
   const form = watch();
+  const historialQuery = useAuditoriaAux(
+    {
+      page: 1,
+      limit: 30,
+      entidad: 'empleado',
+      entidad_id: emp.id,
+    },
+    !!emp.id,
+  );
+  const empleadosById = useMemo(() => {
+    const empleados = empleadosQuery.data?.data ?? [];
+    return new Map(empleados.map((item) => [item.id, item]));
+  }, [empleadosQuery.data]);
+  const historialEmpleado = historialQuery.data?.data ?? [];
   const rolesDisponibles: RoleOption[] = rolesQuery.data ?? ROLES_DISPONIBLES;
   const rolesAsignados = useMemo(
     () =>
@@ -1043,6 +933,24 @@ export default function EmpleadoDetailView() {
             </div>
 
             <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <FichaHistoryPanel
+                variant="section"
+                className="max-h-[430px] rounded-lg bg-white"
+                title="Historial"
+                subtitle="Cambios, roles, sucursales y accesos"
+                events={historialEmpleado}
+                isLoading={historialQuery.isLoading}
+                labels={empleadoHistoryLabels}
+                maxChanges={4}
+                emptyTitle="Sin movimientos"
+                emptyDescription="Aca se vera quien cambio el empleado y cuando."
+                getActorName={(evento: any) => {
+                  const actor = evento.empleado_id ? empleadosById.get(evento.empleado_id) : null;
+                  return actor?.nombreCompleto ?? 'Sistema';
+                }}
+                getChanges={(evento: any) => empleadoChanges(evento.antes, evento.despues)}
+              />
+
               {/* Ruta de inicio */}
               <div style={{ padding: '12px 14px', background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Al iniciar sesión va a:</div>

@@ -29,3 +29,16 @@ export const postSucursalFn = async (data: INewSucursalPayload) => {
   console.log('Respuesta del servidor:', response.data);
   return response.data;
 };
+
+export const getSucursalFn = async (id: string) => {
+  const response = await api.get<ISuccessResponse<ISucursal> | ISucursal>(`/sucursales/${id}`);
+  return 'data' in response.data ? response.data.data : response.data;
+};
+
+export const updateSucursalFn = async (payload: { id: string; data: Partial<INewSucursalPayload> }) => {
+  const response = await api.patch<ISuccessResponse<ISucursal> | ISucursal>(
+    `/sucursales/${payload.id}`,
+    payload.data,
+  );
+  return 'data' in response.data ? response.data.data : response.data;
+};
