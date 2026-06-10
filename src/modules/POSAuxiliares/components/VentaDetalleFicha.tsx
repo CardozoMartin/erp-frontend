@@ -6,6 +6,13 @@ const tipoLabel: Record<string, string> = {
   COTIZACION: 'Cotizacion',
 };
 
+const arcaBadgeClass = (estado?: string | null) => {
+  if (estado === 'AUTORIZADO') return 'border-[#cfe2de] bg-[#f3fbf9] text-[#075E54]';
+  if (estado === 'RECHAZADO') return 'border-[#f1c7c7] bg-[#fff5f5] text-[#b42318]';
+  if (estado === 'MANUAL') return 'border-[#c7d2fe] bg-[#eef2ff] text-[#3730a3]';
+  return 'border-[#f6d9a8] bg-[#fff8eb] text-[#92400e]';
+};
+
 type Props = {
   venta: IVentaGeneralAux;
 };
@@ -75,6 +82,49 @@ const VentaDetalleFicha = ({ venta }: Props) => {
       </div>
 
       <div className="px-4 pb-4">
+        {venta.fiscales.length ? (
+          <section className="mb-4 rounded border border-[#c4c6cd]">
+            <div className="border-b border-[#c4c6cd] px-3 py-2 text-[13px] font-bold uppercase text-[#041627]">
+              Comprobantes fiscales
+            </div>
+            <div className="overflow-auto">
+              <table className="w-full min-w-[780px] border-collapse text-[13px]">
+                <thead className="bg-[#fbf9fa] text-[#44474c]">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Comprobante</th>
+                    <th className="px-3 py-2 text-left">Estado ARCA</th>
+                    <th className="px-3 py-2 text-left">CAE</th>
+                    <th className="px-3 py-2 text-left">Vencimiento</th>
+                    <th className="px-3 py-2 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {venta.fiscales.map((fiscal) => (
+                    <tr key={fiscal.id} className="border-t border-[#e5e7eb]">
+                      <td className="px-3 py-2 font-semibold text-[#041627]">
+                        {fiscal.tipo} {fiscal.numero}
+                      </td>
+                      <td className="px-3 py-2">
+                        {['FACTURA_A', 'FACTURA_B', 'FACTURA_C'].includes(fiscal.tipo) ? (
+                          <span className={`rounded border px-2 py-1 text-[11px] font-semibold ${arcaBadgeClass(fiscal.arca_estado)}`}>
+                            {fiscal.arca_estado ?? 'PENDIENTE'}
+                            {fiscal.arca_modo ? ` (${fiscal.arca_modo})` : ''}
+                          </span>
+                        ) : (
+                          <span className="text-[#44474c]">No requiere</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 font-mono text-[12px]">{fiscal.cae ?? '-'}</td>
+                      <td className="px-3 py-2">{fiscal.cae_vencimiento ? dateTime(fiscal.cae_vencimiento) : '-'}</td>
+                      <td className="px-3 py-2 text-right font-semibold">{money(fiscal.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : null}
+
         <section className="rounded border border-[#c4c6cd]">
           <div className="border-b border-[#c4c6cd] px-3 py-2 text-[13px] font-bold uppercase text-[#041627]">
             Items

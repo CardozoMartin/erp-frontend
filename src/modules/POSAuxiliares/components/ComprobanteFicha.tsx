@@ -1,4 +1,4 @@
-import { CreditCard, FileText, Printer, UserRound, Wallet } from 'lucide-react';
+import { BadgeCheck, CreditCard, FileText, Printer, ShieldAlert, UserRound, Wallet } from 'lucide-react';
 import type { ReactNode } from 'react';
 import DataTable from '../../../components/common/DataTable';
 import type { DataTableColumn } from '../../../components/common/DataTable';
@@ -41,6 +41,25 @@ const itemColumns: DataTableColumn<ComprobanteItem>[] = [
     render: (item) => <span className="font-bold text-[#041627]">{money(item.subtotal)}</span>,
   },
 ];
+
+const arcaLabel: Record<string, string> = {
+  NO_REQUIERE: 'No requiere',
+  PENDIENTE: 'Pendiente',
+  AUTORIZADO: 'Autorizado',
+  RECHAZADO: 'Rechazado',
+  MANUAL: 'Manual',
+};
+
+const arcaBadgeClass = (estado?: string | null) => {
+  if (estado === 'AUTORIZADO') return 'border-[#cfe2de] bg-[#f3fbf9] text-[#075E54]';
+  if (estado === 'RECHAZADO') return 'border-[#f1c7c7] bg-[#fff5f5] text-[#b42318]';
+  if (estado === 'PENDIENTE') return 'border-[#f6d9a8] bg-[#fff8eb] text-[#92400e]';
+  if (estado === 'MANUAL') return 'border-[#c7d2fe] bg-[#eef2ff] text-[#3730a3]';
+  return 'border-[#e5e7eb] bg-[#f8fafc] text-[#44474c]';
+};
+
+const isFacturaFiscal = (comprobante: IComprobanteAux) =>
+  ['FACTURA_A', 'FACTURA_B', 'FACTURA_C'].includes(comprobante.tipo);
 
 const ComprobanteFicha = ({
   comprobante,
@@ -113,6 +132,32 @@ const ComprobanteFicha = ({
         </div>
       </div>
 
+      {isFacturaFiscal(comprobante) ? (
+        <div className="border-b border-[#c4c6cd] p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-[13px] font-bold uppercase text-[#041627]">
+              {comprobante.arca_estado === 'RECHAZADO' ? <ShieldAlert size={15} /> : <BadgeCheck size={15} />}
+              Estado ARCA
+            </div>
+            <span className={`rounded border px-2.5 py-1 text-[11px] font-semibold ${arcaBadgeClass(comprobante.arca_estado)}`}>
+              {arcaLabel[comprobante.arca_estado ?? ''] ?? comprobante.arca_estado ?? 'Pendiente'}
+            </span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <FiscalInfo label="Modo" value={comprobante.arca_modo ?? '-'} />
+            <FiscalInfo label="CAE" value={comprobante.cae ?? '-'} />
+            <FiscalInfo label="Vencimiento CAE" value={comprobante.cae_vencimiento ? dateTime(comprobante.cae_vencimiento) : '-'} />
+            <FiscalInfo label="Codigo fiscal" value={comprobante.codigo_fiscal ?? '-'} />
+          </div>
+          {comprobante.arca_error_mensaje ? (
+            <div className="mt-3 rounded border border-[#f1c7c7] bg-[#fff5f5] px-3 py-2 text-[12px] font-semibold text-[#b42318]">
+              {comprobante.arca_error_codigo ? `${comprobante.arca_error_codigo}: ` : ''}
+              {comprobante.arca_error_mensaje}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="border-b border-[#c4c6cd]">
         <div className="border-b border-[#e5e7eb] px-4 py-3 text-[12px] font-bold uppercase tracking-wide text-[#44474c]">
           Items
@@ -158,5 +203,12 @@ const ComprobanteFicha = ({
     </section>
   );
 };
+
+const FiscalInfo = ({ label, value }: { label: string; value: string }) => (
+  <div className="rounded border border-[#e5e7eb] bg-[#f8fafc] px-3 py-2">
+    <div className="text-[11px] font-bold uppercase text-[#44474c]">{label}</div>
+    <div className="mt-1 truncate text-[13px] font-semibold text-[#041627]">{value}</div>
+  </div>
+);
 
 export default ComprobanteFicha;

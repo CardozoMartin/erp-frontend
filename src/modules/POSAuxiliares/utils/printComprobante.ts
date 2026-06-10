@@ -414,6 +414,7 @@ export const imprimirComprobante = (
   const baseImponible =
     ivaCalculado > 0 ? toNumber(comprobante.subtotal) - ivaCalculado : 0;
   const isRemito = comprobante.tipo === 'REMITO' || titulo.toUpperCase() === 'REMITO';
+  const isFacturaArca = ['FACTURA_A', 'FACTURA_B', 'FACTURA_C'].includes(comprobante.tipo);
   const remitoItems = items.filter((item) => toNumber(item.cantidad) > 0);
   const remitoCantidadPorDescripcion = new Map(
     remitoItems.map((item) => [String(item.descripcion).trim().toLowerCase(), toNumber(item.cantidad)]),
@@ -466,6 +467,12 @@ export const imprimirComprobante = (
               ${line('CUIT', config.cuit_ticket)}
               ${line('IIBB', config.ingresos_brutos_ticket)}
               ${line('Inicio act.', config.inicio_actividades_ticket)}
+              ${isFacturaArca ? line('Punto venta', comprobante.punto_venta) : ''}
+              ${isFacturaArca ? line('Cod. comprobante', comprobante.codigo_fiscal) : ''}
+              ${isFacturaArca ? line('Estado ARCA', comprobante.arca_estado) : ''}
+              ${isFacturaArca ? line('Modo ARCA', comprobante.arca_modo) : ''}
+              ${isFacturaArca ? line('CAE', comprobante.cae) : ''}
+              ${isFacturaArca ? line('Vto. CAE', comprobante.cae_vencimiento ? new Date(comprobante.cae_vencimiento).toLocaleDateString('es-AR') : '') : ''}
             </section>
           ` : ''}
 

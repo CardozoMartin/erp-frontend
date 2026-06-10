@@ -11,6 +11,17 @@ export interface IComprobanteAux {
   comprobante_origen_id?: string | null;
   cliente_id?: string | null;
   caja_id?: string | null;
+  codigo_fiscal?: string | null;
+  punto_venta?: string | null;
+  cae?: string | null;
+  cae_vencimiento?: string | null;
+  arca_estado?: 'NO_REQUIERE' | 'PENDIENTE' | 'AUTORIZADO' | 'RECHAZADO' | 'MANUAL';
+  arca_modo?: 'none' | 'mock' | 'arca' | string | null;
+  arca_error_codigo?: string | null;
+  arca_error_mensaje?: string | null;
+  arca_payload?: Record<string, unknown> | null;
+  arca_respuesta?: Record<string, unknown> | null;
+  arca_autorizado_at?: string | null;
   created_at: string;
   fecha_vencimiento?: string | null;
   items?: {

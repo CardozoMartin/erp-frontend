@@ -26,6 +26,26 @@ const FacturacionAuxPage = () => {
   );
   const printComprobante = (comprobante: IComprobanteAux) =>
     imprimirComprobante(comprobante, { titulo: comprobante.tipo, config: configQuery.data });
+  const arcaBadge = (comprobante: IComprobanteAux) => {
+    if (!['FACTURA_A', 'FACTURA_B', 'FACTURA_C'].includes(comprobante.tipo)) {
+      return <span className="text-[#44474c]">No requiere</span>;
+    }
+    const estado = comprobante.arca_estado ?? 'PENDIENTE';
+    const className =
+      estado === 'AUTORIZADO'
+        ? 'border-[#cfe2de] bg-[#f3fbf9] text-[#075E54]'
+        : estado === 'RECHAZADO'
+          ? 'border-[#f1c7c7] bg-[#fff5f5] text-[#b42318]'
+          : estado === 'MANUAL'
+            ? 'border-[#c7d2fe] bg-[#eef2ff] text-[#3730a3]'
+            : 'border-[#f6d9a8] bg-[#fff8eb] text-[#92400e]';
+    return (
+      <span className={`rounded border px-2 py-1 text-[11px] font-semibold ${className}`}>
+        {estado}
+        {comprobante.arca_modo ? ` (${comprobante.arca_modo})` : ''}
+      </span>
+    );
+  };
   const columns: DataTableColumn<IComprobanteAux>[] = [
     {
       key: 'numero',
@@ -34,6 +54,8 @@ const FacturacionAuxPage = () => {
     },
     { key: 'tipo', header: 'Tipo', render: (comprobante) => comprobante.tipo },
     { key: 'estado', header: 'Estado', render: (comprobante) => comprobante.estado },
+    { key: 'arca', header: 'ARCA', render: arcaBadge },
+    { key: 'cae', header: 'CAE', render: (comprobante) => comprobante.cae ? <span className="font-mono text-[12px]">{comprobante.cae}</span> : '-' },
     { key: 'origen', header: 'Venta origen', render: (comprobante) => shortId(comprobante.comprobante_origen_id) },
     { key: 'fecha', header: 'Fecha', render: (comprobante) => dateTime(comprobante.created_at) },
     {
