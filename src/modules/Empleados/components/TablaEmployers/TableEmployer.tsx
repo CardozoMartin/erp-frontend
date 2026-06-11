@@ -1,8 +1,12 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Gift, PencilIcon, ShieldOff, UserCheck } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import DataTable from '../../../../components/common/DataTable';
+import type { DataTableColumn } from '../../../../components/common/DataTable';
 import { useGetEmpleados } from '../../hooks/useEmpleados';
-import RowEmployer from './RowEmployer';
 import { useAuthStore } from '../../../../store/auth.store';
+import { useEmpleadoStore } from '../../store/useEmpleadoStore';
+import type { IEmpleado } from '../../types/empleado.type';
 
 type Props = {
   search?: string;
@@ -10,9 +14,26 @@ type Props = {
 
 const LIMIT = 10;
 
+const getInitials = (nombreCompleto: string) =>
+  nombreCompleto
+    .split(' ')
+    .slice(0, 2)
+    .map((chunk) => chunk[0] ?? '')
+    .join('')
+    .toUpperCase();
+
+const money = (value: unknown) =>
+  Number(value ?? 0).toLocaleString('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    maximumFractionDigits: 0,
+  });
+
 const TableEmployer = ({ search = '' }: Props) => {
   const [currentPage, setCurrentPage] = useState(1);
   const sucursalActivaId = useAuthStore((state) => state.sucursalActiva?.id);
+  const navigate = useNavigate();
+  const { setEmpleado } = useEmpleadoStore();
 
   // La API ya pagina, asi que en frontend solo consumimos la pagina actual
   // y aplicamos un filtro visual liviano sobre esos registros.
@@ -46,56 +67,160 @@ const TableEmployer = ({ search = '' }: Props) => {
     });
   }, [empleados, search, sucursalActivaId]);
 
+  const openEmpleado = (empleado: IEmpleado) => {
+    setEmpleado(empleado);
+    navigate(`/empleados/${empleado.id}`);
+  };
+
+  const columns: DataTableColumn<IEmpleado>[] = [
+    {
+      key: 'empleado',
+      header: 'Empleado',
+      render: (empleado) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-[#c4c6cd] bg-[#E6F1FB] text-sm font-bold text-[#185FA5]">
+            {getInitials(empleado.nombreCompleto)}
+          </div>
+          <div>
+            <p className="text-[15px] font-semibold leading-tight text-[#041627]">
+              {empleado.nombreCompleto}
+            </p>
+            <p className="mt-0.5 text-[12px] text-[#595f66]">
+              ID: <span className="font-mono">{empleado.id}</span>
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'contacto',
+      header: 'Contacto',
+      render: (empleado) => (
+        <>
+          <p className="text-[13px] font-medium text-[#041627]">{empleado.email}</p>
+          <p className="mt-0.5 text-[12px] text-[#595f66]">{empleado.telefono}</p>
+        </>
+      ),
+    },
+    { key: 'cargo', header: 'Cargo', render: (empleado) => empleado.cargo },
+    {
+      key: 'roles',
+      header: 'Roles',
+      render: (empleado) => (
+        <div className="flex flex-wrap gap-1.5">
+          {empleado.roles.length > 0 ? (
+            empleado.roles.map((rol) => (
+              <span
+                key={rol.id}
+                className="rounded-full bg-[#EAF3DE] px-2.5 py-1 text-[11px] font-bold text-[#3B6D11]"
+              >
+                {rol.nombre}
+              </span>
+            ))
+          ) : (
+            <span className="text-[12px] text-[#888]">Sin roles</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'sucursal',
+      header: 'Sucursal',
+      render: (empleado) => {
+        const sucursalPrincipal =
+          empleado.sucursales.find((sucursal) => sucursal.esPrincipal) ??
+          empleado.sucursales[0];
+        return (
+          <>
+            <div className="text-[13px] text-[#44474c]">
+              {sucursalPrincipal?.nombre ?? 'Sin sucursal'}
+            </div>
+            <div className="mt-0.5 text-[11px] font-mono text-[#888]">
+              {empleado.roles[0]?.rutaInicio ?? '/sin-acceso'}
+            </div>
+          </>
+        );
+      },
+    },
+    {
+      key: 'bono_ventas',
+      header: 'Bono ventas',
+      render: (empleado) => {
+        if (!empleado.bono_ventas_activo) {
+          return <span className="text-[12px] text-[#888]">Sin bono activo</span>;
+        }
+        const avance = Math.min(100, Number(empleado.avance_bono_ventas ?? 0));
+        return (
+          <div className="min-w-[180px]">
+            <div className="flex items-center justify-between gap-2 text-[12px]">
+              <span className="font-bold text-[#041627]">{money(empleado.ventas_mes_actual)}</span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                empleado.bono_ventas_corresponde === true
+                  ? 'bg-[#e6f4ea] text-[#1e7e34]'
+                  : 'bg-[#fff8e6] text-[#8a5a00]'
+              }`}>
+                {empleado.bono_ventas_corresponde === true ? 'Alcanzado' : 'En curso'}
+              </span>
+            </div>
+            <div className="mt-1 h-2 overflow-hidden rounded-full bg-[#e5e7eb]">
+              <div className="h-full bg-[#075E54]" style={{ width: `${avance}%` }} />
+            </div>
+            <div className="mt-1 text-[11px] text-[#595f66]">
+              Meta {money(empleado.meta_mensual_ventas)} | Bono {money(empleado.bono_mensual_ventas)}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'estado',
+      header: 'Estado',
+      align: 'center',
+      render: (empleado) => (
+        <span
+          className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide ${
+            empleado.activo
+              ? 'bg-[#e6f4ea] text-[#1e7e34]'
+              : 'bg-[#fce8e8] text-[#ba1a1a]'
+          }`}
+        >
+          {empleado.activo ? 'Activo' : 'Inactivo'}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <section className="overflow-hidden border-t border-[#c4c6cd] bg-white">
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="bg-[#fbf9fa]">
-              {[
-                { label: 'Empleado', align: 'text-left' },
-                { label: 'Contacto', align: 'text-left' },
-                { label: 'Cargo', align: 'text-left' },
-                { label: 'Roles', align: 'text-left' },
-                { label: 'Sucursal', align: 'text-left' },
-                { label: 'Estado', align: 'text-center' },
-              ].map(({ label, align }) => (
-                <th
-                  key={label}
-                  className={`border-b border-[#c4c6cd] px-6 py-4 text-[13px] font-medium uppercase tracking-wider text-[#44474c] ${align}`}
-                >
-                  {label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="px-6 py-8 text-center text-[14px] text-[#44474c]"
-                >
-                  Cargando empleados...
-                </td>
-              </tr>
-            ) : filteredEmpleados.length > 0 ? (
-              filteredEmpleados.map((empleado) => (
-                <RowEmployer key={empleado.id} empleado={empleado} />
-              ))
-            ) : (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="px-6 py-8 text-center text-[14px] text-[#44474c]"
-                >
-                  No se encontraron empleados.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        rows={filteredEmpleados}
+        columns={columns}
+        getRowKey={(empleado) => empleado.id}
+        isLoading={isLoading}
+        loadingMessage="Cargando empleados..."
+        emptyMessage="No se encontraron empleados."
+        onRowClick={openEmpleado}
+        getContextActions={(empleado) => [
+          {
+            label: 'Ver detalles',
+            icon: <PencilIcon size={14} />,
+            onClick: () => openEmpleado(empleado),
+          },
+          {
+            label: empleado.bono_ventas_activo
+              ? `Bono: ${empleado.bono_ventas_corresponde === true ? 'alcanzado' : 'en curso'}`
+              : 'Sin bono de ventas',
+            icon: <Gift size={14} />,
+            disabled: true,
+          },
+          {
+            label: empleado.activo ? 'Desactivar empleado' : 'Activar empleado',
+            icon: empleado.activo ? <ShieldOff size={14} /> : <UserCheck size={14} />,
+            danger: empleado.activo,
+            dividerBefore: true,
+          },
+        ]}
+      />
 
       <div className="flex items-center justify-between border-t border-[#c4c6cd] bg-white px-6 py-3">
         <span className="text-[13px] font-medium leading-[18px] text-[#44474c]">

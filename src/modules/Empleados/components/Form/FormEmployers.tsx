@@ -4,6 +4,7 @@ import {
   Briefcase,
   Check,
   ChevronRight,
+  Gift,
   Key,
   Mail,
   MapPin,
@@ -32,6 +33,9 @@ export interface EmpleadoCreatePayload {
   rolesIds: string[];
   sucursalId: string;
   sucursalIds: string[];
+  bono_ventas_activo: boolean;
+  meta_mensual_ventas: number;
+  bono_mensual_ventas: number;
 }
 
 interface Props {
@@ -141,6 +145,9 @@ export default function FormEmployers({
       rolesIds: [],
       sucursalId: "",
       sucursalIds: [],
+      bono_ventas_activo: false,
+      meta_mensual_ventas: 0,
+      bono_mensual_ventas: 0,
     },
   });
 
@@ -199,6 +206,7 @@ export default function FormEmployers({
   const selectedSucursal = availableSucursales.find(
     (sucursal) => sucursal.id === selectedSucursalId,
   );
+  const bonoVentasActivo = watch("bono_ventas_activo");
 
   const handleSucursalPrincipalChange = (sucursalId: string) => {
     setValue("sucursalId", sucursalId, { shouldValidate: true });
@@ -408,6 +416,42 @@ export default function FormEmployers({
                     />
                   </Field>
                 </div>
+              </section>
+
+              <div className="h-px bg-slate-100" />
+
+              <section>
+                <h2 className="mb-4 flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-gray-400">
+                  <Gift size={13} /> Bono por ventas
+                </h2>
+                <label className="mb-4 flex items-center justify-between rounded-lg border border-gray-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-[#041627]">
+                  Activar meta mensual para vendedor
+                  <input
+                    type="checkbox"
+                    {...register("bono_ventas_activo")}
+                    className="h-4 w-4 accent-[#075E54]"
+                  />
+                </label>
+                {bonoVentasActivo ? (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Field label="Meta mensual de ventas" icon={Gift}>
+                      <TextInput
+                        type="number"
+                        min={0}
+                        placeholder="Ej: 5000000"
+                        {...register("meta_mensual_ventas", { valueAsNumber: true })}
+                      />
+                    </Field>
+                    <Field label="Monto del bono" icon={Gift}>
+                      <TextInput
+                        type="number"
+                        min={0}
+                        placeholder="Ej: 150000"
+                        {...register("bono_mensual_ventas", { valueAsNumber: true })}
+                      />
+                    </Field>
+                  </div>
+                ) : null}
               </section>
 
               <div className="h-px bg-slate-100" />

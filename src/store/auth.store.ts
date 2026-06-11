@@ -40,6 +40,12 @@ interface AuthState {
   cambiarSucursalActiva: (token: string, sucursal: Pick<Sucursal, 'id' | 'nombre'>) => void
 }
 
+const getSucursalDefault = (sucursales: Sucursal[], sucursalActivaId?: string | null) =>
+  sucursales.find((s) => s.id === sucursalActivaId) ??
+  sucursales.find((s) => s.esPrincipal) ??
+  sucursales[0] ??
+  null;
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -58,7 +64,7 @@ export const useAuthStore = create<AuthState>()(
         rutas: data.rutas,
         rutaInicio: data.rutaInicio,
         sucursales: data.sucursales,
-        sucursalActiva: data.sucursales.find(s => s.id === data.sucursalActivaId) ?? data.sucursales.find(s => s.esPrincipal) ?? data.sucursales[0] ?? null,
+        sucursalActiva: getSucursalDefault(data.sucursales, data.sucursalActivaId),
       }),
 
       cerrarSesion: () => set({
@@ -93,6 +99,16 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-session', // clave en localStorage
+      merge: (persistedState, currentState) => {
+        const state = {
+          ...currentState,
+          ...(persistedState as Partial<AuthState>),
+        };
+        if (!state.sucursalActiva && state.sucursales?.length) {
+          state.sucursalActiva = getSucursalDefault(state.sucursales);
+        }
+        return state;
+      },
       partialize: (state) => ({
         // Solo persistir esto, no las funciones
         token: state.token,

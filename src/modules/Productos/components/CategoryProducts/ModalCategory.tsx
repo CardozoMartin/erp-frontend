@@ -33,7 +33,7 @@ const ModalCategory = ({ isActive, onClose }: ModalCategoryProps) => {
   //TQuery--------------------------------------------
   const { mutate: createCategoryMutation, isPending } = usePostCategoryProduct();
   const { mutate: updateCategoryMutation } = usePutProductCategory(
-    category?.id as unknown as string
+    Number(category?.id ?? 0)
   );
   const { data: categoriesData } = useGetAllProductCategoriesActives(1, 100);
   console.log(categoriesData);
@@ -55,7 +55,7 @@ const ModalCategory = ({ isActive, onClose }: ModalCategoryProps) => {
       nombre: '',
       descripcion: '',
       color_identificador: COLORS[0].value,
-      padre_id: undefined as unknown as number,
+      padre_id: '',
     },
   });
 
@@ -66,13 +66,13 @@ const ModalCategory = ({ isActive, onClose }: ModalCategoryProps) => {
       setValue('nombre', category.name || '');
       setValue('descripcion', category.description || '');
       setValue('color_identificador', category.color_identificador || COLORS[0].value);
-      setValue('padre_id', (category.padre_id as unknown as number) || undefined);
+      setValue('padre_id', category.padre_id ? String(category.padre_id) : '');
     } else {
       // Modo nuevo: limpiar el formulario
       setValue('nombre', '');
       setValue('descripcion', '');
       setValue('color_identificador', COLORS[0].value);
-      setValue('padre_id', undefined as unknown as number);
+      setValue('padre_id', '');
     }
   }, [category, setValue]);
 

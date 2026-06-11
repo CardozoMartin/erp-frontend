@@ -11,6 +11,7 @@ import {
   getSucursalesActivasFn,
   postEmpleadoFn,
   putEmpleadoFn,
+  setEmpleadoSucursalPrincipalFn,
 } from '../api/empleadosApi';
 import type { ICreateEmpleadoPayload } from '../types/empleado.type';
 
@@ -20,10 +21,11 @@ export const useGetRoles = () =>
     queryFn: getRolesFn,
   });
 
-export const useGetEmpleados = (page: number = 1, limit: number = 10) =>
+export const useGetEmpleados = (page: number = 1, limit: number = 10, enabled: boolean = true) =>
   useQuery({
     queryKey: ['empleados', 'list', page, limit],
     queryFn: () => getEmpleadosFn(page, limit),
+    enabled,
   });
 
 export const useGetSucursalesActivas = () =>

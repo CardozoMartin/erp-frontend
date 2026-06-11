@@ -32,7 +32,7 @@ interface ICategoryRowProps {
   onDelete: (id: number) => void;
 }
 
-const CategoryRow = ({ category, onEdit, onDelete }: ICategoryRowProps) => {
+const CategoryRow = ({ category, onEdit }: ICategoryRowProps) => {
   //Zustand store
   const { setCategory } = useCategoryStore();
   const [isActive, setIsActive] = useState(category.activo ?? true);

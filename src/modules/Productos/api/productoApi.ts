@@ -41,6 +41,12 @@ const toNullableId = (value: unknown) => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
+const toNullableText = (value: unknown) => {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
 const cleanAtributos = (atributos: any[] = []) =>
   atributos
     .map((attr) => ({
@@ -54,6 +60,12 @@ const cleanStock = (stock: any[] = []) =>
     sucursal_id: toNullableId(item.sucursal_id),
     cantidad: toNumber(item.cantidad),
     cantidad_minima: toNumber(item.cantidad_minima),
+    deposito: toNullableText(item.deposito),
+    pasillo: toNullableText(item.pasillo),
+    estante: toNullableText(item.estante),
+    sector: toNullableText(item.sector),
+    codigo_ubicacion: toNullableText(item.codigo_ubicacion),
+    ubicacion_referencia: toNullableText(item.ubicacion_referencia),
   }));
 
 const cleanLotes = (lotes: any[] = []) =>

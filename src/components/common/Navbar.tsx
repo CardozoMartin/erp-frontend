@@ -22,13 +22,21 @@ import {
   MarsStroke,
   UserRoundPen,
   LogOutIcon,
+  FileText,
+  PackageCheck,
+  ReceiptText,
+  Users,
+  Truck,
+  Mail,
+  ImageIcon,
+  QrCode,
 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
 import Swal from 'sweetalert2';
-import { seleccionarSucursalFn } from '../../modules/Auth/api/auth.api';
+import { logoutFn, seleccionarSucursalFn } from '../../modules/Auth/api/auth.api';
 import type { AxiosError } from 'axios';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -39,6 +47,7 @@ type SubItem = {
   link: string;
   danger?: boolean;
   highlight?: boolean;
+  requiredAny?: string[];
 };
 
 type NavItem = {
@@ -47,6 +56,7 @@ type NavItem = {
   icon: React.ReactNode;
   link?: string;
   subItems?: SubItem[];
+  requiredAny?: string[];
 };
 
 type UserAction = {
@@ -64,6 +74,32 @@ const navItems: NavItem[] = [
     label: 'Punto venta',
     icon: <ShoppingCart size={15} />,
     link: '/punto-venta',
+    requiredAny: ['ventas.crear', 'caja.cobrar'],
+  },
+  {
+    id: 'gestion-pos',
+    label: 'Gestion POS',
+    icon: <ReceiptText size={15} />,
+    subItems: [
+      { label: 'Ventas', icon: <FileText size={15} />, link: '/ventas', requiredAny: ['ventas.ver', 'reportes.ver', 'reportes.ventas'] },
+      { label: 'Ventas POS', icon: <ReceiptText size={15} />, link: '/ventas-pos', requiredAny: ['ventas.ver', 'reportes.ver', 'reportes.ventas'] },
+      { label: 'Despachos', icon: <PackageCheck size={15} />, link: '/despachos', requiredAny: ['deposito.ver', 'deposito.despachar', 'deposito.recepcionar'] },
+      { label: 'Cuenta corriente', icon: <Wallet size={15} />, link: '/cuenta-corriente', requiredAny: ['clientes.ver', 'ventas.ver'] },
+      { label: 'Listas de precio', icon: <BadgePercent size={15} />, link: '/listas-precio', requiredAny: ['precios.ver', 'config.listas_precio'] },
+      { label: 'Reportes POS', icon: <BarChart2 size={15} />, link: '/reportes-pos', requiredAny: ['reportes.ver', 'reportes.ventas', 'reportes.caja'] },
+      { label: 'Configuracion POS', icon: <Settings size={15} />, link: '/configuracion-pos', highlight: true, requiredAny: ['config.pos'] },
+      { label: 'Mercado Pago', icon: <QrCode size={15} />, link: '/configuracion-mercadopago', highlight: true, requiredAny: ['mp.crear', 'config.pos'] },
+      { label: 'Configuracion Cloudinary', icon: <ImageIcon size={15} />, link: '/configuracion-cloudinary', highlight: true, requiredAny: ['config.pos'] },
+      { label: 'Configuracion Email', icon: <Mail size={15} />, link: '/configuracion-email', highlight: true, requiredAny: ['config.email'] },
+      { label: 'Auditoria', icon: <Clock size={15} />, link: '/auditoria', requiredAny: ['reportes.ver'] },
+    ],
+  },
+  {
+    id: 'pedidos-envio',
+    label: 'Pedidos envio',
+    icon: <Truck size={15} />,
+    link: '/pedidos-envio',
+    requiredAny: ['ventas.ver', 'ventas.crear'],
   },
   {
     id: 'productos',
@@ -114,14 +150,20 @@ const navItems: NavItem[] = [
     ],
   },
   {
+    id: 'clientes',
+    label: 'Clientes',
+    icon: <Users size={15} />,
+    link: '/clientes',
+  },
+  {
     id: 'caja',
     label: 'Caja',
     icon: <Wallet size={15} />,
     subItems: [
-      { label: 'Resumen de caja', icon: <BarChart2 size={15} />, link: '/caja' },
-      { label: 'Movimientos', icon: <ArrowLeftRight size={15} />, link: '/caja/movimientos' },
-      { label: 'Cierre de caja', icon: <Lock size={15} />, link: '/caja/cierre' },
-      { label: 'Nuevo ingreso', icon: <Plus size={15} />, link: '/caja/ingreso', highlight: true },
+      { label: 'Resumen de caja', icon: <BarChart2 size={15} />, link: '/caja', requiredAny: ['caja.ver', 'reportes.caja', 'reportes.ver'] },
+      { label: 'Movimientos', icon: <ArrowLeftRight size={15} />, link: '/caja/movimientos', requiredAny: ['caja.movimientos', 'caja.ver'] },
+      { label: 'Cierre de caja', icon: <Lock size={15} />, link: '/caja/cierre', requiredAny: ['caja.cerrar'] },
+      { label: 'Nuevo ingreso', icon: <Plus size={15} />, link: '/caja/ingreso', highlight: true, requiredAny: ['caja.movimientos.crear'] },
     ],
   },
   {
@@ -210,8 +252,24 @@ export default function Navbar() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const navRef = useRef<HTMLElement>(null);
   const queryClient = useQueryClient();
-  const { cerrarSesion, empleado, sucursales, sucursalActiva, cambiarSucursalActiva } =
+  const { cerrarSesion, empleado, sucursales, sucursalActiva, cambiarSucursalActiva, permisos } =
     useAuthStore();
+  const permisosSet = useMemo(() => new Set(permisos), [permisos]);
+  const canSee = (requiredAny?: string[]) =>
+    !requiredAny?.length || requiredAny.some((permiso) => permisosSet.has(permiso));
+  const visibleNavItems = useMemo(
+    () =>
+      navItems
+        .map((item) => {
+          if (item.subItems) {
+            const subItems = item.subItems.filter((subItem) => canSee(subItem.requiredAny));
+            return { ...item, subItems };
+          }
+          return item;
+        })
+        .filter((item) => (item.subItems ? item.subItems.length > 0 : canSee(item.requiredAny))),
+    [permisosSet],
+  );
   const seleccionarSucursalMutation = useMutation({
     mutationFn: seleccionarSucursalFn,
     onSuccess: (data) => {
@@ -233,7 +291,7 @@ export default function Navbar() {
     },
   });
 
-  const activeId = navItems.find((item) => {
+  const activeId = visibleNavItems.find((item) => {
     if (item.link) return location.pathname === item.link;
     return item.subItems?.some((s) => location.pathname.startsWith(s.link));
   })?.id;
@@ -264,6 +322,13 @@ export default function Navbar() {
     seleccionarSucursalMutation.mutate(sucursalId);
   };
 
+  useEffect(() => {
+    if (sucursalActiva?.id || !sucursales.length || seleccionarSucursalMutation.isPending) {
+      return;
+    }
+    seleccionarSucursalMutation.mutate(sucursales[0].id);
+  }, [seleccionarSucursalMutation, sucursalActiva?.id, sucursales]);
+
   //Handler para cerrar session
   const handleLogout = () => {
     Swal.fire({
@@ -275,8 +340,13 @@ export default function Navbar() {
       cancelButtonColor: '#3085d6',
       confirmButtonText: 'Sí, cerrar sesión',
       cancelButtonText: 'Cancelar',
-    }).then((result) => {
+    }).then(async (result) => {
       if (result.isConfirmed) {
+        try {
+          await logoutFn();
+        } catch {
+          // Si el token ya expiro igual cerramos la sesion local.
+        }
         cerrarSesion();
         Swal.fire('Sesión cerrada', 'Has cerrado sesión exitosamente.', 'success');
       }
@@ -300,7 +370,7 @@ export default function Navbar() {
 
         {/* Links */}
         <ul className="flex items-center gap-px">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const isActive = activeId === item.id;
             const isOpen = openMenu === item.id;
             const hasSubmenu = !!item.subItems;

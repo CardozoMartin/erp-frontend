@@ -1,25 +1,45 @@
-import { AlertTriangle, Package, MapPin, Layers, Building2, HelpCircle } from 'lucide-react';
-import { StockSection } from '../ProductFormSections/StockSection';
-import { useGetSucursales } from '../../../Sucursal/hooks/useSucursal';
+import { AlertTriangle, Building2, HelpCircle, Layers, MapPin, Package } from 'lucide-react';
 import { useFormContext } from 'react-hook-form';
+import { useGetSucursales } from '../../../Sucursal/hooks/useSucursal';
+import { StockSection } from '../ProductFormSections/StockSection';
 import { formatStockQuantity } from '../../utils/stockFormat';
+
+const formatStockLocation = (stock: any) => {
+  const parts = [
+    stock.deposito,
+    stock.pasillo,
+    stock.estante,
+    stock.sector,
+    stock.codigo_ubicacion ? `Cod. ${stock.codigo_ubicacion}` : null,
+    stock.ubicacion_referencia,
+  ]
+    .map((part) => part?.toString?.().trim())
+    .filter(Boolean);
+
+  return parts.length ? parts.join(' | ') : 'Sin ubicacion cargada';
+};
 
 const TabStock = ({ product, onOpenStockModal, isEditing }: any) => {
   const { data: sucursales } = useGetSucursales();
   const sucursalesActivas = sucursales?.data ?? [];
+  const sucursalesById = new Map(
+    sucursalesActivas.map((sucursal: any) => [sucursal.id, sucursal.nombre]),
+  );
   const formContext = useFormContext();
-  const watchedTieneVariantes = formContext ? formContext.watch('tiene_variantes') : product?.tiene_variantes;
+  const watchedTieneVariantes = formContext
+    ? formContext.watch('tiene_variantes')
+    : product?.tiene_variantes;
 
-  // Si tiene variantes habilitadas, no gestionamos stock general
   if (watchedTieneVariantes) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center gap-3 bg-slate-50 border border-slate-200/50 rounded-lg p-8 max-w-lg mx-auto my-4 shadow-sm">
-        <div className="w-14 h-14 bg-amber-50 rounded-full flex items-center justify-center text-amber-500 border border-amber-200 shadow-inner">
+      <div className="mx-auto my-4 flex max-w-lg flex-col items-center justify-center gap-3 rounded-lg border border-slate-200/50 bg-slate-50 p-8 py-16 text-center shadow-sm">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-amber-500 shadow-inner">
           <Layers size={26} className="stroke-[1.5]" />
         </div>
         <h4 className="text-base font-bold text-[#041627]">Stock Gestionado por Variantes</h4>
-        <p className="text-xs text-gray-500 max-w-sm leading-relaxed">
-          Este producto tiene la configuración de variantes activa. Las cantidades de inventario deben configurarse individualmente en la pestaña de <strong>Variantes</strong>.
+        <p className="max-w-sm text-xs leading-relaxed text-gray-500">
+          Este producto tiene variantes activas. Las cantidades y ubicaciones deben configurarse
+          individualmente en la pestana de <strong>Variantes</strong>.
         </p>
       </div>
     );
@@ -27,10 +47,13 @@ const TabStock = ({ product, onOpenStockModal, isEditing }: any) => {
 
   if (isEditing) {
     return (
-      <div className="p-4 bg-white rounded border border-slate-100">
-        <div className="flex items-center gap-2 mb-4 bg-slate-50 p-3 rounded text-xs text-gray-500 border border-slate-150">
-          <HelpCircle size={14} className="text-[#075E54] shrink-0" />
-          <span>Configura las cantidades reales e inventario mínimo para cada una de tus sucursales habilitadas. Dejar la sucursal vacía actuará como stock general.</span>
+      <div className="rounded border border-slate-100 bg-white p-4">
+        <div className="mb-4 flex items-center gap-2 rounded border border-slate-150 bg-slate-50 p-3 text-xs text-gray-500">
+          <HelpCircle size={14} className="shrink-0 text-[#075E54]" />
+          <span>
+            Configura cantidades, inventario minimo y ubicacion fisica por sucursal. Dejar la
+            sucursal vacia actuara como stock general.
+          </span>
         </div>
         <StockSection namePrefix="stock" sucursales={sucursalesActivas} />
       </div>
@@ -41,66 +64,80 @@ const TabStock = ({ product, onOpenStockModal, isEditing }: any) => {
 
   return (
     <div className="flex flex-col gap-5 pt-3">
-      
-      {/* Header and Quick Action */}
-      <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
         <div>
-          <p className="text-sm font-extrabold text-[#041627] uppercase tracking-wider flex items-center gap-1.5">
+          <p className="flex items-center gap-1.5 text-sm font-extrabold uppercase tracking-wider text-[#041627]">
             <Building2 size={15} className="text-[#075E54]" />
             Inventario por Sucursal
           </p>
-          <p className="text-xs text-gray-400 mt-0.5">Control de existencias físicas en tiempo real.</p>
+          <p className="mt-0.5 text-xs text-gray-400">
+            Control de existencias fisicas y ubicacion en deposito/local.
+          </p>
         </div>
         <button
           type="button"
           onClick={onOpenStockModal}
-          className="flex items-center gap-1.5 px-4 py-2 bg-[#075E54] hover:bg-[#064d45] text-white text-xs font-bold rounded shadow-sm hover:shadow transition cursor-pointer"
+          className="flex cursor-pointer items-center gap-1.5 rounded bg-[#075E54] px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#064d45] hover:shadow"
         >
           <Package size={13} />
-          Ajuste Rápido de Stock
+          Ajuste Rapido de Stock
         </button>
       </div>
 
-      {/* Branch Stocks Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {stocks.map((s: any, idx: number) => {
-          const cantidad = Number(s.cantidad ?? 0);
-          const cantidadMinima = Number(s.cantidad_minima ?? 0);
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {stocks.map((stock: any, index: number) => {
+          const cantidad = Number(stock.cantidad ?? 0);
+          const cantidadMinima = Number(stock.cantidad_minima ?? 0);
           const bajo = cantidad <= cantidadMinima;
+          const sucursalNombre =
+            stock.sucursal_nombre ??
+            (stock.sucursal_id ? sucursalesById.get(stock.sucursal_id) : 'Stock general') ??
+            `Sucursal ${index + 1}`;
+
           return (
             <div
-              key={idx}
-              className={`bg-white border rounded-lg p-5 flex justify-between items-center transition-all hover:shadow-md
-                ${bajo 
-                  ? 'border-rose-300 bg-rose-50/20 shadow-[0_2px_12px_rgba(239,68,68,0.03)]' 
-                  : 'border-slate-200 hover:border-[#075E54]/40'}`}
+              key={stock.id ?? index}
+              className={`flex items-center justify-between rounded-lg border bg-white p-5 transition-all hover:shadow-md ${
+                bajo
+                  ? 'border-rose-300 bg-rose-50/20 shadow-[0_2px_12px_rgba(239,68,68,0.03)]'
+                  : 'border-slate-200 hover:border-[#075E54]/40'
+              }`}
             >
-              <div className="flex items-start gap-3">
-                <div className={`p-2 rounded-md shrink-0 mt-0.5
-                  ${bajo ? 'bg-rose-50 text-rose-600' : 'bg-slate-50 text-gray-500'}`}>
+              <div className="flex min-w-0 items-start gap-3">
+                <div
+                  className={`mt-0.5 shrink-0 rounded-md p-2 ${
+                    bajo ? 'bg-rose-50 text-rose-600' : 'bg-slate-50 text-gray-500'
+                  }`}
+                >
                   <MapPin size={18} />
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-[#041627]">
-                    {s.sucursal_nombre ?? `Sucursal ${idx + 1}`}
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-[#041627]">{sucursalNombre}</p>
+                  <p className="mt-0.5 text-[11px] font-semibold text-gray-400">
+                    Stock Minimo:{' '}
+                    <span className="font-bold text-gray-600">
+                      {formatStockQuantity(cantidadMinima, product?.unidad_venta, product?.es_fraccionable)} U
+                    </span>
                   </p>
-                  <p className="text-[11px] text-gray-400 font-semibold mt-0.5">
-                    Stock Mínimo: <span className="font-bold text-gray-600">{formatStockQuantity(cantidadMinima, product?.unidad_venta, product?.es_fraccionable)} U</span>
+                  <p className="mt-2 max-w-[280px] text-[11px] font-medium leading-relaxed text-[#595f66]">
+                    {formatStockLocation(stock)}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 shrink-0">
+              <div className="flex shrink-0 items-center gap-3">
                 {bajo && (
-                  <span className="flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 uppercase tracking-wider animate-pulse">
+                  <span className="flex animate-pulse items-center gap-1 rounded border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-700">
                     <AlertTriangle size={10} /> Stock Bajo
                   </span>
                 )}
                 <div className="text-right">
-                  <p className={`text-3xl font-black tracking-tight leading-none ${bajo ? 'text-rose-600' : 'text-[#075E54]'}`}>
+                  <p className={`text-3xl font-black leading-none tracking-tight ${bajo ? 'text-rose-600' : 'text-[#075E54]'}`}>
                     {formatStockQuantity(cantidad, product?.unidad_venta, product?.es_fraccionable)}
                   </p>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">unidades</p>
+                  <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                    unidades
+                  </p>
                 </div>
               </div>
             </div>
@@ -108,16 +145,19 @@ const TabStock = ({ product, onOpenStockModal, isEditing }: any) => {
         })}
       </div>
 
-      {/* Empty State */}
       {stocks.length === 0 && (
-        <div className="text-center py-16 border border-dashed border-gray-200 rounded-lg bg-slate-50 text-gray-400 flex flex-col items-center justify-center gap-2">
-          <Package size={36} className="opacity-25 text-gray-400 stroke-[1.5]" />
-          <p className="text-sm font-medium">No se registran existencias configuradas para este producto.</p>
-          <p className="text-xs text-gray-400">Presiona el botón de ajuste rápido para agregar stock.</p>
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-200 bg-slate-50 py-16 text-center text-gray-400">
+          <Package size={36} className="text-gray-400 opacity-25 stroke-[1.5]" />
+          <p className="text-sm font-medium">
+            No se registran existencias configuradas para este producto.
+          </p>
+          <p className="text-xs text-gray-400">
+            Presiona el boton de ajuste rapido para agregar stock.
+          </p>
         </div>
       )}
     </div>
   );
-}
+};
 
 export default TabStock;

@@ -1,25 +1,26 @@
-import {
-  ArrowBigLeft,
-  ArrowBigRight,
-  Search,
-} from "lucide-react";
-import React, { useState } from "react";
-import { useGetMarcaProductAll } from "../../hooks/useMarquee";
-import MarcaRow from "./MarcaRow";
+import { ArrowBigLeft, ArrowBigRight, Edit3, Search, Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import DataTable from '../../../../components/common/DataTable';
+import type { DataTableColumn } from '../../../../components/common/DataTable';
+import { useGetMarcaProductAll } from '../../hooks/useMarquee';
+
+type MarcaTableRow = {
+  id: number;
+  nombre: string;
+  descripcion?: string;
+  logo_url?: string;
+  activo?: boolean;
+  productos?: unknown[] | number;
+};
 
 const TableMarcaProducts = () => {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
   const LIMIT = 10;
+  const { data: marcasProducts, isLoading } = useGetMarcaProductAll(currentPage, LIMIT);
 
-  //Tquery--------------------------------------------
-  const { data: marcasProducts, isLoading } = useGetMarcaProductAll(
-    currentPage,
-    LIMIT,
-  );
-
-  const marquees = Array.isArray(marcasProducts)
+  const marquees: MarcaTableRow[] = Array.isArray(marcasProducts)
     ? marcasProducts
     : marcasProducts?.data && Array.isArray(marcasProducts.data)
       ? marcasProducts.data
@@ -27,20 +28,50 @@ const TableMarcaProducts = () => {
   const totalMarquees = marquees.length;
   const totalPages = Math.ceil(totalMarquees / LIMIT);
 
-  const filtered = marquees.filter((marca: any) =>
-    marca.nombre?.toLowerCase().includes(search.toLowerCase()) ||
-    (marca.descripcion?.toLowerCase().includes(search.toLowerCase()) ?? false)
+  const filtered = marquees.filter(
+    (marca) =>
+      marca.nombre?.toLowerCase().includes(search.toLowerCase()) ||
+      (marca.descripcion?.toLowerCase().includes(search.toLowerCase()) ?? false),
   );
 
-  //Handlers ------------------------------------------
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
     setCurrentPage(1);
   };
 
+  const columns: DataTableColumn<MarcaTableRow>[] = [
+    {
+      key: 'logo',
+      header: 'Logo',
+      render: (marca) => (
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#e8f5ff]">
+          {marca.logo_url ? (
+            <img src={marca.logo_url} alt={marca.nombre} className="h-full w-full object-cover" />
+          ) : (
+            <span className="text-sm font-semibold text-[#0d47a1]">
+              {marca.nombre?.charAt(0).toUpperCase() || 'M'}
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'nombre',
+      header: 'Nombre',
+      render: (marca) => (
+        <p className="text-[16px] font-semibold leading-6 text-[#041627]">{marca.nombre}</p>
+      ),
+    },
+    {
+      key: 'descripcion',
+      header: 'Descripcion',
+      render: (marca) => marca.descripcion || 'Sin descripcion',
+    },
+  ];
+
   if (isLoading) {
     return (
-      <div className="bg-white border border-[#c4c6cd] rounded-xl shadow-sm overflow-hidden p-6 text-center text-[#44474c]">
+      <div className="overflow-hidden rounded-xl border border-[#c4c6cd] bg-white p-6 text-center text-[#44474c] shadow-sm">
         Cargando marcas...
       </div>
     );
@@ -52,123 +83,87 @@ const TableMarcaProducts = () => {
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         rel="stylesheet"
       />
-      <section className="bg-white border border-[#c4c6cd] rounded-xl shadow-sm overflow-hidden">
-      {/* Header */}
-      <div className="px-6 py-4 border-b border-[#c4c6cd] flex justify-between items-center bg-[#fbf9fa]">
-        <h2 className="text-[18px] leading-7 font-semibold text-[#041627]">
-          Lista de Marcas
-        </h2>
+      <section className="overflow-hidden rounded-xl border border-[#c4c6cd] bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-[#c4c6cd] bg-[#fbf9fa] px-6 py-4">
+          <h2 className="text-[18px] font-semibold leading-7 text-[#041627]">Lista de Marcas</h2>
 
-        {/* Search */}
-        <div className="relative max-w-xs w-full">
-          <span
-            className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-[#44474c] text-[20px]"
-            style={{ fontFamily: "'Material Symbols Outlined'" }}
-          >
-            <Search size={20} />
-          </span>
-          <input
-            type="text"
-            value={search}
-            onChange={handleSearch}
-            placeholder="Buscar marca..."
-            className="w-full bg-white border border-[#c4c6cd] pl-8 pr-4 py-1 rounded text-[14px] leading-5 focus:border-[#041627] outline-none"
-          />
+          <div className="relative w-full max-w-xs">
+            <Search
+              size={20}
+              className="absolute left-2 top-1/2 -translate-y-1/2 text-[#44474c]"
+            />
+            <input
+              type="text"
+              value={search}
+              onChange={handleSearch}
+              placeholder="Buscar marca..."
+              className="w-full rounded border border-[#c4c6cd] bg-white py-1 pl-8 pr-4 text-[14px] leading-5 outline-none focus:border-[#041627]"
+            />
+          </div>
         </div>
-      </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="bg-[#fbf9fa]">
-              {['Logo', 'Nombre', 'Descripción'].map((col) => (
-                <th
-                  key={col}
-                  className="px-6 py-4 font-medium text-[13px] leading-4.5 tracking-wider uppercase text-[#44474c] border-b border-[#c4c6cd] text-left"
-                >
-                  {col}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((marca: any) => (
-              <MarcaRow
-                key={marca.id || marca.nombre}
-                marca={{
-                  id: marca.id ?? 0,
-                  nombre: marca.nombre ?? '',
-                  descripcion: marca.descripcion ?? '',
-                  logo_url: marca.logo_url ?? '',
-                  activo: marca.activo ?? true,
-                  products: marca.productos?.length ?? marca.productos ?? 0,
-                }}
-              />
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-6 py-8 text-center text-[14px] text-[#44474c]">
-                  No se encontraron marcas.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+        <DataTable
+          rows={filtered}
+          columns={columns}
+          getRowKey={(marca) => String(marca.id || marca.nombre)}
+          emptyMessage="No se encontraron marcas."
+          getContextActions={(marca) => [
+            {
+              label: 'Editar marca',
+              icon: <Edit3 size={14} />,
+              onClick: () => console.log('Editar marca', marca.id),
+            },
+            {
+              label: 'Eliminar marca',
+              icon: <Trash2 size={14} />,
+              danger: true,
+              dividerBefore: true,
+              onClick: () => console.log('Eliminar marca', marca.id),
+            },
+          ]}
+        />
 
-      {/* Footer / Pagination */}
-      <div className="px-6 py-3 bg-white border-t border-[#c4c6cd] flex justify-between items-center">
-        <span className="text-[13px] leading-4.5 font-medium text-[#44474c]">
-          Mostrando de marcas
-        </span>
+        <div className="flex items-center justify-between border-t border-[#c4c6cd] bg-white px-6 py-3">
+          <span className="text-[13px] font-medium leading-[18px] text-[#44474c]">
+            Mostrando {filtered.length} de {totalMarquees} marcas
+          </span>
 
-        <div className="flex gap-1">
-          {/* Botón anterior */}
-          <button
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
-            className="w-8 h-8 flex items-center justify-center rounded border border-[#c4c6cd] text-[#44474c] hover:bg-[#efedef] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
-          >
-            <span
-              className="material-symbols-outlined text-[18px]"
-              style={{ fontFamily: "'Material Symbols Outlined'" }}
+          <div className="flex gap-1">
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded border border-[#c4c6cd] text-[#44474c] transition-colors hover:bg-[#efedef] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ArrowBigLeft size={18} />
-            </span>
-          </button>
-
-          {/* Números de página dinámicos */}
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-            <button
-              key={page}
-              onClick={() => setCurrentPage(page)}
-              className={`w-8 h-8 flex items-center justify-center rounded font-bold text-[14px] transition-colors ${
-                currentPage === page
-                  ? "bg-[#041627] text-white"
-                  : "border border-[#c4c6cd] text-[#44474c] hover:bg-[#efedef]"
-              }`}
-            >
-              {page}
             </button>
-          ))}
 
-          {/* Botón siguiente */}
-          <button
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages}
-            className="w-8 h-8 flex items-center justify-center rounded border border-[#c4c6cd] text-[#44474c] hover:bg-[#efedef] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
-          >
-            <span
-              className="material-symbols-outlined text-[18px]"
-              style={{ fontFamily: "'Material Symbols Outlined'" }}
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                type="button"
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`flex h-8 w-8 items-center justify-center rounded text-[14px] font-bold transition-colors ${
+                  currentPage === page
+                    ? 'bg-[#041627] text-white'
+                    : 'border border-[#c4c6cd] text-[#44474c] hover:bg-[#efedef]'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded border border-[#c4c6cd] text-[#44474c] transition-colors hover:bg-[#efedef] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ArrowBigRight size={18} />
-            </span>
-          </button>
+            </button>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
     </>
   );
 };

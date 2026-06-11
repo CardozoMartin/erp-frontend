@@ -14,10 +14,10 @@ export const sucursalRoutes: RouteObject[] = [
         path: 'nuevo',
         element: <SucursalForm />,
       },
-      // {
-      //   path: ":id/editar",
-      //   element: <SucursalForm />,
-      // },
+      {
+        path: ':id/editar',
+        element: <SucursalForm />,
+      },
     ],
   },
 ];

@@ -1,9 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import type { AxiosError } from 'axios';
-import type { IErrorResponse } from '../../../type/api.response.type';
 import type { INewSucursalPayload } from '../api/sucursalApi';
-import { getSucursalesFn, postSucursalFn } from '../api/sucursalApi';
+import { getSucursalFn, getSucursalesFn, postSucursalFn, updateSucursalFn } from '../api/sucursalApi';
 
 export const useGetSucursales = (page: number = 1, limit: number = 30) => {
   return useQuery({
@@ -22,5 +20,24 @@ export const usePostSucursal = () => {
       toast.success('Sucursal creada correctamente');
     },
     // Sin onError acá — el componente lo maneja con setError('root.serverError')
+  });
+};
+
+export const useGetSucursal = (id?: string) => {
+  return useQuery({
+    queryKey: ['sucursales', 'detalle', id],
+    queryFn: () => getSucursalFn(id!),
+    enabled: !!id,
+  });
+};
+
+export const useUpdateSucursal = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updateSucursalFn,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sucursales'] });
+      toast.success('Sucursal actualizada correctamente');
+    },
   });
 };

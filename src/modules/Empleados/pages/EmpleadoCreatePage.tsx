@@ -26,6 +26,9 @@ export default function EmpleadoCreatePage() {
       rolesIds: data.rolesIds,
       sucursalId: data.sucursalId || undefined,
       esSucursalPrincipal: data.sucursalId ? true : undefined,
+      bono_ventas_activo: data.bono_ventas_activo,
+      meta_mensual_ventas: Number(data.meta_mensual_ventas || 0),
+      bono_mensual_ventas: Number(data.bono_mensual_ventas || 0),
     });
 
     const sucursalesExtra = data.sucursalIds.filter(

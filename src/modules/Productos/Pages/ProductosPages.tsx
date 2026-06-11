@@ -96,7 +96,7 @@ const ProductosPages = () => {
             No tenés una sucursal activa en la sesión. Volvé a iniciar sesión o pedí que te asignen una sucursal.
           </div>
         )}
-        <section className="bg-white border border-[#c4c6cd] rounded-xl shadow-sm overflow-hidden">
+        <section className="bg-white border border-[#c4c6cd] shadow-sm overflow-visible">
           {/* Toolbar */}
           <div className="px-6 py-4 border-b border-[#c4c6cd] flex justify-between items-center bg-[#fbf9fa]">
             <h2 className="text-[18px] leading-7 font-semibold text-[#041627]">
@@ -125,7 +125,7 @@ const ProductosPages = () => {
 
           {/* Table */}
           <div className="overflow-x-auto">
-            <TableProducts />
+            <TableProducts search={search} />
           </div>
         </section>
       </div>

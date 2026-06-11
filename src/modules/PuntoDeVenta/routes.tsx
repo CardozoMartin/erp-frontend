@@ -1,5 +1,6 @@
 import type { RouteObject } from 'react-router';
 import PuntoDeVentaPages from './Pages/PuntoDeVentaPages';
+import VentasCajaPage from './Pages/VentasCajaPage';
 
 export const puntoDeVentaRoutes: RouteObject[] = [
   {
@@ -9,11 +10,10 @@ export const puntoDeVentaRoutes: RouteObject[] = [
         index: true,
         element: <PuntoDeVentaPages />,
       },
-      // Agrega más rutas aquí según sea necesario
-      // {
-      //   path: "nuevo",
-      //   element: <PuntoDeVentaForm />,
-      // },
+      {
+        path: 'ventas-caja',
+        element: <VentasCajaPage />,
+      },
     ],
   },
 ];
