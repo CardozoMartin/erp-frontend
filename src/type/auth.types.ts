@@ -13,11 +13,11 @@ export interface LoginResponse {
   permisos: string[]          // ['ventas.crear', 'caja.cobrar', ...]
 
   rutas: {
-    path: string              // '/pos/ventas'
+    path: string              // '/punto-venta'
     label: string             // 'Vendedor Cajero'
   }[]
 
-  rutaInicio: string          // '/pos/ventas'
+  rutaInicio: string          // '/punto-venta'
 
   sucursales: {
     id: string

@@ -9,7 +9,7 @@ import { RutaProtegida } from '../../components/common/RutaProtegida';
 export const productosRoutes: RouteObject[] = [
   {
     path: 'productos',
-    element: <RutaProtegida permiso="productos.ver" conLayout={false} />,
+    element: <RutaProtegida conLayout={false} />,
     children: [
       {
         index: true,

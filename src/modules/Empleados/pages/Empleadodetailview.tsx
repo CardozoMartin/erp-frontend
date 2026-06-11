@@ -61,7 +61,7 @@ const EMPLEADO_MOCK = {
   foto_url: null,
   activo: true,
   roles: [
-    { id: 'rol-1', nombre: 'Vendedor', rutaInicio: '/punto-de-venta' },
+    { id: 'rol-1', nombre: 'Vendedor', rutaInicio: '/punto-venta' },
     { id: 'rol-2', nombre: 'Cajero', rutaInicio: '/caja' },
   ],
   permisos: [
@@ -74,11 +74,11 @@ const EMPLEADO_MOCK = {
 };
 
 const ROLES_DISPONIBLES: RoleOption[] = [
-  { id: 'rol-1', nombre: 'Vendedor', descripcion: 'Puede crear y gestionar ventas', rutaInicio: '/punto-de-venta', color: 'green' },
+  { id: 'rol-1', nombre: 'Vendedor', descripcion: 'Puede crear y gestionar ventas', rutaInicio: '/punto-venta', color: 'green' },
   { id: 'rol-2', nombre: 'Cajero', descripcion: 'Puede cobrar y gestionar caja', rutaInicio: '/caja', color: 'amber' },
-  { id: 'rol-3', nombre: 'Depósito', descripcion: 'Puede cargar y editar productos', rutaInicio: '/deposito', color: 'purple' },
-  { id: 'rol-4', nombre: 'Supervisor', descripcion: 'Acceso a reportes y supervisión', rutaInicio: '/dashboard', color: 'blue' },
-  { id: 'rol-5', nombre: 'Administrador', descripcion: 'Acceso total al sistema', rutaInicio: '/admin', color: 'gray' },
+  { id: 'rol-3', nombre: 'Depósito', descripcion: 'Puede cargar y editar productos', rutaInicio: '/despachos', color: 'purple' },
+  { id: 'rol-4', nombre: 'Supervisor', descripcion: 'Acceso a reportes y supervisión', rutaInicio: '/reportes-pos', color: 'blue' },
+  { id: 'rol-5', nombre: 'Administrador', descripcion: 'Acceso total al sistema', rutaInicio: '/ajustes', color: 'gray' },
 ];
 
 const TODOS_LOS_PERMISOS: Record<string, string[]> = {

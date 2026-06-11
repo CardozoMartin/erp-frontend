@@ -8,6 +8,7 @@ import { useProductStore } from '../../store/useProductStore';
 import type { IProducto } from '../../types/productos.type';
 import { formatStockQuantity } from '../../utils/stockFormat';
 import ModalUpdateStock from './ModalUpdateStock';
+import ImageNoAvaible from '../../../../../public/img/product_no_avaible.png'
 
 export type ProductTableColumnKey =
   | 'imagen'
@@ -167,7 +168,7 @@ const ProductRow = ({
           src={
             product.image ||
             product.imagenes?.[0]?.url ||
-            'https://via.placeholder.com/48x48?text=IMG'
+            ImageNoAvaible
           }
           alt={product.nombre}
           className="w-full h-full object-cover"

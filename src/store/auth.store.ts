@@ -37,7 +37,11 @@ interface AuthState {
   cerrarSesion: () => void
   tienePermiso: (permiso: string) => boolean
   setSucursalActiva: (sucursal: Sucursal) => void
-  cambiarSucursalActiva: (token: string, sucursal: Pick<Sucursal, 'id' | 'nombre'>) => void
+  cambiarSucursalActiva: (
+    token: string,
+    sucursal: Pick<Sucursal, 'id' | 'nombre'>,
+    sessionData?: Pick<LoginResponse, 'permisos' | 'rutas' | 'rutaInicio'>,
+  ) => void
 }
 
 const getSucursalDefault = (sucursales: Sucursal[], sucursalActivaId?: string | null) =>
@@ -80,7 +84,7 @@ export const useAuthStore = create<AuthState>()(
       tienePermiso: (permiso) => get().permisos.includes(permiso),
 
       setSucursalActiva: (sucursal) => set({ sucursalActiva: sucursal }),
-      cambiarSucursalActiva: (token, sucursal) =>
+      cambiarSucursalActiva: (token, sucursal, sessionData) =>
         set((state) => {
           const sucursalEnSesion =
             state.sucursales.find((item) => item.id === sucursal.id) ?? {
@@ -90,6 +94,9 @@ export const useAuthStore = create<AuthState>()(
 
           return {
             token,
+            permisos: sessionData?.permisos ?? state.permisos,
+            rutas: sessionData?.rutas ?? state.rutas,
+            rutaInicio: sessionData?.rutaInicio ?? state.rutaInicio,
             sucursales: state.sucursales.some((item) => item.id === sucursal.id)
               ? state.sucursales
               : [...state.sucursales, sucursalEnSesion],

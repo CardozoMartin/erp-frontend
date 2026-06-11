@@ -73,7 +73,7 @@ const navItems: NavItem[] = [
     label: 'Punto venta',
     icon: <ShoppingCart size={15} />,
     link: '/punto-venta',
-    requiredAny: ['ventas.crear', 'caja.cobrar'],
+    requiredAny: ['ventas.crear', 'caja.cobrar', 'caja.abrir'],
   },
   {
     id: 'gestion-pos',
@@ -100,31 +100,35 @@ const navItems: NavItem[] = [
     label: 'Productos',
     icon: <Package size={15} />,
     subItems: [
-      { label: 'Todos los productos', icon: <List size={15} />, link: '/productos' },
-      { label: 'Categorías', icon: <Tag size={15} />, link: '/productos/category' },
-      { label: 'Stock e inventario', icon: <Warehouse size={15} />, link: '/productos/stock' },
+      { label: 'Todos los productos', icon: <List size={15} />, link: '/productos', requiredAny: ['productos.ver'] },
+      { label: 'Categorías', icon: <Tag size={15} />, link: '/productos/category', requiredAny: ['productos.ver', 'productos.crear', 'productos.editar'] },
+      { label: 'Stock e inventario', icon: <Warehouse size={15} />, link: '/productos/stock', requiredAny: ['stock.ver', 'stock.editar', 'stock.ajuste', 'deposito.stock'] },
       {
         label: 'Precios y descuentos',
         icon: <BadgePercent size={15} />,
         link: '/productos/precios',
+        requiredAny: ['precios.ver', 'precios.cambiar', 'config.listas_precio'],
       },
       {
         label: 'Nuevo producto',
         icon: <Plus size={15} />,
         link: '/productos/nuevo',
         highlight: true,
+        requiredAny: ['productos.crear'],
       },
       {
         label: 'Marca de Productos',
         icon: <MarsStroke size={15} />,
         link: '/productos/marca',
         highlight: true,
+        requiredAny: ['productos.ver', 'productos.crear', 'productos.editar'],
       },
       {
         label: 'Eliminar productos',
         icon: <Trash2 size={15} />,
         link: '/productos/eliminar',
         danger: true,
+        requiredAny: ['productos.eliminar'],
       },
     ],
   },
@@ -133,14 +137,15 @@ const navItems: NavItem[] = [
     label: 'Sucursales',
     icon: <Warehouse size={15} />,
     link: '/sucursales',
+    requiredAny: ['sucursales.ver', 'sucursales.crear', 'sucursales.editar'],
   },
   {
     id: 'empleados',
     label: 'Empleados',
     icon: <UserRoundPen size={15} />,
     subItems: [
-      { label: 'Todos los empleados', icon: <List size={15} />, link: '/empleados' },
-      { label: 'Nuevo empleado', icon: <Plus size={15} />, link: '/empleados/nuevo', highlight: true },
+      { label: 'Todos los empleados', icon: <List size={15} />, link: '/empleados', requiredAny: ['empleados.ver', 'empleados.gestionar', 'empleados.roles'] },
+      { label: 'Nuevo empleado', icon: <Plus size={15} />, link: '/empleados/nuevo', highlight: true, requiredAny: ['empleados.crear', 'empleados.gestionar'] },
     ],
   },
   {
@@ -148,6 +153,7 @@ const navItems: NavItem[] = [
     label: 'Clientes',
     icon: <Users size={15} />,
     link: '/clientes',
+    requiredAny: ['clientes.ver', 'clientes.cargar', 'clientes.editar'],
   },
   {
     id: 'caja',
@@ -165,13 +171,14 @@ const navItems: NavItem[] = [
     label: 'Transferencias',
     icon: <ArrowLeftRight size={15} />,
     subItems: [
-      { label: 'Historial', icon: <Clock size={15} />, link: '/transferencias' },
-      { label: 'Pendientes', icon: <Loader size={15} />, link: '/transferencias/pendientes' },
+      { label: 'Historial', icon: <Clock size={15} />, link: '/transferencias', requiredAny: ['deposito.ver', 'deposito.despachar', 'deposito.recepcionar', 'stock.ver'] },
+      { label: 'Pendientes', icon: <Loader size={15} />, link: '/transferencias/pendientes', requiredAny: ['deposito.ver', 'deposito.despachar', 'deposito.recepcionar', 'stock.ver'] },
       {
         label: 'Nueva transferencia',
         icon: <Plus size={15} />,
         link: '/transferencias/nueva',
         highlight: true,
+        requiredAny: ['deposito.despachar', 'deposito.recepcionar', 'stock.editar', 'stock.ajuste'],
       },
     ],
   },
@@ -247,32 +254,44 @@ export default function Navbar() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const navRef = useRef<HTMLElement>(null);
   const queryClient = useQueryClient();
-  const { cerrarSesion, empleado, sucursales, sucursalActiva, cambiarSucursalActiva, permisos } =
+  const { cerrarSesion, empleado, sucursales, sucursalActiva, cambiarSucursalActiva, permisos, rutas } =
     useAuthStore();
   const permisosSet = useMemo(() => new Set(permisos), [permisos]);
+  const rutasSet = useMemo(() => new Set(rutas.map((ruta) => ruta.path)), [rutas]);
   const canSee = (requiredAny?: string[]) =>
     !requiredAny?.length || requiredAny.some((permiso) => permisosSet.has(permiso));
+  const canAccessLink = (link?: string, requiredAny?: string[]) =>
+    !link || (rutas.length ? rutasSet.has(link) : canSee(requiredAny));
   const visibleNavItems = useMemo(
     () =>
       navItems
         .map((item) => {
           if (item.subItems) {
-            const subItems = item.subItems.filter((subItem) => canSee(subItem.requiredAny));
+            const subItems = item.subItems.filter((subItem) =>
+              canAccessLink(subItem.link, subItem.requiredAny),
+            );
             return { ...item, subItems };
           }
           return item;
         })
-        .filter((item) => (item.subItems ? item.subItems.length > 0 : canSee(item.requiredAny))),
-    [permisosSet],
+        .filter((item) =>
+          item.subItems ? item.subItems.length > 0 : canAccessLink(item.link, item.requiredAny),
+        ),
+    [permisosSet, rutas, rutasSet],
   );
   const visibleUserActions = useMemo(
-    () => userActions.filter((action) => canSee(action.requiredAny)),
-    [permisosSet],
+    () => userActions.filter((action) => canAccessLink(action.link, action.requiredAny)),
+    [permisosSet, rutas, rutasSet],
   );
+
   const seleccionarSucursalMutation = useMutation({
     mutationFn: seleccionarSucursalFn,
     onSuccess: (data) => {
-      cambiarSucursalActiva(data.token, data.sucursal);
+      cambiarSucursalActiva(data.token, data.sucursal, {
+        permisos: data.permisos,
+        rutas: data.rutas,
+        rutaInicio: data.rutaInicio,
+      });
       queryClient.invalidateQueries();
     },
     onError: (error: AxiosError<{ message?: string; mensaje?: string }>) => {

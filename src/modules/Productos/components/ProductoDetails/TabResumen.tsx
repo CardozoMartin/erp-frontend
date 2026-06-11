@@ -21,11 +21,11 @@ const TabResumen = ({ product, isEditing }: any) => {
   const { register, watch, setValue } = useFormContext<any>();
   const { data: categorias } = useGetAllProductCategoriesActives(1, 1000);
   const todasLasCategorias = categorias?.data || [];
-  
+
   const watchedCategoriaId = watch('categoria_id') || product?.categoria_id;
   const categoriaSeleccionada = todasLasCategorias.find((cat: any) => cat.id === watchedCategoriaId);
   const atributosCategoria = categoriaSeleccionada?.atributos || [];
-  
+
   const watchedTieneVariantes = watch('tiene_variantes');
   const watchedTieneVencimiento = watch('tiene_vencimiento');
   const watchedEsFraccionable = watch('es_fraccionable');
@@ -48,7 +48,7 @@ const TabResumen = ({ product, isEditing }: any) => {
     <div className="py-4">
       {/* ── SECTIONS GRID (Odoo 2-Column Sheet) ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-6">
-        
+
         {/* LEFT COLUMN: Datos de Facturación / Venta */}
         <div className="flex flex-col gap-5">
           <h3 className="text-xs font-bold text-[#075E54] uppercase tracking-wider border-b border-slate-100 pb-1 flex items-center gap-1.5">
@@ -158,7 +158,7 @@ const TabResumen = ({ product, isEditing }: any) => {
               )}
             </div>
           </div>
-
+              {/* Margen de Ganancia // Aqui falta agregar el permisos para ver si el usuario puede ver los margenes de ganancias */}
           <div className="flex items-center justify-between min-h-[40px] py-1 border-b border-slate-50">
             <span className="text-[13px] text-gray-500 font-semibold flex items-center gap-2">
               <DollarSign size={14} className="text-gray-400" />
@@ -227,7 +227,7 @@ const TabResumen = ({ product, isEditing }: any) => {
 
       {/* ── FULL WIDTH DESCRIPTION & ATTRIBUTES ── */}
       <div className="mt-8 flex flex-col gap-6">
-        
+
         {/* Descripción */}
         <div className="flex flex-col gap-2">
           <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
