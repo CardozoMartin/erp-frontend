@@ -27,13 +27,10 @@ import {
   ReceiptText,
   Users,
   Truck,
-  Mail,
-  ImageIcon,
-  QrCode,
 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
 import Swal from 'sweetalert2';
 import { logoutFn, seleccionarSucursalFn } from '../../modules/Auth/api/auth.api';
@@ -62,8 +59,10 @@ type NavItem = {
 type UserAction = {
   label: string;
   icon: React.ReactNode;
+  link?: string;
   danger?: boolean;
   dividerBefore?: boolean;
+  requiredAny?: string[];
 };
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -87,11 +86,6 @@ const navItems: NavItem[] = [
       { label: 'Cuenta corriente', icon: <Wallet size={15} />, link: '/cuenta-corriente', requiredAny: ['clientes.ver', 'ventas.ver'] },
       { label: 'Listas de precio', icon: <BadgePercent size={15} />, link: '/listas-precio', requiredAny: ['precios.ver', 'config.listas_precio'] },
       { label: 'Reportes POS', icon: <BarChart2 size={15} />, link: '/reportes-pos', requiredAny: ['reportes.ver', 'reportes.ventas', 'reportes.caja'] },
-      { label: 'Configuracion POS', icon: <Settings size={15} />, link: '/configuracion-pos', highlight: true, requiredAny: ['config.pos'] },
-      { label: 'Mercado Pago', icon: <QrCode size={15} />, link: '/configuracion-mercadopago', highlight: true, requiredAny: ['mp.crear', 'config.pos'] },
-      { label: 'Configuracion Cloudinary', icon: <ImageIcon size={15} />, link: '/configuracion-cloudinary', highlight: true, requiredAny: ['config.pos'] },
-      { label: 'Configuracion Email', icon: <Mail size={15} />, link: '/configuracion-email', highlight: true, requiredAny: ['config.email'] },
-      { label: 'Auditoria', icon: <Clock size={15} />, link: '/auditoria', requiredAny: ['reportes.ver'] },
     ],
   },
   {
@@ -186,7 +180,7 @@ const navItems: NavItem[] = [
 const userActions: UserAction[] = [
   { label: 'Favoritos', icon: <Star size={14} /> },
   { label: 'Renombrar', icon: <Pencil size={14} /> },
-  { label: 'Ajustes', icon: <Settings size={14} /> },
+  { label: 'Ajustes', icon: <Settings size={14} />, link: '/ajustes', requiredAny: ['config.pos', 'mp.crear', 'config.email', 'reportes.ver'] },
   { label: 'Cerrar sesión', icon: <LogOut size={14} />, danger: true, dividerBefore: true },
 ];
 
@@ -248,6 +242,7 @@ const Dropdown = ({ items, onClose }: DropdownProps) => {
 
 export default function Navbar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const navRef = useRef<HTMLElement>(null);
@@ -268,6 +263,10 @@ export default function Navbar() {
           return item;
         })
         .filter((item) => (item.subItems ? item.subItems.length > 0 : canSee(item.requiredAny))),
+    [permisosSet],
+  );
+  const visibleUserActions = useMemo(
+    () => userActions.filter((action) => canSee(action.requiredAny)),
     [permisosSet],
   );
   const seleccionarSucursalMutation = useMutation({
@@ -351,6 +350,17 @@ export default function Navbar() {
         Swal.fire('Sesión cerrada', 'Has cerrado sesión exitosamente.', 'success');
       }
     });
+  };
+
+  const handleUserAction = (action: UserAction) => {
+    setUserMenuOpen(false);
+    if (action.danger) {
+      handleLogout();
+      return;
+    }
+    if (action.link) {
+      navigate(action.link);
+    }
   };
 
   return (
@@ -486,12 +496,12 @@ export default function Navbar() {
 
           {userMenuOpen && (
             <div className="absolute right-0 top-[calc(100%+6px)] z-50 min-w-[190px] overflow-hidden rounded-md border border-gray-500/20 bg-white py-1 shadow-sm">
-              {userActions.map((action) => (
+              {visibleUserActions.map((action) => (
                 <div key={action.label}>
                   {action.dividerBefore && <div className="my-1 h-px bg-gray-200/70" />}
                   <button
                     type="button"
-                    onClick={() => setUserMenuOpen(false)}
+                    onClick={() => handleUserAction(action)}
                     className={`
                       flex w-full cursor-pointer items-center justify-between gap-3 px-3 py-2 text-[13px] font-medium transition-colors
                       ${

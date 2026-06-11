@@ -14,8 +14,13 @@ import ConfiguracionMercadoPagoPage from './Pages/ConfiguracionMercadoPagoPage';
 import VentaDetalleAuxPage from './Pages/VentaDetalleAuxPage';
 import VentasGeneralAuxPage from './Pages/VentasGeneralAuxPage';
 import VentasPosAuxPage from './Pages/VentasPosAuxPage';
+import AjustesPage from './Pages/AjustesPage';
 
 export const posAuxiliaresRoutes: RouteObject[] = [
+  {
+    path: 'ajustes',
+    element: <AjustesPage />,
+  },
   {
     path: 'configuracion-pos',
     element: <ConfiguracionPosPage />,
