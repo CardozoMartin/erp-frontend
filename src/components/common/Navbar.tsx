@@ -187,7 +187,7 @@ const navItems: NavItem[] = [
 const userActions: UserAction[] = [
   { label: 'Favoritos', icon: <Star size={14} /> },
   { label: 'Renombrar', icon: <Pencil size={14} /> },
-  { label: 'Ajustes', icon: <Settings size={14} />, link: '/ajustes', requiredAny: ['config.pos', 'mp.crear', 'config.email', 'reportes.ver'] },
+  { label: 'Ajustes', icon: <Settings size={14} />, link: '/ajustes', requiredAny: ['admin.servicios', 'config.pos', 'mp.crear', 'config.email', 'reportes.ver'] },
   { label: 'Cerrar sesión', icon: <LogOut size={14} />, danger: true, dividerBefore: true },
 ];
 

@@ -26,7 +26,7 @@ import type { DataTableColumn } from '../../../components/common/DataTable';
 import { useAuthStore } from '../../../store/auth.store';
 import { useGetProducts } from '../../Productos/hooks/useProducts';
 import type { IProducto, IStock } from '../../Productos/types/productos.type';
-import { useConfiguracionPos } from '../../POSAuxiliares/hooks/usePosAux';
+import { useConfiguracionPos, useServiciosSucursal } from '../../POSAuxiliares/hooks/usePosAux';
 import { imprimirComprobante } from '../../POSAuxiliares/utils/printComprobante';
 import {
   useAbrirCaja,
@@ -225,6 +225,7 @@ const PuntoDeVentaPages = () => {
 
   const productsQuery = useGetProducts(1, 200);
   const configQuery = useConfiguracionPos();
+  const serviciosQuery = useServiciosSucursal();
   const cajaQuery = useCajaAbierta();
   const mediosPagoQuery = useMediosPagoActivos();
   const clientesQuery = useClientesPos();
@@ -254,6 +255,7 @@ const PuntoDeVentaPages = () => {
   );
   const cajaAbierta = cajaQuery.data;
   const config = configQuery.data;
+  const mercadoPagoDisponible = !!serviciosQuery.data?.mercadoPago.disponible;
   const permitePagoMixto = config?.permitir_pago_mixto !== false;
   const permiteListasPrecio = config?.permitir_listas_precio === true;
   const permiteCotizaciones = config?.permitir_cotizaciones === true;
@@ -836,6 +838,10 @@ const PuntoDeVentaPages = () => {
   };
 
   const crearOrdenQrParaVenta = (venta: IComprobantePos) => {
+    if (!mercadoPagoDisponible) {
+      toast.warning('Mercado Pago no esta configurado para esta sucursal');
+      return;
+    }
     if (!sucursalActiva?.id || !cajaAbierta?.id) {
       toast.warning('Abra una caja y seleccione una sucursal para cobrar con QR');
       return;
@@ -869,6 +875,10 @@ const PuntoDeVentaPages = () => {
   };
 
   const handleCobrarQrCarrito = () => {
+    if (!mercadoPagoDisponible) {
+      toast.warning('Mercado Pago no esta configurado para esta sucursal');
+      return;
+    }
     if (!validateSale() || !cajaAbierta) return;
     if (!posAccess.puedeVenderYCobrar) {
       toast.warning('No tenes permisos para cobrar ventas');
@@ -887,6 +897,10 @@ const PuntoDeVentaPages = () => {
   };
 
   const handleCobrarQrPendiente = (venta: IComprobantePos) => {
+    if (!mercadoPagoDisponible) {
+      toast.warning('Mercado Pago no esta configurado para esta sucursal');
+      return;
+    }
     if (!cajaAbierta) {
       toast.warning('Abra una caja para cobrar con QR');
       return;
@@ -1662,19 +1676,21 @@ const PuntoDeVentaPages = () => {
                           )}
                           Cobrar venta
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleCobrarQrPendiente(selectedPendiente)}
-                          disabled={isBusy || !cajaAbierta || !puedeCobrar}
-                          className="flex items-center justify-center gap-2 rounded bg-[#0f766e] px-4 py-3 text-[14px] font-semibold text-white hover:bg-[#115e59] disabled:opacity-60"
-                        >
-                          {crearOrdenQrMutation.isPending ? (
-                            <Loader2 size={16} className="animate-spin" />
-                          ) : (
-                            <QrCode size={16} />
-                          )}
-                          Cobrar QR
-                        </button>
+                        {mercadoPagoDisponible ? (
+                          <button
+                            type="button"
+                            onClick={() => handleCobrarQrPendiente(selectedPendiente)}
+                            disabled={isBusy || !cajaAbierta || !puedeCobrar}
+                            className="flex items-center justify-center gap-2 rounded bg-[#0f766e] px-4 py-3 text-[14px] font-semibold text-white hover:bg-[#115e59] disabled:opacity-60"
+                          >
+                            {crearOrdenQrMutation.isPending ? (
+                              <Loader2 size={16} className="animate-spin" />
+                            ) : (
+                              <QrCode size={16} />
+                            )}
+                            Cobrar QR
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                   ) : (
@@ -1955,7 +1971,7 @@ const PuntoDeVentaPages = () => {
                           {usaDespacho ? 'Cobrar y despachar' : 'Cobrar'}
                         </button>
                       ) : null}
-                      {permiteCobroDirecto ? (
+                      {permiteCobroDirecto && mercadoPagoDisponible ? (
                         <button
                           type="button"
                           onClick={handleCobrarQrCarrito}

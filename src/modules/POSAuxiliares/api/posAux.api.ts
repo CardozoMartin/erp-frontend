@@ -4,6 +4,7 @@ import type {
   ConfiguracionCloudinaryPayload,
   ConfiguracionEmailPayload,
   IConfiguracionCloudinarySucursal,
+  IEstadoServiciosSucursal,
   ConfiguracionPosPayload,
   IConfiguracionEmailSucursal,
   IConfiguracionPosSucursal,
@@ -371,6 +372,9 @@ export const probarConfiguracionEmailFn = async (payload: {
 
 export const getConfiguracionCloudinaryFn = async (sucursalId: string) =>
   unwrap<IConfiguracionCloudinarySucursal>(await api.get(`/configuracion/cloudinary/${sucursalId}`));
+
+export const getEstadoServiciosSucursalFn = async () =>
+  unwrap<IEstadoServiciosSucursal>(await api.get('/configuracion/servicios/estado'));
 
 export const guardarConfiguracionCloudinaryFn = async (payload: ConfiguracionCloudinaryPayload) =>
   {

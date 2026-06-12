@@ -28,7 +28,7 @@ const ajustes: AjusteItem[] = [
     description: 'Parametros operativos del punto de venta, tickets, stock y comprobantes.',
     link: '/configuracion-pos',
     icon: <Settings size={21} />,
-    requiredAny: ['config.pos'],
+    requiredAny: ['admin.servicios', 'config.pos'],
     badge: 'Sistema',
   },
   {
@@ -36,7 +36,7 @@ const ajustes: AjusteItem[] = [
     description: 'Credenciales, tienda, POS QR y prueba de conexion por sucursal.',
     link: '/configuracion-mercadopago',
     icon: <QrCode size={21} />,
-    requiredAny: ['mp.crear', 'config.pos'],
+    requiredAny: ['admin.servicios', 'mp.crear', 'config.pos'],
     badge: 'Cobros',
   },
   {
@@ -44,7 +44,7 @@ const ajustes: AjusteItem[] = [
     description: 'Configuracion de imagenes para productos y recursos multimedia.',
     link: '/configuracion-cloudinary',
     icon: <ImageIcon size={21} />,
-    requiredAny: ['config.pos'],
+    requiredAny: ['admin.servicios', 'config.pos'],
     badge: 'Imagenes',
   },
   {
@@ -52,7 +52,7 @@ const ajustes: AjusteItem[] = [
     description: 'Servidor de envio, remitente, pruebas y habilitacion de correos.',
     link: '/configuracion-email',
     icon: <Mail size={21} />,
-    requiredAny: ['config.email'],
+    requiredAny: ['admin.servicios', 'config.email'],
     badge: 'Comunicacion',
   },
   {

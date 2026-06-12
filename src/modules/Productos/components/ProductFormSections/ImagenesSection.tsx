@@ -3,6 +3,7 @@ import { useRef } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Card } from '../FormComponents';
 import type { IImagen, IImagenLocal } from '../../types/productos.type';
+import { useServiciosSucursal } from '../../../POSAuxiliares/hooks/usePosAux';
 
 interface Props {
   imagenesLocales?: IImagenLocal[];
@@ -12,6 +13,8 @@ interface Props {
 
 export function ImagenesSection({ imagenesLocales, setImagenesLocales, namePrefix }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const serviciosQuery = useServiciosSucursal();
+  const cloudinaryDisponible = !!serviciosQuery.data?.cloudinary.disponible;
   const formContext = useFormContext();
   const localFieldName = namePrefix?.replace(/\.imagenes$/, '.imagenesLocales');
   const imagenesFormulario = (localFieldName ? formContext.watch(localFieldName) ?? [] : []) as IImagenLocal[];
@@ -73,6 +76,7 @@ export function ImagenesSection({ imagenesLocales, setImagenesLocales, namePrefi
       </div>
 
       <div className="space-y-4">
+        {cloudinaryDisponible ? (
         <div 
           className="border-2 border-dashed border-[#c4c6cd] rounded-lg p-6 flex flex-col items-center justify-center bg-[#fbf9fa] hover:bg-[#f5f3f4] transition-colors cursor-pointer"
           onClick={() => fileInputRef.current?.click()}
@@ -90,6 +94,7 @@ export function ImagenesSection({ imagenesLocales, setImagenesLocales, namePrefi
             className="hidden"
           />
         </div>
+        ) : null}
 
         {/* Existing Images */}
         {imagenesExistentes.length > 0 && (
@@ -110,6 +115,7 @@ export function ImagenesSection({ imagenesLocales, setImagenesLocales, namePrefi
                   )}
                   <span className="text-[11px] text-[#595f66]">Orden: {img.orden}</span>
                 </div>
+                {cloudinaryDisponible ? (
                 <button
                   type="button"
                   onClick={() => removeImagenExistente(index)}
@@ -118,6 +124,7 @@ export function ImagenesSection({ imagenesLocales, setImagenesLocales, namePrefi
                 >
                   <Trash2 size={14} />
                 </button>
+                ) : null}
               </div>
             ))}
           </div>

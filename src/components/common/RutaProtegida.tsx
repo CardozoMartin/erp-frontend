@@ -1,5 +1,6 @@
 import { matchPath, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
+import { getRutaInicioPermitida } from '../../utils/authNavigation';
 import Navbar from './Navbar';
 
 interface Props {
@@ -17,7 +18,7 @@ export function RutaProtegida({ permiso, conLayout = true }: Props) {
   if (!token) return <Navigate to="/login" replace />;
 
   if (location.pathname === '/') {
-    return <Navigate to={rutaInicio || '/sin-acceso'} replace />;
+    return <Navigate to={getRutaInicioPermitida(rutaInicio, rutas)} replace />;
   }
 
   if (permiso && !tienePermiso(permiso)) {

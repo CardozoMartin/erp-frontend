@@ -77,6 +77,80 @@ const getTitle = (comprobante: IComprobanteAux, fallback?: string) => {
   return 'Comprobante';
 };
 
+const fiscalCodeFromType = (tipo?: string | null) => {
+  if (tipo === 'FACTURA_A') return '001';
+  if (tipo === 'FACTURA_B') return '006';
+  if (tipo === 'FACTURA_C') return '011';
+  if (tipo === 'TICKET') return '083';
+  return '';
+};
+
+const fiscalLetterFromType = (tipo?: string | null) => {
+  if (tipo === 'FACTURA_A') return 'A';
+  if (tipo === 'FACTURA_B' || tipo === 'TICKET') return 'B';
+  if (tipo === 'FACTURA_C') return 'C';
+  return 'X';
+};
+
+const onlyDigits = (value?: unknown) => String(value ?? '').replace(/\D/g, '');
+
+const formatDate = (value?: unknown) => {
+  if (!value) return '';
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString('es-AR');
+};
+
+const formatDateTime = (value?: unknown) => {
+  if (!value) return '';
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString('es-AR');
+};
+
+const formatVoucherNumber = (puntoVenta?: unknown, numero?: unknown) => {
+  const pv = onlyDigits(puntoVenta).padStart(4, '0').slice(-4);
+  const seqSource = onlyDigits(numero);
+  const seq = seqSource ? seqSource.slice(-8).padStart(8, '0') : '';
+  if (pv && seq) return `${pv}-${seq}`;
+  return String(numero ?? '').trim();
+};
+
+const buildArcaQrUrl = ({
+  comprobante,
+  config,
+  puntoVenta,
+  codigoFiscal,
+}: {
+  comprobante: IComprobanteAux;
+  config: Partial<IConfiguracionPosSucursal>;
+  puntoVenta: string;
+  codigoFiscal: string;
+}) => {
+  const cuit = onlyDigits(config.cuit_ticket);
+  const cae = onlyDigits(comprobante.cae);
+  if (!cuit || !cae || !puntoVenta || !codigoFiscal) return '';
+
+  const payload = {
+    ver: 1,
+    fecha: new Date(comprobante.created_at).toISOString().slice(0, 10),
+    cuit: Number(cuit),
+    ptoVta: Number(onlyDigits(puntoVenta)),
+    tipoCmp: Number(codigoFiscal),
+    nroCmp: Number(onlyDigits(comprobante.numero_secuencial ?? comprobante.numero) || 0),
+    importe: Number(toNumber(comprobante.total).toFixed(2)),
+    moneda: 'PES',
+    ctz: 1,
+    tipoDocRec: 99,
+    nroDocRec: 0,
+    tipoCodAut: 'E',
+    codAut: Number(cae),
+  };
+  const encoded = btoa(JSON.stringify(payload))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  return `https://www.afip.gob.ar/fe/qr/?p=${encoded}`;
+};
+
 const getStyles = (formato: string, diseno: string) => {
   const thermal = isThermal(formato);
   const width = formato === 'TICKET_58MM' ? '58mm' : '80mm';
@@ -128,6 +202,9 @@ const getStyles = (formato: string, diseno: string) => {
       .totals { margin-top: 8px; border-top: 1px dashed #111; padding-top: 6px; }
       .total-row { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
       .grand { margin-top: 4px; border-top: 1px solid #111; padding-top: 6px; font-size: 14px; font-weight: 700; }
+      .fiscal-auth { border-top: 1px dashed #111; margin-top: 8px; padding-top: 6px; }
+      .arca-footer { border-top: 1px dashed #111; margin-top: 8px; padding-top: 7px; text-align: center; }
+      .qr { width: 30mm; height: 30mm; margin: 5px auto 0; object-fit: contain; }
       .message { text-align: center; white-space: pre-wrap; }
       .footer { padding-top: 7px; text-align: center; font-size: 9px; }
       @media print { body { width: ${width}; } .sheet { padding: ${diseno === 'WAVE' ? '0 0 3mm' : '3mm'}; } }
@@ -148,11 +225,11 @@ const getStyles = (formato: string, diseno: string) => {
     .body-content { padding: ${diseno === 'WAVE' ? '0 6mm' : '0'}; }
     .brand {
       display: grid;
-      grid-template-columns: minmax(0, 1.25fr) minmax(62mm, 0.75fr);
-      gap: 18px;
-      align-items: start;
-      border-bottom: 2px solid #111827;
-      padding: 0 0 14px;
+      grid-template-columns: minmax(0, 1fr) 22mm minmax(0, 1fr);
+      gap: 0;
+      align-items: stretch;
+      border: 1.5px solid #111827;
+      min-height: 48mm;
     }
     .design-wave .brand {
       position: relative;
@@ -173,23 +250,48 @@ const getStyles = (formato: string, diseno: string) => {
       border-radius: 0 0 50% 50%;
     }
     .design-wave .brand > div { position: relative; z-index: 1; }
-    .design-clasico .brand { border: 2px solid #111827; padding: 14px; }
+    .design-clasico .brand { border: 1.5px solid #111827; }
+    .issuer-box, .voucher-box { padding: 12px 14px; }
     .brand h1 { margin: 0 0 8px; font-size: 23px; letter-spacing: 0; text-transform: uppercase; }
     .brand div { line-height: 1.45; }
+    .invoice-letter {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      border-left: 1.5px solid #111827;
+      border-right: 1.5px solid #111827;
+      text-align: center;
+    }
+    .invoice-letter strong {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 17mm;
+      height: 17mm;
+      border: 1.5px solid #111827;
+      border-top: 0;
+      font-size: 28px;
+      line-height: 1;
+    }
+    .invoice-letter span {
+      display: block;
+      padding-top: 5px;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
     .doc-badge {
-      justify-self: end;
-      min-width: 56mm;
-      border: 1px solid #d1d5db;
-      padding: 10px 12px;
+      border: 0;
+      padding: 0;
       text-align: right;
-      background: #f9fafb;
+      background: transparent;
     }
     .design-wave .doc-badge {
       border-color: rgba(255,255,255,0.45);
       background: rgba(255,255,255,0.12);
       color: #fff;
     }
-    .doc-badge strong { display: block; font-size: 15px; text-transform: uppercase; }
+    .doc-badge strong { display: block; font-size: 20px; text-transform: uppercase; }
     .doc-badge span { display: block; margin-top: 4px; font-size: 12px; }
     .doc-title {
       margin: 18px 0 12px;
@@ -208,6 +310,26 @@ const getStyles = (formato: string, diseno: string) => {
       margin: 0 0 12px;
       border: 1px solid #e5e7eb;
       border-bottom: 0;
+    }
+    .fiscal-summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border: 1px solid #111827;
+      border-bottom: 0;
+      margin: 12px 0;
+    }
+    .fiscal-summary div {
+      min-height: 30px;
+      padding: 7px 9px;
+      border-right: 1px solid #111827;
+      border-bottom: 1px solid #111827;
+    }
+    .fiscal-summary div:nth-child(4n) { border-right: 0; }
+    .fiscal-summary strong {
+      display: block;
+      margin-bottom: 2px;
+      font-size: 9px;
+      text-transform: uppercase;
     }
     .meta div, .fiscal div {
       min-height: 34px;
@@ -342,6 +464,49 @@ const getStyles = (formato: string, diseno: string) => {
       border-top: 1px solid #111827;
       padding-top: 6px;
     }
+    .tax-box {
+      margin-top: 16px;
+      width: 96mm;
+      border: 1px solid #111827;
+      border-bottom: 0;
+    }
+    .tax-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      border-bottom: 1px solid #111827;
+    }
+    .tax-row span, .tax-row strong { padding: 6px 8px; border-right: 1px solid #111827; }
+    .tax-row :last-child { border-right: 0; text-align: right; }
+    .tax-head { background: #f3f4f6; font-size: 10px; text-transform: uppercase; }
+    .auth-grid {
+      display: grid;
+      grid-template-columns: 1fr 38mm;
+      gap: 14px;
+      align-items: end;
+      margin-top: 18px;
+      border-top: 1px solid #111827;
+      padding-top: 12px;
+    }
+    .auth-lines {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 7px 14px;
+    }
+    .auth-lines div { border-bottom: 1px solid #d1d5db; padding-bottom: 5px; }
+    .qr { width: 34mm; height: 34mm; object-fit: contain; display: block; margin-left: auto; }
+    .qr-placeholder {
+      width: 34mm;
+      height: 34mm;
+      margin-left: auto;
+      border: 1px dashed #6b7280;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #6b7280;
+      font-size: 10px;
+      text-align: center;
+      padding: 4px;
+    }
     .total-row { display: flex; justify-content: space-between; gap: 18px; padding: 5px 0; }
     .grand {
       border-top: 2px solid #111827;
@@ -385,8 +550,8 @@ export const imprimirComprobante = (
   const opts: PrintOptions = typeof options === 'string' ? { titulo: options } : options;
   const config = opts.config ?? {};
   const formato = opts.formato ?? config.formato_impresion_comprobante ?? 'BOLETA_A4';
-  const diseno = config.diseno_comprobante ?? 'BASICO';
   const thermal = isThermal(formato);
+  const diseno = thermal ? (config.diseno_comprobante ?? 'BASICO') : 'CLASICO';
   const titulo = getTitle(comprobante, opts.titulo);
   const items = comprobante.items ?? [];
   const storeName =
@@ -429,6 +594,13 @@ export const imprimirComprobante = (
   const entregadoEnRemito = remitoItems.reduce((sum, item) => sum + toNumber(item.cantidad), 0);
   const documentoOrigen = despacho?.comprobante?.numero ?? comprobante.comprobante_origen_id ?? '';
   const fechaEntrega = despacho?.fecha_despacho ?? comprobante.created_at;
+  const puntoVenta = String(comprobante.punto_venta ?? config.punto_venta_arca ?? '').trim();
+  const codigoFiscal = String(comprobante.codigo_fiscal ?? fiscalCodeFromType(comprobante.tipo)).trim();
+  const letraFiscal = fiscalLetterFromType(comprobante.tipo);
+  const numeroFiscal = formatVoucherNumber(puntoVenta, comprobante.numero_secuencial ?? comprobante.numero);
+  const cae = String(comprobante.cae ?? '').trim();
+  const caeVencimiento = formatDate(comprobante.cae_vencimiento);
+  const qrUrl = buildArcaQrUrl({ comprobante, config, puntoVenta, codigoFiscal });
 
   const html = `
     <!doctype html>
@@ -440,32 +612,62 @@ export const imprimirComprobante = (
       </head>
       <body>
         <main class="sheet design-${escapeHtml(diseno.toLowerCase())} ${isRemito ? 'remito-doc' : ''}">
-          <section class="brand">
-            <div>
-              <h1>${escapeHtml(storeName)}</h1>
-              ${line('Razon social', config.razon_social_ticket)}
-              ${line('Domicilio', config.domicilio_ticket)}
-              ${line('Tel', config.telefono_ticket)}
-              ${line('Email', config.email_ticket)}
-              ${line('Web', config.web_ticket)}
-            </div>
-            ${thermal ? '' : `
-              <div class="doc-badge">
-                <strong>${escapeHtml(titulo)}</strong>
-                <span>${escapeHtml(comprobante.numero)}</span>
+          ${thermal ? `
+            <section class="brand">
+              <div>
+                <h1>${escapeHtml(storeName)}</h1>
+                ${line('Razon social', config.razon_social_ticket)}
+                ${line('Domicilio', config.domicilio_ticket)}
+                ${line('Tel', config.telefono_ticket)}
+                ${line('Email', config.email_ticket)}
+                ${line('Web', config.web_ticket)}
               </div>
-            `}
-          </section>
+            </section>
+          ` : `
+            <section class="brand">
+              <div class="issuer-box">
+                <h1>${escapeHtml(storeName)}</h1>
+                ${line('Razon social', config.razon_social_ticket)}
+                ${line('Domicilio comercial', config.domicilio_ticket)}
+                ${line('Telefono', config.telefono_ticket)}
+                ${line('Email', config.email_ticket)}
+                ${line('Web', config.web_ticket)}
+              </div>
+              <div class="invoice-letter">
+                <strong>${escapeHtml(letraFiscal)}</strong>
+                <span>Codigo ${escapeHtml(codigoFiscal || '-')}</span>
+              </div>
+              <div class="voucher-box">
+                <div class="doc-badge">
+                  <strong>${escapeHtml(isRemito ? 'Remito' : titulo)}</strong>
+                  <span>Nro. ${escapeHtml(numeroFiscal || comprobante.numero)}</span>
+                  ${line('Fecha de emision', formatDate(comprobante.created_at))}
+                  ${line('Punto de venta', puntoVenta)}
+                  ${line('Original', 'Documento generado por sistema')}
+                </div>
+              </div>
+            </section>
+          `}
 
           <div class="body-content">
           <div class="doc-title">${escapeHtml(isRemito ? 'Remito de despacho' : titulo)}</div>
           ${isRemito ? '<div class="remito-subtitle">Documento de control de entrega de mercaderia. No reemplaza factura o comprobante fiscal.</div>' : ''}
 
-          ${showFiscal ? `
+          ${showFiscal && thermal ? `
             <section class="fiscal">
               ${line('CUIT', config.cuit_ticket)}
               ${line('IIBB', config.ingresos_brutos_ticket)}
               ${line('Inicio act.', config.inicio_actividades_ticket)}
+              ${line('Pto. venta', puntoVenta)}
+              ${line('Cod. fiscal', codigoFiscal)}
+            </section>
+          ` : ''}
+          ${showFiscal && !thermal ? `
+            <section class="fiscal-summary">
+              ${line('CUIT', config.cuit_ticket)}
+              ${line('Ingresos Brutos', config.ingresos_brutos_ticket)}
+              ${line('Inicio actividades', config.inicio_actividades_ticket)}
+              ${line('Condicion IVA', letraFiscal === 'A' ? 'Responsable Inscripto' : 'Consumidor final / Exento')}
             </section>
           ` : ''}
 
@@ -487,11 +689,13 @@ export const imprimirComprobante = (
             </section>
           ` : `
             <section class="meta">
-              ${line('Numero', comprobante.numero)}
-              ${line('Fecha', new Date(comprobante.created_at).toLocaleString('es-AR'))}
+              ${line('Numero', thermal ? comprobante.numero : numeroFiscal || comprobante.numero)}
+              ${line('Fecha', formatDateTime(comprobante.created_at))}
               ${line('Tipo', comprobante.tipo)}
               ${line('Estado', comprobante.estado)}
               ${line('Cliente', comprobante.cliente_id || 'Consumidor final')}
+              ${line('CUIT/DNI receptor', 'Consumidor final')}
+              ${line('Condicion venta', 'Contado')}
               ${line('Caja', comprobante.caja_id || '-')}
             </section>
           `}
@@ -629,6 +833,29 @@ export const imprimirComprobante = (
             </div>
           </section>`}
 
+          ${!isRemito && !thermal ? `
+            <section class="tax-box">
+              <div class="tax-row tax-head">
+                <strong>Neto gravado</strong>
+                <strong>IVA / Impuestos</strong>
+                <strong>Total</strong>
+              </div>
+              <div class="tax-row">
+                <span>${money(baseImponible || comprobante.subtotal)}</span>
+                <span>${money(ivaCalculado)}</span>
+                <strong>${money(comprobante.total)}</strong>
+              </div>
+            </section>
+          ` : ''}
+
+          ${!isRemito && thermal && (cae || caeVencimiento || qrUrl) ? `
+            <section class="fiscal-auth">
+              ${line('CAE', cae)}
+              ${line('Vto. CAE', caeVencimiento)}
+              ${line('ARCA QR', qrUrl ? 'Disponible' : '')}
+            </section>
+          ` : ''}
+
           ${despacho && !isRemito ? `
             <section class="dispatch">
               <div class="dispatch-title">Estado del despacho</div>
@@ -672,6 +899,23 @@ export const imprimirComprobante = (
               ? `<section class="observaciones"><strong>Observaciones:</strong> ${escapeHtml(comprobante.observaciones)}</section>`
               : ''
           }
+
+          ${!isRemito && !thermal ? `
+            <section class="auth-grid">
+              <div class="auth-lines">
+                ${line('CAE', cae || 'Pendiente de autorizacion ARCA')}
+                ${line('Vencimiento CAE', caeVencimiento || 'Pendiente')}
+                ${line('Codigo fiscal', codigoFiscal || fiscalCodeFromType(comprobante.tipo) || '-')}
+                ${line('Punto de venta', puntoVenta || '-')}
+              </div>
+              <div>
+                ${qrUrl
+                  ? `<img class="qr" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrUrl)}" alt="QR ARCA" />`
+                  : '<div class="qr-placeholder">QR ARCA pendiente</div>'
+                }
+              </div>
+            </section>
+          ` : ''}
 
           ${message ? `<section class="message"><strong>Mensaje:</strong><br />${escapeHtml(message)}</section>` : ''}
           ${isRemito ? `

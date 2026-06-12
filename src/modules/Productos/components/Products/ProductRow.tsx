@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { usePermisos } from '../../../../store/usePermisos';
+import { useServiciosSucursal } from '../../../POSAuxiliares/hooks/usePosAux';
 import { useProductStore } from '../../store/useProductStore';
 import type { IProducto } from '../../types/productos.type';
 import { formatStockQuantity } from '../../utils/stockFormat';
@@ -127,10 +128,12 @@ const ProductRow = ({
   const [openModalStock, setOpenModalStock] = useState(false);
   const navigate = useNavigate();
   const { tiene } = usePermisos();
+  const serviciosQuery = useServiciosSucursal();
+  const cloudinaryDisponible = !!serviciosQuery.data?.cloudinary.disponible;
 
   const puede_ver = tiene('productos.ver');
   const puede_editar = tiene('productos.editar');
-  const puede_editar_stock = tiene('productos.stock.editar');
+  const puede_editar_stock = tiene('productos.ajustar-stock');
   const puede_crear_ofertas = tiene('productos.ofertas.crear');
   const puede_eliminar = tiene('productos.eliminar');
   const tieneAlgunPermiso =
@@ -312,7 +315,7 @@ const ProductRow = ({
                 </button>
               )}
 
-              {puede_editar && (
+              {puede_editar && cloudinaryDisponible && (
                 <button
                   onClick={() => {
                     onChangeImage(product);
@@ -324,7 +327,7 @@ const ProductRow = ({
                 </button>
               )}
 
-              {(puede_editar || puede_editar_stock) && <div className="my-1 border-t border-[#efedef]" />}
+              {((puede_editar && cloudinaryDisponible) || puede_editar_stock) && <div className="my-1 border-t border-[#efedef]" />}
 
               {puede_editar_stock && (
                 <button

@@ -12,6 +12,7 @@ type ProductColumnDefinition = {
   align: 'text-left' | 'text-center' | 'text-right';
   defaultVisible: boolean;
   sensitive?: boolean;
+  requiredPermission?: string;
 };
 
 const STORAGE_KEY = 'erp:productos:tabla:columnas:v1';
@@ -22,9 +23,23 @@ const PRODUCT_COLUMNS: ProductColumnDefinition[] = [
   { key: 'codigo', label: 'Codigo', align: 'text-left', defaultVisible: true },
   { key: 'categoria', label: 'Categoria', align: 'text-left', defaultVisible: true },
   { key: 'stock', label: 'Stock', align: 'text-center', defaultVisible: true },
-  { key: 'costo', label: 'Costo', align: 'text-right', defaultVisible: false, sensitive: true },
-  { key: 'venta', label: 'Venta', align: 'text-right', defaultVisible: false, sensitive: true },
-  { key: 'margen', label: 'Margen', align: 'text-right', defaultVisible: false, sensitive: true },
+  {
+    key: 'costo',
+    label: 'Costo',
+    align: 'text-right',
+    defaultVisible: false,
+    sensitive: true,
+    requiredPermission: 'productos.ver_costos',
+  },
+  { key: 'venta', label: 'Venta', align: 'text-right', defaultVisible: false },
+  {
+    key: 'margen',
+    label: 'Margen',
+    align: 'text-right',
+    defaultVisible: false,
+    sensitive: true,
+    requiredPermission: 'productos.ver_margenes',
+  },
   { key: 'vencimiento', label: 'Vencimiento', align: 'text-center', defaultVisible: false },
 ];
 
@@ -32,13 +47,20 @@ const defaultVisibleColumns = PRODUCT_COLUMNS.filter((column) => column.defaultV
   (column) => column.key
 );
 
-const normalizeColumns = (columns: ProductTableColumnKey[]) => {
-  const validKeys = new Set(PRODUCT_COLUMNS.map((column) => column.key));
-  const normalized = PRODUCT_COLUMNS.map((column) => column.key).filter(
+const normalizeColumns = (
+  columns: ProductTableColumnKey[],
+  availableColumns = PRODUCT_COLUMNS
+) => {
+  const validKeys = new Set(availableColumns.map((column) => column.key));
+  const normalized = availableColumns.map((column) => column.key).filter(
     (key) => columns.includes(key) && validKeys.has(key)
   );
 
-  return normalized.length > 0 ? normalized : defaultVisibleColumns;
+  const defaultAvailableColumns = availableColumns
+    .filter((column) => column.defaultVisible)
+    .map((column) => column.key);
+
+  return normalized.length > 0 ? normalized : defaultAvailableColumns;
 };
 
 const getCategoryName = (product: IProducto) => {
@@ -61,6 +83,13 @@ const TableProducts = ({ search = '' }: { search?: string }) => {
   const LIMIT = 10;
   const sucursalActiva = useAuthStore((state) => state.sucursalActiva);
   const permisos = useAuthStore((state) => state.permisos);
+  const availableColumns = useMemo(
+    () =>
+      PRODUCT_COLUMNS.filter(
+        (column) => !column.requiredPermission || permisos.includes(column.requiredPermission)
+      ),
+    [permisos]
+  );
   const canConfigureColumns = permisos.some(
     (permiso) =>
       permiso === 'productos.configurar_columnas' ||
@@ -98,8 +127,8 @@ const TableProducts = ({ search = '' }: { search?: string }) => {
     );
   }, [productsData, search]);
 
-  const selectedColumns = PRODUCT_COLUMNS.filter((column) => visibleColumns.includes(column.key));
-  const visibleSensitiveCount = PRODUCT_COLUMNS.filter(
+  const selectedColumns = availableColumns.filter((column) => visibleColumns.includes(column.key));
+  const visibleSensitiveCount = availableColumns.filter(
     (column) => column.sensitive && visibleColumns.includes(column.key)
   ).length;
   const emptyMessage = !sucursalActiva
@@ -111,7 +140,7 @@ const TableProducts = ({ search = '' }: { search?: string }) => {
         : 'No se encontraron productos para esta sucursal.';
 
   const updateVisibleColumns = (nextColumns: ProductTableColumnKey[]) => {
-    const normalized = normalizeColumns(nextColumns);
+    const normalized = normalizeColumns(nextColumns, availableColumns);
     setVisibleColumns(normalized);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
   };
@@ -155,7 +184,7 @@ const TableProducts = ({ search = '' }: { search?: string }) => {
                     </p>
                   </div>
                   <div className="py-1 max-h-80 overflow-y-auto">
-                    {PRODUCT_COLUMNS.map((column) => (
+                    {availableColumns.map((column) => (
                       <label
                         key={column.key}
                         className="px-4 py-2 flex items-center justify-between gap-3 hover:bg-[#f5f7f8] cursor-pointer"
@@ -224,7 +253,7 @@ const TableProducts = ({ search = '' }: { search?: string }) => {
                     onChangeImage={(selectedProduct) =>
                       setUploadModalProduct(selectedProduct as IProducto)
                     }
-                    visibleColumns={visibleColumns}
+                    visibleColumns={selectedColumns.map((column) => column.key)}
                   />
                 ))
               ) : (

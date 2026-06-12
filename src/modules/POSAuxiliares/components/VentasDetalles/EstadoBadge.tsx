@@ -1,4 +1,23 @@
 // Configuración centralizada de estilos por estado
+type EstadoComprobante =
+  | 'BORRADOR'
+  | 'ENVIADO'
+  | 'ACEPTADO'
+  | 'VENCIDO'
+  | 'RECHAZADO'
+  | 'PENDIENTE_COBRO'
+  | 'COBRADA'
+  | 'EMITIDO'
+  | 'EMITIDA'
+  | 'PENDIENTE'
+  | 'ENTREGADO_PARCIAL'
+  | 'ENTREGADO'
+  | 'ANULADO'
+  | 'CANCELADA'
+  | 'DEVUELTA'
+  | 'APLICADA'
+  | 'REEMBOLSADA';
+
 const ESTADO_CONFIG: Record<string, { label: string; className: string }> = {
   PENDIENTE_COBRO: {
     label: 'Pendiente de cobro',
@@ -33,7 +52,7 @@ const ESTADO_FALLBACK = {
 };
 
 interface EstadoBadgeProps {
-  estado: EstadoComprobante;
+  estado: string;
 }
 
 export const EstadoBadge = ({ estado }: EstadoBadgeProps) => {

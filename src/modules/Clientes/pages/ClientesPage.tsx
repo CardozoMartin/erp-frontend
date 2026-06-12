@@ -2,11 +2,12 @@ import { CreditCard, Download, Eye, Loader2, Mail, MapPin, Phone, Plus, Printer,
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useGetEmpleados } from '../../Empleados/hooks/useEmpleados';
 import FichaHistoryPanel from '../../../components/common/FichaHistoryPanel';
 import DataTable from '../../../components/common/DataTable';
 import type { DataTableColumn } from '../../../components/common/DataTable';
-import { useAuditoriaAux, useMovimientosCuentaCorrienteAux, usePosAuxMutation } from '../../POSAuxiliares/hooks/usePosAux';
+import { useAuditoriaAux, useMovimientosCuentaCorrienteAux, usePosAuxMutation, useServiciosSucursal } from '../../POSAuxiliares/hooks/usePosAux';
 import type { IMovimientoCuentaCorrienteAux } from '../../POSAuxiliares/types/pos-aux.type';
 import { dateTime } from '../../POSAuxiliares/utils/format';
 import { useClientes, useClienteMutations } from '../hooks/useClientes';
@@ -310,6 +311,7 @@ const ClientesPage = () => {
   const clientesQuery = useClientes();
   const mutations = useClienteMutations();
   const posAuxMutations = usePosAuxMutation();
+  const serviciosQuery = useServiciosSucursal();
   const empleadosQuery = useGetEmpleados(1, 100);
   const [selectedId, setSelectedId] = useState<string | null>(clienteId ?? null);
   const [search, setSearch] = useState('');
@@ -327,6 +329,7 @@ const ClientesPage = () => {
   const creditoSinLimite = form.watch('credito_sin_limite');
   const recargoActivo = form.watch('recargo_activo');
   const tipoVencimiento = form.watch('tipo_vencimiento');
+  const emailDisponible = !!serviciosQuery.data?.email.disponible;
 
   const clientes = clientesQuery.data ?? [];
   const clientesFiltrados = useMemo(() => {
@@ -557,6 +560,10 @@ const ClientesPage = () => {
 
   const abrirEmailCuenta = () => {
     if (!selectedCliente) return;
+    if (!emailDisponible) {
+      toast.warning('El servicio de email no esta configurado para esta sucursal');
+      return;
+    }
     setEmailDestino(selectedCliente.email ?? '');
     setEmailMensaje('');
     setEmailDesde('');
@@ -567,6 +574,10 @@ const ClientesPage = () => {
   };
 
   const enviarEmailCuenta = () => {
+    if (!emailDisponible) {
+      toast.warning('El servicio de email no esta configurado para esta sucursal');
+      return;
+    }
     if (!selectedCliente || !emailDestino.trim()) return;
     posAuxMutations.enviarResumenCuentaCorrienteEmail.mutate(
       {
@@ -691,14 +702,16 @@ const ClientesPage = () => {
                     <Printer size={14} />
                     PDF
                   </button>
-                  <button
-                    type="button"
-                    onClick={abrirEmailCuenta}
-                    className="flex h-9 items-center gap-2 rounded border border-[#cfe2de] bg-[#f3fbf9] px-3 text-[13px] font-semibold text-[#075E54] hover:bg-[#e8f7f3]"
-                  >
-                    <Mail size={14} />
-                    Enviar email
-                  </button>
+                  {emailDisponible ? (
+                    <button
+                      type="button"
+                      onClick={abrirEmailCuenta}
+                      className="flex h-9 items-center gap-2 rounded border border-[#cfe2de] bg-[#f3fbf9] px-3 text-[13px] font-semibold text-[#075E54] hover:bg-[#e8f7f3]"
+                    >
+                      <Mail size={14} />
+                      Enviar email
+                    </button>
+                  ) : null}
                 </>
               ) : null}
             </div>
@@ -714,7 +727,7 @@ const ClientesPage = () => {
             </div>
           ) : (
             <>
-              {emailOpen ? (
+              {emailOpen && emailDisponible ? (
                 <div className="border-b border-[#c4c6cd] bg-white p-4">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div>

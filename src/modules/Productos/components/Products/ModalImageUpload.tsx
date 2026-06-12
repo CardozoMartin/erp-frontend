@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import type { IImagen, IImagenLocal } from '../../types/productos.type';
 import { useUploadImage } from '../../hooks/useProducts';
 import { toast } from 'sonner';
-import { useConfiguracionCloudinary } from '../../../POSAuxiliares/hooks/usePosAux';
+import { useServiciosSucursal } from '../../../POSAuxiliares/hooks/usePosAux';
 
 type ImageRole = IImagen['rol'];
 
@@ -44,8 +44,8 @@ export default function ModalImageUpload({
   });
   const defaultRole = watch('defaultRole');
   const { mutate: uploadImage, isPending } = useUploadImage();
-  const cloudinaryQuery = useConfiguracionCloudinary();
-  const cloudinaryDisponible = !!cloudinaryQuery.data?.disponible;
+  const serviciosQuery = useServiciosSucursal();
+  const cloudinaryDisponible = !!serviciosQuery.data?.cloudinary.disponible;
   const currentListImage = existingImages[0];
   const currentImagesByRole = IMAGE_ROLES.map((role) => ({
     ...role,

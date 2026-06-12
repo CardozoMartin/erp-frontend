@@ -30,8 +30,7 @@ import TabLotes from '../components/ProductoDetails/TabLotes';
 import TabImagenes from '../components/ProductoDetails/TabImagenes';
 import Swal from 'sweetalert2';
 import { formatStockQuantity } from '../utils/stockFormat';
-import { useAuditoriaAux } from '../../POSAuxiliares/hooks/usePosAux';
-import { dateTime } from '../../POSAuxiliares/utils/format';
+import { useAuditoriaAux, useServiciosSucursal } from '../../POSAuxiliares/hooks/usePosAux';
 import { useGetEmpleados } from '../../Empleados/hooks/useEmpleados';
 import { usePermisos } from '../../../store/usePermisos';
 import ImagenNoAvaible from '../../../../public/img/product_no_avaible.png';
@@ -162,6 +161,8 @@ export default function ProductDetailView() {
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { mutate: putProducto } = usePutProducts();
+  const serviciosQuery = useServiciosSucursal();
+  const cloudinaryDisponible = !!serviciosQuery.data?.cloudinary.disponible;
 
   const historialQuery = useAuditoriaAux(
     { page: 1, limit: 30, modulo: 'productos', entidad: 'producto', entidad_id: product?.id ?? '' },
@@ -232,7 +233,8 @@ export default function ProductDetailView() {
     }).then((result) => {
       if (result.isConfirmed) {
         setImagenesLocales([]);
-        if (product?.imagenes?.length > 0) setValue('imagenes', product.imagenes.slice(1));
+        const imagenes = product?.imagenes ?? [];
+        if (imagenes.length > 0) setValue('imagenes', imagenes.slice(1));
       }
     });
   };
@@ -295,11 +297,12 @@ export default function ProductDetailView() {
     });
   };
 
+  const productImages = product.imagenes ?? [];
   const principalImage =
     imagenesLocales.length > 0
       ? imagenesLocales[0].preview
-      : product.imagenes?.length > 0
-        ? (product.imagenes[0].url ?? product.imagenes[0])
+      : productImages.length > 0
+        ? (productImages[0].url ?? productImages[0])
         : null;
 
   return (
@@ -515,7 +518,7 @@ export default function ProductDetailView() {
                     {principalImage ? (
                       <>
                         <img src={principalImage} alt={product.nombre} className="w-full h-full object-contain" />
-                        {isEditing && (
+                        {isEditing && cloudinaryDisponible && (
                           <div className="absolute inset-0 bg-black/55 flex flex-col items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button type="button" onClick={() => fileInputRef.current?.click()} className="p-1.5 bg-[#0D5C63] text-white rounded-full hover:bg-[#0a4a50] transition cursor-pointer" title="Cambiar imagen">
                               <Camera size={14} />
@@ -529,7 +532,7 @@ export default function ProductDetailView() {
                     ) : (
                       <div className="flex flex-col items-center text-center justify-center text-[#44474c] gap-1 p-2">
                         <img src={ImagenNoAvaible} alt="Sin imagen" className="w-60 h-60 object-contain opacity-50" />
-                        {isEditing && (
+                        {isEditing && cloudinaryDisponible && (
                           <button type="button" onClick={() => fileInputRef.current?.click()} className="text-[10px] text-[#0D5C63] hover:underline font-bold transition cursor-pointer">
                             Cargar
                           </button>
