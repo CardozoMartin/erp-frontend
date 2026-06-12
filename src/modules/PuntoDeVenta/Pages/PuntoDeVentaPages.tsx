@@ -278,7 +278,7 @@ const PuntoDeVentaPages = () => {
   const usaFlujoSeparado = posAccess.usaFlujoSeparado;
   const permiteCobroDirecto = posAccess.permiteCobroDirecto;
   const puedeVender = posAccess.puedeVender;
-  const puedeCobrar = posAccess.puedeCobrar;
+  // const puedeCobrar = posAccess.puedeCobrar;
   const puedeAbrirCaja = posAccess.puedeAbrirCaja;
   const puedeCancelarVenta = posAccess.puedeCancelarVenta;
   const esSoloCajero = !puedeVender && puedeCobrar;
@@ -369,7 +369,7 @@ const PuntoDeVentaPages = () => {
     puedeAplicarListasPrecio,
     puedeAbrirCaja,
     bloqueadoPorModo,
-    puedeCobrar,
+    // puedeCobrar,
     puedeVender,
     puedeVerDetallesConfigPos,
     requiereCajaCentral,
@@ -1367,11 +1367,11 @@ const PuntoDeVentaPages = () => {
                   >
                     Permiso ventas.crear: {puedeVender ? 'activo' : 'faltante'}
                   </div>
-                  <div
+                  {/* <div
                     className={`rounded border px-3 py-2 ${puedeCobrar ? 'border-[#cfe2de] bg-white text-[#075E54]' : 'border-[#f1c7c7] bg-white text-[#b42318]'}`}
                   >
                     Permiso caja.cobrar: {puedeCobrar ? 'activo' : 'faltante'}
-                  </div>
+                  </div> */}
                 </div>
               </div>
             </div>
