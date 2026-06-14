@@ -1,4 +1,6 @@
 import type { IProducto } from '../../Productos/types/productos.type';
+import type { ICaja } from '../../Cajas/types/caja.type';
+import type { PaymentDraft } from '../utils/pos.utils';
 
 export type TipoPagoPos =
   | 'EFECTIVO'
@@ -173,4 +175,107 @@ export interface IVentaPosPayload {
     cantidad: number;
     precio_unitario: number;
   }[];
+}
+
+// ─── Props de componentes ─────────────────────────────────────────────────────
+// Centralizar aquí evita duplicar interfaces entre componentes hermanos.
+
+export interface PosAccessSubset {
+  puedeVender: boolean;
+  puedeCobrar: boolean;
+  puedeVenderYCobrar: boolean;
+  puedeCrearVentaPendiente: boolean;
+  puedeCobrarPendiente: boolean;
+  muestraControlesCobro: boolean;
+  permiteCobroDirecto: boolean;
+  usaFlujoSeparado: boolean;
+  esConDespacho: boolean;
+  puedeAbrirCaja: boolean;
+  puedeCancelarVenta: boolean;
+  bloqueadoPorModo: boolean;
+  puedeOperarPos: boolean;
+  mensajeBloqueo?: string | null;
+  modoPos: string;
+}
+
+export interface PropsPosCajeroView {
+  ventasPendientes: IComprobantePos[];
+  pendingSearch: string;
+  selectedPendienteId: string | null;
+  selectedPendiente: IComprobantePos | null;
+  totalPendiente: number;
+  cajaAbierta: ICaja | null | undefined;
+  mediosPago: IMedioPago[];
+  paymentDrafts: PaymentDraft[];
+  selectedPaymentId: string;
+  permitePagoMixto: boolean;
+  muestraControlesCobro: boolean;
+  mercadoPagoDisponible: boolean;
+  isBusy: boolean;
+  puedeCobrar: boolean;
+  puedeCancelarVenta: boolean;
+  cobrarPendienteIsPending: boolean;
+  crearOrdenQrIsPending: boolean;
+  puedeUsarCuentaCorriente: (clienteId?: string | null) => boolean;
+  onPendingSearchChange: (value: string) => void;
+  onSelectPendiente: (id: string) => void;
+  onCobrar: (venta: IComprobantePos) => void;
+  onCobrarQr: (venta: IComprobantePos) => void;
+  onCancelar: (venta: IComprobantePos) => void;
+  onLimpiarPagos: () => void;
+  onAddPaymentDraft: () => void;
+  onUpdatePaymentDraft: (id: string, patch: Partial<PaymentDraft>) => void;
+  onRemovePaymentDraft: (id: string) => void;
+}
+
+export interface PropsPosVendedorView {
+  sucursalId: string | null | undefined;
+  filteredProducts: IProducto[];
+  productsLoading: boolean;
+  cartItems: ICartItem[];
+  mediosPago: IMedioPago[];
+  selectedPaymentId: string;
+  selectedLista: IListaPrecioPos | undefined;
+  paymentDrafts: PaymentDraft[];
+  cajaAbierta: ICaja | null | undefined;
+  posAccess: PosAccessSubset;
+  permitePagoMixto: boolean;
+  muestraControlesCobro: boolean;
+  permiteCobroDirecto: boolean;
+  usaFlujoSeparado: boolean;
+  usaDespacho: boolean;
+  permiteCotizaciones: boolean;
+  mercadoPagoDisponible: boolean;
+  puedeUsarCuentaCorriente: (clienteId?: string | null) => boolean;
+  selectedClienteId: string;
+  cuentaSeleccionada: { activa?: boolean; saldo?: number | string; limite_credito?: number | string } | null;
+  saldoCuentaSeleccionada: number;
+  limiteCuentaSeleccionada: number;
+  disponibleCuentaSeleccionada: number;
+  permiteCuentaCorriente: boolean;
+  ventasPendientes: IComprobantePos[];
+  pendientesLoading: boolean;
+  search: string;
+  subtotal: number;
+  total: number;
+  isBusy: boolean;
+  ventaCompletaIsPending: boolean;
+  crearVentaQrIsPending: boolean;
+  crearOrdenQrIsPending: boolean;
+  crearCuentaCorrienteIsPending: boolean;
+  cobrarPendienteIsPending: boolean;
+  onSearchChange: (value: string) => void;
+  onAddProduct: (product: IProducto) => void;
+  onChangeQuantity: (productId: string | undefined, delta: number) => void;
+  onRemoveProduct: (productId: string | undefined) => void;
+  onClearCart: () => void;
+  onCotizar: () => void;
+  onEnviarACaja: () => void;
+  onCargarCuentaCorriente: () => void;
+  onFinalizar: () => void;
+  onCobrarQrCarrito: () => void;
+  onCobrarPendiente: (venta: IComprobantePos) => void;
+  onAddPaymentDraft: () => void;
+  onUpdatePaymentDraft: (id: string, patch: Partial<PaymentDraft>) => void;
+  onRemovePaymentDraft: (id: string) => void;
 }
