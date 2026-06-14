@@ -27,6 +27,7 @@ import {
   ReceiptText,
   Users,
   Truck,
+  AlertTriangle,
 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -35,6 +36,7 @@ import { useAuthStore } from '../../store/auth.store';
 import Swal from 'sweetalert2';
 import { logoutFn, seleccionarSucursalFn } from '../../modules/Auth/api/auth.api';
 import type { AxiosError } from 'axios';
+import { useConteoAlertasStock } from '../../modules/Productos/hooks/useAlertasStock';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -284,6 +286,8 @@ export default function Navbar() {
     [permisosSet, rutas, rutasSet],
   );
 
+  const { data: conteoAlertas = 0 } = useConteoAlertasStock();
+
   const seleccionarSucursalMutation = useMutation({
     mutationFn: seleccionarSucursalFn,
     onSuccess: (data) => {
@@ -458,6 +462,21 @@ export default function Navbar() {
 
       {/* ── Derecha ── */}
       <div className="flex items-center gap-2">
+        {/* Badge alertas de stock mínimo */}
+        {conteoAlertas > 0 && (
+          <Link
+            to="/productos/stock"
+            title={`${conteoAlertas} producto${conteoAlertas !== 1 ? 's' : ''} con stock bajo el mínimo`}
+            className="relative flex h-8 items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2.5 text-[12px] font-medium text-amber-700 transition-colors hover:bg-amber-100"
+          >
+            <AlertTriangle size={14} className="text-amber-500" />
+            <span>Stock mínimo</span>
+            <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white">
+              {conteoAlertas > 99 ? '99+' : conteoAlertas}
+            </span>
+          </Link>
+        )}
+
         <div className="flex h-8 items-center gap-2 rounded-md border border-gray-300 bg-white px-2 text-[12px] text-gray-500">
           <Warehouse size={14} className="text-[#075E54]" />
           <span className="font-semibold text-gray-600">Sucursal:</span>
