@@ -13,7 +13,7 @@ import { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useLocation, useNavigate } from 'react-router-dom';
 import '../../../index.css';
-import { usePostProducts } from '../hooks/useProducts';
+import { useCrearProducto } from '../hooks/useProductos';
 import ModalCategory from './CategoryProducts/ModalCategory';
 import { Card, Input, Label, Toggle } from './FormComponents';
 import { InputFormField } from './InputFormField';
@@ -114,7 +114,7 @@ export default function ProductForm() {
   }, [isSuccess, sucursalesActivas.length, navigate]);
 
   // TQUERY---------------------------------------
-  const { mutate: postProducto } = usePostProducts();
+  const { mutate: postProducto } = useCrearProducto();
   const { data: categorias } = useGetAllProductCategoriesActives(1, 1000);
 
   // RHF--------------------------------------------

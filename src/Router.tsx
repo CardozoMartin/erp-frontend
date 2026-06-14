@@ -8,6 +8,8 @@ import { clientesRoutes } from './modules/Clientes/routes'
 import { empleadosRoutes } from './modules/Empleados/routes'
 import { productosRoutes } from './modules/Productos/routes'
 import { posAuxiliaresRoutes } from './modules/POSAuxiliares/routes'
+import { configuracionRoutes } from './modules/Configuracion/routes'
+import { ventasRoutes } from './modules/Ventas/routes'
 import { pedidosEnvioRoutes } from './modules/PedidosEnvio/routes'
 import { puntoDeVentaRoutes } from './modules/PuntoDeVenta/routes'
 import { sucursalRoutes } from './modules/Sucursal/routes'
@@ -28,6 +30,8 @@ const appRoutes: RouteObject[] = [
       ...puntoDeVentaRoutes,
       ...pedidosEnvioRoutes,
       ...posAuxiliaresRoutes,
+      ...configuracionRoutes,
+      ...ventasRoutes,
       ...clientesRoutes,
       ...productosRoutes,
       ...sucursalRoutes,

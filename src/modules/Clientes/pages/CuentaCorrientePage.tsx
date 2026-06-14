@@ -9,10 +9,10 @@ import {
   useMovimientosCuentaCorrienteAux,
   usePosAuxMutation,
   useServiciosSucursal,
-} from '../hooks/usePosAux';
+} from '../../POSAuxiliares/hooks/usePosAux';
 import { useMediosPagoActivos } from '../../PuntoDeVenta/hooks/usePos';
-import type { IMovimientoCuentaCorrienteAux } from '../types/pos-aux.type';
-import { dateTime, money, shortId, toNumber } from '../utils/format';
+import type { IMovimientoCuentaCorrienteAux } from '../../POSAuxiliares/types/pos-aux.type';
+import { dateTime, money, shortId, toNumber } from '../../POSAuxiliares/utils/format';
 
 type AccionCuenta = 'PAGO' | 'CARGO' | 'AJUSTE';
 type TipoResumenEmail = 'CARGOS' | 'COMPRAS' | 'CARGOS_Y_RECARGOS' | 'TODOS';

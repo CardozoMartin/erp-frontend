@@ -5,10 +5,10 @@ import AccessDenied from '../../../components/common/AccessDenied';
 import DataTable from '../../../components/common/DataTable';
 import type { DataTableColumn } from '../../../components/common/DataTable';
 import { useAuthStore } from '../../../store/auth.store';
-import { useVentasGeneralAux } from '../hooks/usePosAux';
-import type { IVentaGeneralAux } from '../types/pos-aux.type';
-import { dateTime, money } from '../utils/format';
-import { hasAnyPermission, POS_PERMISSIONS } from '../utils/posPermissions';
+import { useVentasGeneralAux } from '../../POSAuxiliares/hooks/usePosAux';
+import type { IVentaGeneralAux } from '../../POSAuxiliares/types/pos-aux.type';
+import { dateTime, money } from '../../POSAuxiliares/utils/format';
+import { hasAnyPermission, POS_PERMISSIONS } from '../../POSAuxiliares/utils/posPermissions';
 
 type TipoFiltro = 'TODOS' | 'VENTA' | 'COTIZACION';
 
@@ -19,7 +19,7 @@ const tipoLabel: Record<string, string> = {
   COTIZACION: 'Cotizacion',
 };
 
-const VentasGeneralAuxPage = () => {
+const VentasPage = () => {
   const permisos = useAuthStore((state) => state.permisos);
   const puedeVerVentas = hasAnyPermission(
     permisos,
@@ -230,4 +230,4 @@ const VentasGeneralAuxPage = () => {
   );
 };
 
-export default VentasGeneralAuxPage;
+export default VentasPage;

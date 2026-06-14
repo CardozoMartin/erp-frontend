@@ -8,12 +8,12 @@ import { useAuthStore } from '../../../store/auth.store';
 import { useGetEmpleados } from '../../Empleados/hooks/useEmpleados';
 import { useCajaAbierta, useCobrarVentaPendiente, useMediosPagoActivos } from '../../PuntoDeVenta/hooks/usePos';
 import type { IMedioPago, TipoPagoPos } from '../../PuntoDeVenta/types/pos.type';
-import VentaDetalleFicha from '../components/VentaDetalleFicha';
-import { useAuditoriaAux, useConfiguracionPos, useDespachosAux, usePosAuxMutation, useServiciosSucursal, useVentasGeneralAux } from '../hooks/usePosAux';
-import type { IAuditoriaEventoAux, IDespachoAux, IVentaGeneralAux } from '../types/pos-aux.type';
-import { money, toNumber } from '../utils/format';
-import { hasAnyPermission, POS_PERMISSIONS } from '../utils/posPermissions';
-import { imprimirComprobante } from '../utils/printComprobante';
+import VentaDetalleFicha from '../../POSAuxiliares/components/VentaDetalleFicha';
+import { useAuditoriaAux, useConfiguracionPos, useDespachosAux, usePosAuxMutation, useServiciosSucursal, useVentasGeneralAux } from '../../POSAuxiliares/hooks/usePosAux';
+import type { IAuditoriaEventoAux, IDespachoAux, IVentaGeneralAux } from '../../POSAuxiliares/types/pos-aux.type';
+import { money, toNumber } from '../../POSAuxiliares/utils/format';
+import { hasAnyPermission, POS_PERMISSIONS } from '../../POSAuxiliares/utils/posPermissions';
+import { imprimirComprobante } from '../../POSAuxiliares/utils/printComprobante';
 
 type TipoFiscal = 'TICKET' | 'FACTURA_A' | 'FACTURA_B' | 'FACTURA_C';
 type MotivoPendiente = '' | 'RETIRA_LUEGO' | 'SIN_STOCK' | 'EN_GARANTIA';
@@ -96,7 +96,7 @@ const comprobanteHistoryChanges = (evento: IAuditoriaEventoAux) => {
   return cambios.filter(Boolean);
 };
 
-const VentaDetalleAuxPage = () => {
+const VentaDetallePage = () => {
   const { id } = useParams<{ id: string }>();
   const permisos = useAuthStore((state) => state.permisos);
   const puedeVerVentas = hasAnyPermission(
@@ -822,4 +822,4 @@ const Resumen = ({ label, value, danger = false }: { label: string; value: numbe
   </div>
 );
 
-export default VentaDetalleAuxPage;
+export default VentaDetallePage;

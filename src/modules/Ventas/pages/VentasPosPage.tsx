@@ -12,13 +12,13 @@ import { useMemo, useState } from 'react';
 import { useAuthStore } from '../../../store/auth.store';
 import AccessDenied from '../../../components/common/AccessDenied';
 import TableContextMenu from '../../../components/common/TableContextMenu';
-import ComprobanteFicha from '../components/ComprobanteFicha';
-import type { IComprobanteAux } from '../types/pos-aux.type';
+import ComprobanteFicha from '../../POSAuxiliares/components/ComprobanteFicha';
+import type { IComprobanteAux } from '../../POSAuxiliares/types/pos-aux.type';
 import { useGetEmpleados } from '../../Empleados/hooks/useEmpleados';
-import { useConfiguracionPos, usePosAuxMutation, useVentasPosPaginadasAux } from '../hooks/usePosAux';
-import { dateTime, money } from '../utils/format';
-import { imprimirComprobante } from '../utils/printComprobante';
-import { hasAnyPermission, POS_PERMISSIONS } from '../utils/posPermissions';
+import { useConfiguracionPos, usePosAuxMutation, useVentasPosPaginadasAux } from '../../POSAuxiliares/hooks/usePosAux';
+import { dateTime, money } from '../../POSAuxiliares/utils/format';
+import { imprimirComprobante } from '../../POSAuxiliares/utils/printComprobante';
+import { hasAnyPermission, POS_PERMISSIONS } from '../../POSAuxiliares/utils/posPermissions';
 
 const todayInput = () => {
   const date = new Date();
@@ -26,7 +26,7 @@ const todayInput = () => {
   return date.toISOString().slice(0, 10);
 };
 
-const VentasPosAuxPage = () => {
+const VentasPosPage = () => {
   const permisos = useAuthStore((state) => state.permisos);
   const puedeVerVentas = hasAnyPermission(permisos, POS_PERMISSIONS.ventasVer, POS_PERMISSIONS.reportesVer, POS_PERMISSIONS.reportesVentas);
   const puedeEmitirFiscal = hasAnyPermission(permisos, POS_PERMISSIONS.cajaCobrar, POS_PERMISSIONS.configPos);
@@ -280,4 +280,4 @@ const VentasPosAuxPage = () => {
   );
 };
 
-export default VentasPosAuxPage;
+export default VentasPosPage;

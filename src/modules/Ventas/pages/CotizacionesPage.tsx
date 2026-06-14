@@ -1,11 +1,11 @@
 import { CheckCircle2, Clock, Send, XCircle } from 'lucide-react';
 import DataTable from '../../../components/common/DataTable';
 import type { DataTableColumn } from '../../../components/common/DataTable';
-import { useCotizacionesAux, usePosAuxMutation } from '../hooks/usePosAux';
-import type { IComprobanteAux } from '../types/pos-aux.type';
-import { dateTime, money } from '../utils/format';
+import { useCotizacionesAux, usePosAuxMutation } from '../../POSAuxiliares/hooks/usePosAux';
+import type { IComprobanteAux } from '../../POSAuxiliares/types/pos-aux.type';
+import { dateTime, money } from '../../POSAuxiliares/utils/format';
 
-const CotizacionesAuxPage = () => {
+const CotizacionesPage = () => {
   const cotizacionesQuery = useCotizacionesAux();
   const mutations = usePosAuxMutation();
   const cotizaciones = cotizacionesQuery.data ?? [];
@@ -115,4 +115,4 @@ const CotizacionesAuxPage = () => {
   );
 };
 
-export default CotizacionesAuxPage;
+export default CotizacionesPage;

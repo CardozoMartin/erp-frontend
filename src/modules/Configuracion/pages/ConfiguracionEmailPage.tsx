@@ -2,9 +2,9 @@ import { AlertCircle, Loader2, Mail, Save, Send, ShieldCheck, Store } from 'luci
 import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useAuthStore } from '../../../store/auth.store';
-import { useConfiguracionEmail, usePosAuxMutation } from '../hooks/usePosAux';
-import type { ConfiguracionEmailPayload } from '../types/pos-aux.type';
-import { dateTime } from '../utils/format';
+import { useConfiguracionEmail, usePosAuxMutation } from '../../POSAuxiliares/hooks/usePosAux';
+import type { ConfiguracionEmailPayload } from '../../POSAuxiliares/types/pos-aux.type';
+import { dateTime } from '../../POSAuxiliares/utils/format';
 
 const defaults = (sucursalId: string): ConfiguracionEmailPayload => ({
   sucursal_id: sucursalId,

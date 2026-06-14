@@ -4,9 +4,19 @@ import ProductCategoryPages from './Pages/ProductCategoryPages';
 import ProductDetailView from './Pages/Productdetailview';
 import ProductosPages from './Pages/ProductosPages';
 import ProductsMarcaPage from './Pages/ProductsMarcaPage';
+import ListasPrecioPage from './pages/ListasPrecioPage';
+import AlertasStockPage from './pages/AlertasStockPage';
 import { RutaProtegida } from '../../components/common/RutaProtegida';
 
 export const productosRoutes: RouteObject[] = [
+  {
+    path: 'listas-precio',
+    element: <ListasPrecioPage />,
+  },
+  {
+    path: 'productos/stock',
+    element: <AlertasStockPage />,
+  },
   {
     path: 'productos',
     element: <RutaProtegida conLayout={false} />,

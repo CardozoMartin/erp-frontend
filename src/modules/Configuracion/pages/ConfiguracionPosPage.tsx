@@ -2,9 +2,9 @@ import { CheckCircle2, FileText, ImageIcon, Loader2, Printer, ReceiptText, Save,
 import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useAuthStore } from '../../../store/auth.store';
-import { useConfiguracionCloudinary, useConfiguracionPos, usePosAuxMutation } from '../hooks/usePosAux';
-import type { ConfiguracionPosPayload } from '../types/pos-aux.type';
-import { dateTime } from '../utils/format';
+import { useConfiguracionCloudinary, useConfiguracionPos, usePosAuxMutation } from '../../POSAuxiliares/hooks/usePosAux';
+import type { ConfiguracionPosPayload } from '../../POSAuxiliares/types/pos-aux.type';
+import { dateTime } from '../../POSAuxiliares/utils/format';
 
 const defaultValues = (sucursalId: string): ConfiguracionPosPayload => ({
   sucursal_id: sucursalId,
@@ -107,7 +107,6 @@ const ConfiguracionPosPage = () => {
     if (!sucursalActiva?.id) return;
     if (configQuery.isLoading || configQuery.isFetching) return;
     if (configQuery.data) {
-      console.log('[ConfigPOSDebug][front-page] reset form with data', configQuery.data);
       form.reset({
         sucursal_id: configQuery.data.sucursal_id,
         cotizacion_vigencia_horas: Number(configQuery.data.cotizacion_vigencia_horas ?? 24),
@@ -143,10 +142,6 @@ const ConfiguracionPosPage = () => {
         mostrar_datos_fiscales: configQuery.data.mostrar_datos_fiscales ?? true,
       });
     } else if (configQuery.isError) {
-      console.log('[ConfigPOSDebug][front-page] config query error, using defaults', {
-        sucursalId: sucursalActiva.id,
-        error: configQuery.error,
-      });
       form.reset(defaultValues(sucursalActiva.id));
     }
   }, [
@@ -180,7 +175,6 @@ const ConfiguracionPosPage = () => {
   }, [form, watchedDescuentoStock, watchedModoPos]);
 
   const onSubmit = (values: ConfiguracionPosPayload) => {
-    console.log('[ConfigPOSDebug][front-page] submit raw values', values);
     const payload: ConfiguracionPosPayload = {
       ...values,
       sucursal_id: sucursalActiva?.id ?? values.sucursal_id,
@@ -204,9 +198,6 @@ const ConfiguracionPosPage = () => {
       prefijo_remito: values.prefijo_remito.trim().toUpperCase(),
       prefijo_nota_credito: values.prefijo_nota_credito.trim().toUpperCase(),
     };
-
-    console.log('[ConfigPOSDebug][front-page] submit normalized payload', payload);
-    console.log('[ConfigPOSDebug][front-page] current query data exists', !!configQuery.data);
 
     if (configQuery.data) {
       mutations.actualizarConfiguracionPos.mutate(payload);

@@ -6,8 +6,8 @@ import AccessDenied from '../../../components/common/AccessDenied';
 import DataTable from '../../../components/common/DataTable';
 import type { DataTableColumn } from '../../../components/common/DataTable';
 import TableContextMenu from '../../../components/common/TableContextMenu';
-import VentaDetalleFicha from '../components/VentaDetalleFicha';
-import type { IDespachoAux } from '../types/pos-aux.type';
+import VentaDetalleFicha from '../../POSAuxiliares/components/VentaDetalleFicha';
+import type { IDespachoAux } from '../../POSAuxiliares/types/pos-aux.type';
 import {
   useDespachosAux,
   useFacturacionAux,
@@ -15,10 +15,10 @@ import {
   usePosAuxMutation,
   useVentasGeneralAux,
   useVentasPosAux,
-} from '../hooks/usePosAux';
-import { dateTime, money, shortId, toNumber } from '../utils/format';
-import { imprimirComprobante } from '../utils/printComprobante';
-import { hasAnyPermission, POS_PERMISSIONS } from '../utils/posPermissions';
+} from '../../POSAuxiliares/hooks/usePosAux';
+import { dateTime, money, shortId, toNumber } from '../../POSAuxiliares/utils/format';
+import { imprimirComprobante } from '../../POSAuxiliares/utils/printComprobante';
+import { hasAnyPermission, POS_PERMISSIONS } from '../../POSAuxiliares/utils/posPermissions';
 
 type MotivoPendiente = '' | 'RETIRA_LUEGO' | 'SIN_STOCK' | 'EN_GARANTIA';
 type EntregaDraft = Record<string, { cantidad: string; motivo: MotivoPendiente }>;
@@ -52,7 +52,7 @@ const buildDraft = (despacho?: IDespachoAux | null): EntregaDraft => {
   }, {});
 };
 
-const DespachosAuxPage = () => {
+const DespachosPage = () => {
   const [searchParams] = useSearchParams();
   const permisos = useAuthStore((state) => state.permisos);
   const puedeVerDespachos = hasAnyPermission(permisos, POS_PERMISSIONS.depositoVer, POS_PERMISSIONS.depositoDespachar, POS_PERMISSIONS.depositoRecepcionar);
@@ -636,4 +636,4 @@ const DespachosAuxPage = () => {
   );
 };
 
-export default DespachosAuxPage;
+export default DespachosPage;

@@ -1,8 +1,8 @@
 import { CheckCircle2, ImageIcon, Loader2, Save, Store } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '../../../store/auth.store';
-import { useConfiguracionCloudinary, usePosAuxMutation } from '../hooks/usePosAux';
-import { dateTime } from '../utils/format';
+import { useConfiguracionCloudinary, usePosAuxMutation } from '../../POSAuxiliares/hooks/usePosAux';
+import { dateTime } from '../../POSAuxiliares/utils/format';
 
 const ConfiguracionCloudinaryPage = () => {
   const sucursalActiva = useAuthStore((state) => state.sucursalActiva);

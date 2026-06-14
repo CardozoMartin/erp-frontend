@@ -2,7 +2,7 @@ import { Building2, Minus, Package, Plus, X } from 'lucide-react';
 import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import Swal from 'sweetalert2';
-import { useAdjustProductStock } from '../../hooks/useProducts';
+import { useAjustarStockProducto } from '../../hooks/useProductos';
 import { useGetSucursales } from '../../../Sucursal/hooks/useSucursal';
 import { formatStockQuantity } from '../../utils/stockFormat';
 
@@ -34,7 +34,7 @@ interface StockAdjustmentForm {
 
 const ModalUpdateStock = ({ isActive, onClose, product }: ModalUpdateStockProps) => {
   const { data: sucursales } = useGetSucursales(1, 1000);
-  const { mutate: adjustStock, isPending } = useAdjustProductStock();
+  const { mutate: adjustStock, isPending } = useAjustarStockProducto();
   const defaultSucursalId = product.stock?.[0]?.sucursal_id ?? '';
   const { register, handleSubmit, watch, setValue } = useForm<StockAdjustmentForm>({
     defaultValues: {

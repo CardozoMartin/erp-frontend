@@ -4,14 +4,14 @@ import { useAuthStore } from '../../../store/auth.store';
 import AccessDenied from '../../../components/common/AccessDenied';
 import DataTable from '../../../components/common/DataTable';
 import type { DataTableColumn } from '../../../components/common/DataTable';
-import ComprobanteFicha from '../components/ComprobanteFicha';
-import { useConfiguracionPos, useFacturacionAux, usePosAuxMutation } from '../hooks/usePosAux';
-import type { IComprobanteAux } from '../types/pos-aux.type';
-import { dateTime, money, shortId } from '../utils/format';
-import { imprimirComprobante } from '../utils/printComprobante';
-import { hasAnyPermission, POS_PERMISSIONS } from '../utils/posPermissions';
+import ComprobanteFicha from '../../POSAuxiliares/components/ComprobanteFicha';
+import { useConfiguracionPos, useFacturacionAux, usePosAuxMutation } from '../../POSAuxiliares/hooks/usePosAux';
+import type { IComprobanteAux } from '../../POSAuxiliares/types/pos-aux.type';
+import { dateTime, money, shortId } from '../../POSAuxiliares/utils/format';
+import { imprimirComprobante } from '../../POSAuxiliares/utils/printComprobante';
+import { hasAnyPermission, POS_PERMISSIONS } from '../../POSAuxiliares/utils/posPermissions';
 
-const FacturacionAuxPage = () => {
+const FacturacionPage = () => {
   const permisos = useAuthStore((state) => state.permisos);
   const puedeVerFacturacion = hasAnyPermission(permisos, POS_PERMISSIONS.ventasVer, POS_PERMISSIONS.reportesVer, POS_PERMISSIONS.reportesVentas);
   const puedeAnularFiscal = permisos.includes(POS_PERMISSIONS.ventasCancelarPagada);
@@ -148,4 +148,4 @@ const FacturacionAuxPage = () => {
   );
 };
 
-export default FacturacionAuxPage;
+export default FacturacionPage;

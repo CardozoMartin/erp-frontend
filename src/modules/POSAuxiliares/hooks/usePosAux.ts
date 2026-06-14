@@ -287,7 +287,6 @@ export const usePosAuxMutation = () => {
     crearConfiguracionPos: useMutation({
       mutationFn: crearConfiguracionPosFn,
       onSuccess: (data) => {
-        console.log('[ConfigPOSDebug][front-hook] create success', data);
         queryClient.setQueryData(
           ['pos-aux', 'configuracion-pos', data.sucursal_id],
           data,
@@ -296,14 +295,12 @@ export const usePosAuxMutation = () => {
         toast.success('Configuracion guardada correctamente');
       },
       onError: (error: AxiosError<IErrorResponse>) => {
-        console.log('[ConfigPOSDebug][front-hook] create error', error.response?.data ?? error);
         toast.error(message(error));
       },
     }),
     actualizarConfiguracionPos: useMutation({
       mutationFn: actualizarConfiguracionPosFn,
       onSuccess: (data) => {
-        console.log('[ConfigPOSDebug][front-hook] update success', data);
         queryClient.setQueryData(
           ['pos-aux', 'configuracion-pos', data.sucursal_id],
           data,
@@ -312,7 +309,6 @@ export const usePosAuxMutation = () => {
         toast.success('Configuracion actualizada correctamente');
       },
       onError: (error: AxiosError<IErrorResponse>) => {
-        console.log('[ConfigPOSDebug][front-hook] update error', error.response?.data ?? error);
         toast.error(message(error));
       },
     }),

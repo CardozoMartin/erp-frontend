@@ -18,7 +18,7 @@ import {
   type MpStoreResponse,
   type MpTestResponse,
   type MpUsuarioResponse,
-} from '../api/posAux.api';
+} from '../../POSAuxiliares/api/posAux.api';
 
 const slug = (value: string) =>
   value

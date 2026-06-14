@@ -2,7 +2,7 @@ import { BadgeCheck, ImagePlus, Star, Trash2, Upload, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { IImagen, IImagenLocal } from '../../types/productos.type';
-import { useUploadImage } from '../../hooks/useProducts';
+import { useSubirImagenProducto } from '../../hooks/useProductos';
 import { toast } from 'sonner';
 import { useServiciosSucursal } from '../../../POSAuxiliares/hooks/usePosAux';
 
@@ -43,7 +43,7 @@ export default function ModalImageUpload({
     defaultValues: { defaultRole: 'GALERIA' },
   });
   const defaultRole = watch('defaultRole');
-  const { mutate: uploadImage, isPending } = useUploadImage();
+  const { mutate: uploadImage, isPending } = useSubirImagenProducto();
   const serviciosQuery = useServiciosSucursal();
   const cloudinaryDisponible = !!serviciosQuery.data?.cloudinary.disponible;
   const currentListImage = existingImages[0];

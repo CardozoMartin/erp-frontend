@@ -3,8 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useAuthStore } from '../../../store/auth.store';
 import type { IListaPrecioPos } from '../../PuntoDeVenta/types/pos.type';
-import { useListasPrecioAux, usePosAuxMutation } from '../hooks/usePosAux';
-import type { ListaPrecioPayload } from '../api/posAux.api';
+import { useListasPrecioAux, usePosAuxMutation } from '../../POSAuxiliares/hooks/usePosAux';
+import type { ListaPrecioPayload } from '../../POSAuxiliares/api/posAux.api';
 
 type ListaForm = {
   nombre: string;

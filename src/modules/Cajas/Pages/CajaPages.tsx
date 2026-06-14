@@ -10,7 +10,7 @@ import { useAuditoriaCaja, useCajaAbierta, useCajaMutations, useCajas, usePedido
 import type { IAuditoriaCaja, ICaja, IResumenCaja } from '../types/caja.type';
 import { dateTime, money, shortId, toNumber } from '../utils/format';
 import { hasAnyPermission, POS_PERMISSIONS } from '../utils/cajaPermissions';
-import { useGetProducts } from '../../Productos/hooks/useProducts';
+import { useObtenerProductos } from '../../Productos/hooks/useProductos';
 import { useVentasCaja } from '../../PuntoDeVenta/hooks/usePos';
 import type { IVentaCajaPos } from '../../PuntoDeVenta/types/pos.type';
 
@@ -106,7 +106,7 @@ const CajaPages = () => {
     puedeVerCaja && !!resumenCajaId,
   );
   const ventasCajaQuery = useVentasCaja(routeCajaId);
-  const productsQuery = useGetProducts(1, 200);
+  const productsQuery = useObtenerProductos(1, 200);
   const resumen = resumenQuery.data;
   const cajaEnDetalle = resumen?.caja ?? cajaAbierta;
   const cajas = cajasQuery.data ?? [];
