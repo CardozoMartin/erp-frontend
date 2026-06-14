@@ -4,10 +4,10 @@ import { useAuthStore } from '../../../store/auth.store';
 import AccessDenied from '../../../components/common/AccessDenied';
 import DataTable from '../../../components/common/DataTable';
 import type { DataTableColumn } from '../../../components/common/DataTable';
-import { useReportesAux } from '../hooks/usePosAux';
-import type { IReporteCaja, IReporteProducto } from '../types/pos-aux.type';
-import { dateTime, money } from '../utils/format';
-import { hasAnyPermission, POS_PERMISSIONS } from '../utils/posPermissions';
+import { useReportesAux } from '../../POSAuxiliares/hooks/usePosAux';
+import type { IReporteCaja, IReporteProducto } from '../../POSAuxiliares/types/pos-aux.type';
+import { dateTime, money } from '../../POSAuxiliares/utils/format';
+import { hasAnyPermission, POS_PERMISSIONS } from '../../POSAuxiliares/utils/posPermissions';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -41,7 +41,7 @@ const cajasColumns: DataTableColumn<IReporteCaja>[] = [
   { key: 'stock', header: 'Stock', align: 'right', render: (caja) => caja.stock_salidas },
 ];
 
-const ReportesPosAuxPage = () => {
+const ReportesPosPage = () => {
   const [desde, setDesde] = useState(today());
   const [hasta, setHasta] = useState(today());
   const permisos = useAuthStore((state) => state.permisos);
@@ -156,4 +156,4 @@ const ReportesPosAuxPage = () => {
   );
 };
 
-export default ReportesPosAuxPage;
+export default ReportesPosPage;

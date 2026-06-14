@@ -6,10 +6,10 @@ import DataTable from '../../../components/common/DataTable';
 import type { DataTableColumn } from '../../../components/common/DataTable';
 import { useAuthStore } from '../../../store/auth.store';
 import { getEmpleadosFn } from '../../Empleados/api/empleadosApi';
-import { useAuditoriaAux } from '../hooks/usePosAux';
-import type { IAuditoriaEventoAux } from '../types/pos-aux.type';
-import { dateTime } from '../utils/format';
-import { POS_PERMISSIONS } from '../utils/posPermissions';
+import { useAuditoriaAux } from '../../POSAuxiliares/hooks/usePosAux';
+import type { IAuditoriaEventoAux } from '../../POSAuxiliares/types/pos-aux.type';
+import { dateTime } from '../../POSAuxiliares/utils/format';
+import { POS_PERMISSIONS } from '../../POSAuxiliares/utils/posPermissions';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -119,7 +119,7 @@ const compactValue = (value?: Record<string, unknown> | null) => {
   return text.length > 130 ? `${text.slice(0, 130)}...` : text;
 };
 
-const AuditoriaAuxPage = () => {
+const AuditoriaPage = () => {
   const [page, setPage] = useState(1);
   const [desde, setDesde] = useState(today());
   const [hasta, setHasta] = useState(today());
@@ -517,4 +517,4 @@ const JsonBlock = ({ title, value }: { title: string; value?: Record<string, unk
   </div>
 );
 
-export default AuditoriaAuxPage;
+export default AuditoriaPage;

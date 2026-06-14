@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Lock } from 'lucide-react';
 import { toast } from 'sonner';
-import { useGetProducts } from '../../Productos/hooks/useProducts';
+import { useObtenerProductos } from '../../Productos/hooks/useProductos';
 import { getProductCode, getStockLocationForBranch, modoPosLabel, toNumber } from '../utils/pos.utils';
 import { useCarritoStore } from '../store/carrito.store';
 import { useEstadoPos } from '../hooks/useEstadoPos';
@@ -48,7 +48,7 @@ const PuntoDeVentaPages = () => {
   });
 
   // 5.- Productos filtrados por búsqueda
-  const productsQuery = useGetProducts(1, 200);
+  const productsQuery = useObtenerProductos(1, 200);
   const productos = useMemo(() => {
     const raw = productsQuery.data;
     const lista = Array.isArray(raw) ? raw : raw?.data ?? [];

@@ -18,7 +18,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
 import { useProductStore } from '../store/useProductStore';
-import { usePutProducts } from '../hooks/useProducts';
+import { useActualizarProducto } from '../hooks/useProductos';
 import { normalizeProductoPayload } from '../api/productoApi';
 import FichaHistoryPanel from '../../../components/common/FichaHistoryPanel';
 import StockQuickModal from '../components/ProductoDetails/StockQuickModal';
@@ -160,7 +160,7 @@ export default function ProductDetailView() {
     product?.id ? localStorage.getItem(`prod_fav_${product.id}`) === 'true' : false
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { mutate: putProducto } = usePutProducts();
+  const { mutate: putProducto } = useActualizarProducto();
   const serviciosQuery = useServiciosSucursal();
   const cloudinaryDisponible = !!serviciosQuery.data?.cloudinary.disponible;
 

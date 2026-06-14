@@ -5,17 +5,17 @@ import AccessDenied from '../../../components/common/AccessDenied';
 import DataTable from '../../../components/common/DataTable';
 import type { DataTableColumn } from '../../../components/common/DataTable';
 import { useMediosPagoActivos } from '../../PuntoDeVenta/hooks/usePos';
-import type { IComprobanteAux } from '../types/pos-aux.type';
+import type { IComprobanteAux } from '../../POSAuxiliares/types/pos-aux.type';
 import {
   useCajaAbiertaAux,
   useFacturacionAux,
   useNotasCreditoAux,
   usePosAuxMutation,
   useVentasPosAux,
-} from '../hooks/usePosAux';
-import { dateTime, money, shortId, toNumber } from '../utils/format';
-import { imprimirComprobante } from '../utils/printComprobante';
-import { hasAnyPermission, POS_PERMISSIONS } from '../utils/posPermissions';
+} from '../../POSAuxiliares/hooks/usePosAux';
+import { dateTime, money, shortId, toNumber } from '../../POSAuxiliares/utils/format';
+import { imprimirComprobante } from '../../POSAuxiliares/utils/printComprobante';
+import { hasAnyPermission, POS_PERMISSIONS } from '../../POSAuxiliares/utils/posPermissions';
 
 type DestinoNota = 'SALDO_CUENTA' | 'REEMBOLSO' | 'SOLO_EMITIR';
 type ItemDraft = Record<string, string>;
@@ -34,7 +34,7 @@ const destinoLabel: Record<DestinoNota, string> = {
 
 const estadosOrigenValidos = ['COBRADA', 'ENTREGADO_PARCIAL', 'ENTREGADO', 'EMITIDO', 'EMITIDA'];
 
-const NotasCreditoAuxPage = () => {
+const NotasCreditoPage = () => {
   const permisos = useAuthStore((state) => state.permisos);
   const puedeVerNotas = hasAnyPermission(permisos, POS_PERMISSIONS.ventasVer, POS_PERMISSIONS.reportesVer, POS_PERMISSIONS.reportesVentas);
   const puedeCrearNota = permisos.includes(POS_PERMISSIONS.ventasCancelarPagada);
@@ -502,4 +502,4 @@ const NotasCreditoAuxPage = () => {
   );
 };
 
-export default NotasCreditoAuxPage;
+export default NotasCreditoPage;
