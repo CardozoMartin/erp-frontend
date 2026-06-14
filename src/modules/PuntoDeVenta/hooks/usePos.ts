@@ -177,6 +177,7 @@ export const useCobrarVentaPendiente = () => {
       queryClient.invalidateQueries({ queryKey: ['pos', 'ventas-pendientes'] });
       queryClient.invalidateQueries({ queryKey: ['pos', 'ventas-caja'] });
       queryClient.invalidateQueries({ queryKey: ['pos', 'caja-abierta'] });
+      queryClient.invalidateQueries({ queryKey: ['pos-aux'] });
       toast.success('Venta cobrada correctamente');
     },
     onError: (error: AxiosError<IErrorResponse>) => toast.error(getErrorMessage(error)),

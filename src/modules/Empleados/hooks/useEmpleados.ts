@@ -12,6 +12,9 @@ import {
   postEmpleadoFn,
   putEmpleadoFn,
   setEmpleadoSucursalPrincipalFn,
+  getPermisosFn,
+  asignarPermisoFn,
+  removerPermisoFn,
 } from '../api/empleadosApi';
 import type { ICreateEmpleadoPayload } from '../types/empleado.type';
 
@@ -19,6 +22,12 @@ export const useGetRoles = () =>
   useQuery({
     queryKey: ['empleados', 'roles'],
     queryFn: getRolesFn,
+  });
+
+export const useGetPermisos = () =>
+  useQuery({
+    queryKey: ['empleados', 'permisos'],
+    queryFn: getPermisosFn,
   });
 
 export const useGetEmpleados = (page: number = 1, limit: number = 10, enabled: boolean = true) =>
@@ -122,6 +131,50 @@ export const useDesasignarEmpleadoSucursal = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["empleados"] });
       toast.success("Acceso a sucursal quitado");
+    },
+    onError: (error: AxiosError<IErrorResponse>) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+};
+
+export const useAsignarPermiso = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      empleadoId,
+      permisoId,
+      tipo = 'grant',
+    }: {
+      empleadoId: string;
+      permisoId: string;
+      tipo?: 'grant' | 'revoke';
+    }) => asignarPermisoFn(empleadoId, permisoId, tipo),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["empleados"] });
+      toast.success("Permiso asignado correctamente");
+    },
+    onError: (error: AxiosError<IErrorResponse>) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+};
+
+export const useRemoverPermiso = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      empleadoId,
+      permisoId,
+    }: {
+      empleadoId: string;
+      permisoId: string;
+    }) => removerPermisoFn(empleadoId, permisoId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["empleados"] });
+      toast.success("Permiso removido correctamente");
     },
     onError: (error: AxiosError<IErrorResponse>) => {
       toast.error(getErrorMessage(error));

@@ -4,10 +4,12 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { usePermisos } from '../../../../store/usePermisos';
+import { useServiciosSucursal } from '../../../POSAuxiliares/hooks/usePosAux';
 import { useProductStore } from '../../store/useProductStore';
 import type { IProducto } from '../../types/productos.type';
 import { formatStockQuantity } from '../../utils/stockFormat';
 import ModalUpdateStock from './ModalUpdateStock';
+import ImageNoAvaible from '../../../../../public/img/product_no_avaible.png'
 
 export type ProductTableColumnKey =
   | 'imagen'
@@ -126,10 +128,12 @@ const ProductRow = ({
   const [openModalStock, setOpenModalStock] = useState(false);
   const navigate = useNavigate();
   const { tiene } = usePermisos();
+  const serviciosQuery = useServiciosSucursal();
+  const cloudinaryDisponible = !!serviciosQuery.data?.cloudinary.disponible;
 
   const puede_ver = tiene('productos.ver');
   const puede_editar = tiene('productos.editar');
-  const puede_editar_stock = tiene('productos.stock.editar');
+  const puede_editar_stock = tiene('productos.ajustar-stock');
   const puede_crear_ofertas = tiene('productos.ofertas.crear');
   const puede_eliminar = tiene('productos.eliminar');
   const tieneAlgunPermiso =
@@ -167,7 +171,7 @@ const ProductRow = ({
           src={
             product.image ||
             product.imagenes?.[0]?.url ||
-            'https://via.placeholder.com/48x48?text=IMG'
+            ImageNoAvaible
           }
           alt={product.nombre}
           className="w-full h-full object-cover"
@@ -311,7 +315,7 @@ const ProductRow = ({
                 </button>
               )}
 
-              {puede_editar && (
+              {puede_editar && cloudinaryDisponible && (
                 <button
                   onClick={() => {
                     onChangeImage(product);
@@ -323,7 +327,7 @@ const ProductRow = ({
                 </button>
               )}
 
-              {(puede_editar || puede_editar_stock) && <div className="my-1 border-t border-[#efedef]" />}
+              {((puede_editar && cloudinaryDisponible) || puede_editar_stock) && <div className="my-1 border-t border-[#efedef]" />}
 
               {puede_editar_stock && (
                 <button

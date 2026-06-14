@@ -29,6 +29,7 @@ import {
   getConfiguracionCloudinaryFn,
   getConfiguracionEmailFn,
   getConfiguracionPosFn,
+  getEstadoServiciosSucursalFn,
   getCotizacionesFn,
   getDespachosFn,
   getFacturacionFn,
@@ -207,6 +208,17 @@ export const useConfiguracionCloudinary = () => {
     enabled: !!sucursalId,
     retry: false,
     staleTime: 0,
+    refetchOnMount: 'always',
+  });
+};
+
+export const useServiciosSucursal = (enabledExtra = true) => {
+  const sucursalId = useAuthStore((state) => state.sucursalActiva?.id);
+  return useQuery({
+    queryKey: ['pos-aux', 'servicios-sucursal', sucursalId],
+    queryFn: getEstadoServiciosSucursalFn,
+    enabled: !!sucursalId && enabledExtra,
+    staleTime: 30_000,
     refetchOnMount: 'always',
   });
 };

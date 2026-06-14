@@ -13,6 +13,11 @@ export const getRolesFn = async (): Promise<IEmpleadoRol[]> => {
   return data;
 };
 
+export const getPermisosFn = async () => {
+  const { data } = await api.get('/permisos');
+  return data;
+};
+
 export const getSucursalesActivasFn = async (
   page: number = 1,
   limit: number = 100,
@@ -88,3 +93,23 @@ export const putEmpleadoFn = async (
   const { data } = await api.patch<IEmpleado>(`/empleados/${id}`, payload);
   return data;
 }
+
+export const asignarPermisoFn = async (
+  empleadoId: string,
+  permisoId: string,
+  tipo: 'grant' | 'revoke' = 'grant',
+) => {
+  const { data } = await api.post(`/empleados/${empleadoId}/permisos`, {
+    permisoId,
+    tipo,
+  });
+  return data;
+};
+
+export const removerPermisoFn = async (
+  empleadoId: string,
+  permisoId: string,
+) => {
+  const { data } = await api.delete(`/empleados/${empleadoId}/permisos/${permisoId}`);
+  return data;
+};

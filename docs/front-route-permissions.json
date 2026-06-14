@@ -1,0 +1,1465 @@
+{
+  "version": 1,
+  "generatedAt": "2026-06-10",
+  "description": "Mapa de rutas del frontend y permisos sugeridos para configurar roles/usuarios. requiredAny significa que alcanza con uno de esos permisos. requiredAll significa que se requieren todos.",
+  "globalRules": {
+    "publicRoutes": [
+      {
+        "path": "/login",
+        "label": "Login",
+        "access": {
+          "public": true,
+          "requiredAny": [],
+          "requiredAll": []
+        }
+      },
+      {
+        "path": "/sin-acceso",
+        "label": "Sin acceso",
+        "access": {
+          "public": true,
+          "requiredAny": [],
+          "requiredAll": []
+        }
+      }
+    ],
+    "protectedLayout": {
+      "path": "/",
+      "label": "Layout autenticado",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [],
+        "requiredAll": []
+      }
+    },
+    "notes": [
+      "Varias rutas hoy solo estan protegidas por sesion y validan permisos dentro de la pagina.",
+      "Este archivo propone permisos por ruta para poder mover luego el control al router si se desea.",
+      "El backend siempre debe seguir validando permisos aunque el frontend oculte rutas."
+    ]
+  },
+  "routes": [
+    {
+      "path": "/",
+      "module": "home",
+      "label": "Home",
+      "component": "Home inline",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [],
+        "requiredAll": []
+      },
+      "currentGuard": "auth-only",
+      "nav": {
+        "visible": false,
+        "requiredAny": []
+      },
+      "actions": []
+    },
+    {
+      "path": "/punto-venta",
+      "module": "pos",
+      "label": "Punto de venta",
+      "component": "PuntoDeVentaPages",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "ventas.crear",
+          "caja.cobrar"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [
+          "ventas.crear",
+          "caja.cobrar"
+        ]
+      },
+      "actions": [
+        {
+          "key": "crear_venta",
+          "label": "Crear venta",
+          "requiredAny": [
+            "ventas.crear"
+          ],
+          "requiredAll": []
+        },
+        {
+          "key": "cobrar_venta",
+          "label": "Cobrar venta",
+          "requiredAny": [
+            "caja.cobrar"
+          ],
+          "requiredAll": []
+        },
+        {
+          "key": "abrir_caja",
+          "label": "Abrir caja",
+          "requiredAny": [
+            "caja.abrir"
+          ],
+          "requiredAll": []
+        },
+        {
+          "key": "cancelar_venta",
+          "label": "Cancelar venta",
+          "requiredAny": [
+            "ventas.cancelar"
+          ],
+          "requiredAll": []
+        },
+        {
+          "key": "ver_todas_las_ventas",
+          "label": "Ver ventas de todos los usuarios",
+          "requiredAny": [
+            "config.pos",
+            "reportes.ver",
+            "reportes.ventas"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/punto-venta/ventas-caja",
+      "module": "pos",
+      "label": "Ventas de caja",
+      "component": "VentasCajaPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "caja.ver",
+          "reportes.caja",
+          "reportes.ver",
+          "caja.cobrar"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "auth-only",
+      "nav": {
+        "visible": false,
+        "requiredAny": []
+      },
+      "actions": []
+    },
+    {
+      "path": "/pedidos-envio",
+      "module": "pedidos-envio",
+      "label": "Pedidos de envio",
+      "component": "PedidosEnvioPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "ventas.ver",
+          "ventas.crear"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [
+          "ventas.ver",
+          "ventas.crear"
+        ]
+      },
+      "actions": [
+        {
+          "key": "crear_pedido",
+          "label": "Crear pedido de envio",
+          "requiredAny": [
+            "ventas.crear"
+          ],
+          "requiredAll": []
+        },
+        {
+          "key": "rendir_pedido",
+          "label": "Rendir pedido",
+          "requiredAny": [
+            "caja.cobrar",
+            "ventas.crear"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/ventas",
+      "module": "ventas",
+      "label": "Ventas",
+      "component": "VentasGeneralAuxPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "ventas.ver",
+          "reportes.ver",
+          "reportes.ventas"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [
+          "ventas.ver",
+          "reportes.ver",
+          "reportes.ventas"
+        ]
+      },
+      "actions": []
+    },
+    {
+      "path": "/ventas/:id",
+      "module": "ventas",
+      "label": "Detalle de venta",
+      "component": "VentaDetalleAuxPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "ventas.ver",
+          "reportes.ver",
+          "reportes.ventas"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "page-check",
+      "nav": {
+        "visible": false,
+        "requiredAny": []
+      },
+      "actions": [
+        {
+          "key": "emitir_comprobante_fiscal",
+          "label": "Emitir ticket/factura",
+          "requiredAny": [
+            "caja.cobrar",
+            "config.pos"
+          ],
+          "requiredAll": []
+        },
+        {
+          "key": "operar_despacho",
+          "label": "Operar despacho desde detalle",
+          "requiredAny": [
+            "deposito.despachar",
+            "deposito.recepcionar"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/ventas-pos",
+      "module": "ventas",
+      "label": "Ventas POS",
+      "component": "VentasPosAuxPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "ventas.ver",
+          "reportes.ver",
+          "reportes.ventas"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [
+          "ventas.ver",
+          "reportes.ver",
+          "reportes.ventas"
+        ]
+      },
+      "actions": [
+        {
+          "key": "emitir_fiscal",
+          "label": "Emitir comprobante fiscal",
+          "requiredAny": [
+            "caja.cobrar",
+            "config.pos"
+          ],
+          "requiredAll": []
+        },
+        {
+          "key": "devolver",
+          "label": "Devolver o crear nota de credito",
+          "requiredAny": [
+            "ventas.cancelar.pagada"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/cotizaciones",
+      "module": "ventas",
+      "label": "Cotizaciones",
+      "component": "CotizacionesAuxPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "ventas.cotizacion",
+          "ventas.ver",
+          "reportes.ver",
+          "reportes.ventas"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "page-check",
+      "nav": {
+        "visible": false,
+        "requiredAny": []
+      },
+      "actions": [
+        {
+          "key": "convertir_cotizacion",
+          "label": "Convertir cotizacion en venta",
+          "requiredAny": [
+            "ventas.cotizacion.convertir"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/facturacion",
+      "module": "facturacion",
+      "label": "Facturacion y tickets",
+      "component": "FacturacionAuxPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "ventas.ver",
+          "reportes.ver",
+          "reportes.ventas"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "page-check",
+      "nav": {
+        "visible": false,
+        "requiredAny": []
+      },
+      "actions": [
+        {
+          "key": "anular_fiscal",
+          "label": "Anular comprobante fiscal",
+          "requiredAny": [
+            "ventas.cancelar.pagada"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/notas-credito",
+      "module": "notas-credito",
+      "label": "Notas de credito",
+      "component": "NotasCreditoAuxPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "ventas.ver",
+          "reportes.ver",
+          "reportes.ventas"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "page-check",
+      "nav": {
+        "visible": false,
+        "requiredAny": []
+      },
+      "actions": [
+        {
+          "key": "crear_nota_credito",
+          "label": "Crear nota de credito",
+          "requiredAny": [
+            "ventas.cancelar.pagada"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/despachos",
+      "module": "deposito",
+      "label": "Despachos",
+      "component": "DespachosAuxPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "deposito.ver",
+          "deposito.despachar",
+          "deposito.recepcionar"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [
+          "deposito.ver",
+          "deposito.despachar",
+          "deposito.recepcionar"
+        ]
+      },
+      "actions": [
+        {
+          "key": "operar_despacho",
+          "label": "Despachar o recepcionar",
+          "requiredAny": [
+            "deposito.despachar",
+            "deposito.recepcionar"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/cuenta-corriente",
+      "module": "clientes",
+      "label": "Cuenta corriente",
+      "component": "CuentaCorrienteAuxPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "clientes.ver",
+          "ventas.ver"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "navbar-only-or-page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [
+          "clientes.ver",
+          "ventas.ver"
+        ]
+      },
+      "actions": [
+        {
+          "key": "registrar_pago_cuenta_corriente",
+          "label": "Registrar pago de cuenta corriente",
+          "requiredAny": [
+            "caja.cobrar"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/listas-precio",
+      "module": "precios",
+      "label": "Listas de precio",
+      "component": "ListasPrecioAuxPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "precios.ver",
+          "config.listas_precio"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "navbar-only-or-page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [
+          "precios.ver",
+          "config.listas_precio"
+        ]
+      },
+      "actions": [
+        {
+          "key": "configurar_listas_precio",
+          "label": "Crear, editar o eliminar listas",
+          "requiredAny": [
+            "config.listas_precio"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/reportes-pos",
+      "module": "reportes",
+      "label": "Reportes POS",
+      "component": "ReportesPosAuxPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "reportes.ver",
+          "reportes.ventas",
+          "reportes.caja"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [
+          "reportes.ver",
+          "reportes.ventas",
+          "reportes.caja"
+        ]
+      },
+      "actions": [
+        {
+          "key": "exportar_reportes",
+          "label": "Exportar reportes",
+          "requiredAny": [
+            "reportes.exportar"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/auditoria",
+      "module": "auditoria",
+      "label": "Auditoria",
+      "component": "AuditoriaAuxPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "reportes.ver"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [
+          "reportes.ver"
+        ]
+      },
+      "actions": []
+    },
+    {
+      "path": "/configuracion-pos",
+      "module": "config",
+      "label": "Configuracion POS",
+      "component": "ConfiguracionPosPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "config.pos"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "navbar-only-or-page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [
+          "config.pos"
+        ]
+      },
+      "actions": []
+    },
+    {
+      "path": "/configuracion-mercadopago",
+      "module": "mercadopago",
+      "label": "Configuracion Mercado Pago",
+      "component": "ConfiguracionMercadoPagoPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "mp.crear",
+          "config.pos"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "navbar-only-or-page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [
+          "mp.crear",
+          "config.pos"
+        ]
+      },
+      "actions": [
+        {
+          "key": "ver_estado_mp",
+          "label": "Ver estado Mercado Pago",
+          "requiredAny": [
+            "mp.leer",
+            "mp.crear",
+            "config.pos"
+          ],
+          "requiredAll": []
+        },
+        {
+          "key": "guardar_mp",
+          "label": "Guardar credenciales Mercado Pago",
+          "requiredAny": [
+            "mp.crear",
+            "config.pos"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/configuracion-cloudinary",
+      "module": "config",
+      "label": "Configuracion Cloudinary",
+      "component": "ConfiguracionCloudinaryPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "config.pos"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "navbar-only-or-page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [
+          "config.pos"
+        ]
+      },
+      "actions": []
+    },
+    {
+      "path": "/configuracion-email",
+      "module": "config",
+      "label": "Configuracion Email",
+      "component": "ConfiguracionEmailPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "config.email"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "navbar-only-or-page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [
+          "config.email"
+        ]
+      },
+      "actions": []
+    },
+    {
+      "path": "/caja",
+      "module": "caja",
+      "label": "Resumen de caja",
+      "component": "CajaPages",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "caja.ver",
+          "reportes.caja",
+          "reportes.ver",
+          "config.pos"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [
+          "caja.ver",
+          "reportes.caja",
+          "reportes.ver"
+        ]
+      },
+      "actions": [
+        {
+          "key": "abrir_caja",
+          "label": "Abrir caja",
+          "requiredAny": [
+            "caja.abrir"
+          ],
+          "requiredAll": []
+        },
+        {
+          "key": "cerrar_caja",
+          "label": "Cerrar caja",
+          "requiredAny": [
+            "caja.cerrar"
+          ],
+          "requiredAll": []
+        },
+        {
+          "key": "movimiento_manual",
+          "label": "Registrar movimiento manual",
+          "requiredAny": [
+            "caja.movimientos.crear"
+          ],
+          "requiredAll": []
+        },
+        {
+          "key": "consumo_interno",
+          "label": "Registrar consumo interno",
+          "requiredAny": [
+            "caja.movimientos.crear",
+            "stock.ajuste"
+          ],
+          "requiredAll": []
+        },
+        {
+          "key": "ver_todas_las_cajas",
+          "label": "Ver cajas de todos los usuarios",
+          "requiredAny": [
+            "reportes.ver",
+            "reportes.caja",
+            "config.pos"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/caja/movimientos",
+      "module": "caja",
+      "label": "Movimientos de caja",
+      "component": "CajaPages",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "caja.movimientos",
+          "caja.ver"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [
+          "caja.movimientos",
+          "caja.ver"
+        ]
+      },
+      "actions": []
+    },
+    {
+      "path": "/caja/cierre",
+      "module": "caja",
+      "label": "Cierre de caja",
+      "component": "CajaPages",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "caja.cerrar"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [
+          "caja.cerrar"
+        ]
+      },
+      "actions": []
+    },
+    {
+      "path": "/caja/ingreso",
+      "module": "caja",
+      "label": "Nuevo ingreso",
+      "component": "CajaPages",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "caja.movimientos.crear"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [
+          "caja.movimientos.crear"
+        ]
+      },
+      "actions": []
+    },
+    {
+      "path": "/caja/:cajaId",
+      "module": "caja",
+      "label": "Detalle de caja",
+      "component": "CajaPages",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "caja.ver",
+          "reportes.caja",
+          "reportes.ver"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "page-check",
+      "nav": {
+        "visible": false,
+        "requiredAny": []
+      },
+      "actions": []
+    },
+    {
+      "path": "/caja/:cajaId/cierre",
+      "module": "caja",
+      "label": "Cierre de caja especifica",
+      "component": "CajaPages",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "caja.cerrar"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "page-check",
+      "nav": {
+        "visible": false,
+        "requiredAny": []
+      },
+      "actions": []
+    },
+    {
+      "path": "/productos",
+      "module": "productos",
+      "label": "Productos",
+      "component": "ProductosPages",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [],
+        "requiredAll": [
+          "productos.ver"
+        ]
+      },
+      "currentGuard": "router-permission",
+      "nav": {
+        "visible": true,
+        "requiredAny": [],
+        "note": "Actualmente el menu no filtra productos por permiso, pero la ruta padre exige productos.ver."
+      },
+      "actions": [
+        {
+          "key": "configurar_columnas",
+          "label": "Configurar columnas",
+          "requiredAny": [
+            "productos.configurar_columnas",
+            "productos.editar",
+            "config.pos",
+            "config.roles",
+            "config.permisos"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/productos/nuevo",
+      "module": "productos",
+      "label": "Nuevo producto",
+      "component": "ProductForm",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [],
+        "requiredAll": [
+          "productos.ver",
+          "productos.crear"
+        ]
+      },
+      "currentGuard": "router-parent-and-page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [],
+        "note": "Actualmente visible si el usuario ve el grupo Productos; conviene filtrar por productos.crear."
+      },
+      "actions": []
+    },
+    {
+      "path": "/productos/detalles",
+      "module": "productos",
+      "label": "Detalle de producto",
+      "component": "ProductDetailView",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [],
+        "requiredAll": [
+          "productos.ver"
+        ]
+      },
+      "currentGuard": "router-parent",
+      "nav": {
+        "visible": false,
+        "requiredAny": []
+      },
+      "actions": [
+        {
+          "key": "editar_producto",
+          "label": "Editar producto",
+          "requiredAny": [
+            "productos.editar"
+          ],
+          "requiredAll": []
+        },
+        {
+          "key": "ajustar_stock",
+          "label": "Ajustar stock",
+          "requiredAny": [
+            "stock.ajuste",
+            "productos.editar"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/productos/category",
+      "module": "productos",
+      "label": "Categorias de productos",
+      "component": "ProductCategoryPages",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [],
+        "requiredAll": [
+          "productos.ver"
+        ]
+      },
+      "currentGuard": "router-parent",
+      "nav": {
+        "visible": true,
+        "requiredAny": []
+      },
+      "actions": [
+        {
+          "key": "editar_categoria",
+          "label": "Crear o editar categorias",
+          "requiredAny": [
+            "productos.editar",
+            "productos.crear"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/productos/marca",
+      "module": "productos",
+      "label": "Marcas de productos",
+      "component": "ProductsMarcaPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [],
+        "requiredAll": [
+          "productos.ver"
+        ]
+      },
+      "currentGuard": "router-parent",
+      "nav": {
+        "visible": true,
+        "requiredAny": []
+      },
+      "actions": [
+        {
+          "key": "editar_marca",
+          "label": "Crear o editar marcas",
+          "requiredAny": [
+            "productos.editar",
+            "productos.crear"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/productos/stock",
+      "module": "productos",
+      "label": "Stock e inventario",
+      "component": "No route registered",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "stock.ver",
+          "productos.ver"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "navbar-link-only-no-route",
+      "nav": {
+        "visible": true,
+        "requiredAny": []
+      },
+      "actions": []
+    },
+    {
+      "path": "/productos/precios",
+      "module": "productos",
+      "label": "Precios y descuentos",
+      "component": "No route registered",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "precios.ver",
+          "precios.cambiar",
+          "config.listas_precio"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "navbar-link-only-no-route",
+      "nav": {
+        "visible": true,
+        "requiredAny": []
+      },
+      "actions": []
+    },
+    {
+      "path": "/productos/eliminar",
+      "module": "productos",
+      "label": "Eliminar productos",
+      "component": "No route registered",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "productos.eliminar"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "navbar-link-only-no-route",
+      "nav": {
+        "visible": true,
+        "requiredAny": []
+      },
+      "actions": []
+    },
+    {
+      "path": "/clientes",
+      "module": "clientes",
+      "label": "Clientes",
+      "component": "ClientesPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "clientes.ver",
+          "ventas.ver"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "auth-only-or-page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [],
+        "note": "Actualmente el menu no filtra Clientes por permiso."
+      },
+      "actions": [
+        {
+          "key": "crear_cliente",
+          "label": "Crear cliente",
+          "requiredAny": [
+            "clientes.crear",
+            "ventas.crear"
+          ],
+          "requiredAll": []
+        },
+        {
+          "key": "editar_cliente",
+          "label": "Editar cliente",
+          "requiredAny": [
+            "clientes.editar"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/clientes/nuevo",
+      "module": "clientes",
+      "label": "Nuevo cliente",
+      "component": "ClientesPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "clientes.crear",
+          "ventas.crear"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "auth-only-or-page-check",
+      "nav": {
+        "visible": false,
+        "requiredAny": []
+      },
+      "actions": []
+    },
+    {
+      "path": "/clientes/:clienteId",
+      "module": "clientes",
+      "label": "Detalle de cliente",
+      "component": "ClientesPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "clientes.ver",
+          "ventas.ver"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "auth-only-or-page-check",
+      "nav": {
+        "visible": false,
+        "requiredAny": []
+      },
+      "actions": []
+    },
+    {
+      "path": "/clientes/:clienteId/cuenta",
+      "module": "clientes",
+      "label": "Cuenta corriente de cliente",
+      "component": "ClientesPage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "clientes.ver",
+          "ventas.ver"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "auth-only-or-page-check",
+      "nav": {
+        "visible": false,
+        "requiredAny": []
+      },
+      "actions": [
+        {
+          "key": "operar_cuenta_corriente",
+          "label": "Operar cuenta corriente",
+          "requiredAny": [
+            "caja.cobrar",
+            "ventas.crear"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/sucursales",
+      "module": "sucursales",
+      "label": "Sucursales",
+      "component": "SucursalPages",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "sucursales.ver"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "auth-only-or-page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [],
+        "note": "Actualmente el menu no filtra Sucursales por permiso."
+      },
+      "actions": []
+    },
+    {
+      "path": "/sucursales/nuevo",
+      "module": "sucursales",
+      "label": "Nueva sucursal",
+      "component": "SucursalForm",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "sucursales.crear"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "page-check",
+      "nav": {
+        "visible": false,
+        "requiredAny": []
+      },
+      "actions": []
+    },
+    {
+      "path": "/sucursales/:id/editar",
+      "module": "sucursales",
+      "label": "Editar sucursal",
+      "component": "SucursalForm",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "sucursales.editar"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "page-check",
+      "nav": {
+        "visible": false,
+        "requiredAny": []
+      },
+      "actions": []
+    },
+    {
+      "path": "/empleados",
+      "module": "empleados",
+      "label": "Empleados",
+      "component": "EmpleadosPages",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "empleados.ver",
+          "empleados.gestionar"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "auth-only-or-page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [],
+        "note": "Actualmente el menu no filtra Empleados por permiso."
+      },
+      "actions": [
+        {
+          "key": "desactivar_empleado",
+          "label": "Activar o desactivar empleado",
+          "requiredAny": [
+            "empleados.desactivar",
+            "empleados.gestionar"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/empleados/nuevo",
+      "module": "empleados",
+      "label": "Nuevo empleado",
+      "component": "EmpleadoCreatePage",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "empleados.crear",
+          "empleados.gestionar"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "auth-only-or-page-check",
+      "nav": {
+        "visible": true,
+        "requiredAny": [],
+        "note": "Actualmente visible si el usuario ve el grupo Empleados; conviene filtrar por empleados.crear."
+      },
+      "actions": [
+        {
+          "key": "asignar_roles",
+          "label": "Asignar roles al crear empleado",
+          "requiredAny": [
+            "empleados.roles",
+            "empleados.gestionar"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/empleados/:id",
+      "module": "empleados",
+      "label": "Detalle de empleado",
+      "component": "EmpleadoDetailView",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "empleados.ver",
+          "empleados.gestionar"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "auth-only-or-page-check",
+      "nav": {
+        "visible": false,
+        "requiredAny": []
+      },
+      "actions": [
+        {
+          "key": "editar_empleado",
+          "label": "Editar empleado",
+          "requiredAny": [
+            "empleados.editar",
+            "empleados.gestionar"
+          ],
+          "requiredAll": []
+        },
+        {
+          "key": "asignar_roles",
+          "label": "Asignar roles",
+          "requiredAny": [
+            "empleados.roles",
+            "empleados.gestionar"
+          ],
+          "requiredAll": []
+        },
+        {
+          "key": "asignar_permisos_extra",
+          "label": "Asignar permisos extra",
+          "requiredAny": [
+            "empleados.permisos",
+            "empleados.gestionar"
+          ],
+          "requiredAll": []
+        }
+      ]
+    },
+    {
+      "path": "/transferencias",
+      "module": "transferencias",
+      "label": "Transferencias",
+      "component": "No route registered",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "stock.ver",
+          "deposito.stock",
+          "deposito.ver"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "navbar-link-only-no-route",
+      "nav": {
+        "visible": true,
+        "requiredAny": []
+      },
+      "actions": []
+    },
+    {
+      "path": "/transferencias/pendientes",
+      "module": "transferencias",
+      "label": "Transferencias pendientes",
+      "component": "No route registered",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "stock.ver",
+          "deposito.stock",
+          "deposito.ver"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "navbar-link-only-no-route",
+      "nav": {
+        "visible": true,
+        "requiredAny": []
+      },
+      "actions": []
+    },
+    {
+      "path": "/transferencias/nueva",
+      "module": "transferencias",
+      "label": "Nueva transferencia",
+      "component": "No route registered",
+      "access": {
+        "requiresAuth": true,
+        "requiredAny": [
+          "stock.ajuste",
+          "stock.editar",
+          "deposito.despachar",
+          "deposito.recepcionar"
+        ],
+        "requiredAll": []
+      },
+      "currentGuard": "navbar-link-only-no-route",
+      "nav": {
+        "visible": true,
+        "requiredAny": []
+      },
+      "actions": []
+    }
+  ],
+  "routeIssues": [
+    {
+      "type": "navbar-link-without-route",
+      "paths": [
+        "/productos/stock",
+        "/productos/precios",
+        "/productos/eliminar",
+        "/transferencias",
+        "/transferencias/pendientes",
+        "/transferencias/nueva"
+      ],
+      "recommendation": "Crear rutas reales o quitar estos links del menu hasta implementar las pantallas."
+    },
+    {
+      "type": "menu-not-filtered-by-permission",
+      "paths": [
+        "/productos",
+        "/sucursales",
+        "/empleados",
+        "/clientes"
+      ],
+      "recommendation": "Agregar requiredAny en Navbar para que el menu no muestre secciones sin permiso."
+    },
+    {
+      "type": "route-auth-only",
+      "paths": [
+        "/empleados",
+        "/empleados/nuevo",
+        "/empleados/:id",
+        "/clientes",
+        "/clientes/nuevo",
+        "/clientes/:clienteId",
+        "/sucursales"
+      ],
+      "recommendation": "Mover el control de permisos al router o a un wrapper de ruta para evitar depender solo de validaciones internas de pagina."
+    }
+  ],
+  "suggestedRolePresets": [
+    {
+      "role": "admin",
+      "description": "Acceso completo operativo y configuracion.",
+      "permissions": [
+        "*"
+      ]
+    },
+    {
+      "role": "vendedor",
+      "description": "Opera POS y ve sus ventas.",
+      "permissions": [
+        "ventas.crear",
+        "ventas.ver",
+        "ventas.cancelar",
+        "productos.ver",
+        "precios.ver"
+      ]
+    },
+    {
+      "role": "cajero",
+      "description": "Cobra ventas, opera caja y emite comprobantes.",
+      "permissions": [
+        "ventas.ver",
+        "caja.ver",
+        "caja.abrir",
+        "caja.cobrar",
+        "caja.cerrar",
+        "caja.movimientos",
+        "caja.movimientos.crear"
+      ]
+    },
+    {
+      "role": "deposito",
+      "description": "Consulta y opera despachos.",
+      "permissions": [
+        "deposito.ver",
+        "deposito.despachar",
+        "deposito.recepcionar",
+        "stock.ver"
+      ]
+    },
+    {
+      "role": "contador",
+      "description": "Consulta facturacion, reportes y auditoria sin operar ventas.",
+      "permissions": [
+        "ventas.ver",
+        "reportes.ver",
+        "reportes.ventas",
+        "reportes.caja",
+        "reportes.exportar",
+        "mp.leer"
+      ]
+    }
+  ]
+}

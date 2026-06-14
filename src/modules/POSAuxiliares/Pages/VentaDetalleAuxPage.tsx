@@ -1,12 +1,15 @@
-import { ArrowLeft, FileText, Loader2, Mail, PackageCheck, Pencil, Printer, ReceiptText, Save, Truck, X } from 'lucide-react';
+import { ArrowLeft, CreditCard, FileText, Loader2, Mail, PackageCheck, Pencil, Printer, ReceiptText, Save, Truck, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import AccessDenied from '../../../components/common/AccessDenied';
 import FichaHistoryPanel from '../../../components/common/FichaHistoryPanel';
 import { useAuthStore } from '../../../store/auth.store';
 import { useGetEmpleados } from '../../Empleados/hooks/useEmpleados';
+import { useCajaAbierta, useCobrarVentaPendiente, useMediosPagoActivos } from '../../PuntoDeVenta/hooks/usePos';
+import type { IMedioPago, TipoPagoPos } from '../../PuntoDeVenta/types/pos.type';
 import VentaDetalleFicha from '../components/VentaDetalleFicha';
-import { useAuditoriaAux, useConfiguracionPos, useDespachosAux, usePosAuxMutation, useVentasGeneralAux } from '../hooks/usePosAux';
+import { useAuditoriaAux, useConfiguracionPos, useDespachosAux, usePosAuxMutation, useServiciosSucursal, useVentasGeneralAux } from '../hooks/usePosAux';
 import type { IAuditoriaEventoAux, IDespachoAux, IVentaGeneralAux } from '../types/pos-aux.type';
 import { money, toNumber } from '../utils/format';
 import { hasAnyPermission, POS_PERMISSIONS } from '../utils/posPermissions';
@@ -28,6 +31,17 @@ const motivoLabel: Record<Exclude<MotivoPendiente, ''>, string> = {
   RETIRA_LUEGO: 'Retira luego',
   SIN_STOCK: 'Sin stock',
   EN_GARANTIA: 'En garantia',
+};
+
+const mapMedioPagoToTipo = (medio?: IMedioPago): TipoPagoPos => {
+  if (!medio) return 'EFECTIVO';
+  const nombre = medio.nombre.toLowerCase();
+  if (medio.tipo === 'efectivo') return 'EFECTIVO';
+  if (medio.tipo === 'transferencia') return 'TRANSFERENCIA';
+  if (medio.tipo === 'qr') return 'QR';
+  if (medio.tipo === 'tarjeta' && nombre.includes('deb')) return 'TARJETA_DEBITO';
+  if (medio.tipo === 'tarjeta') return 'TARJETA_CREDITO';
+  return 'OTRO';
 };
 
 const comprobanteHistoryLabels: Record<string, string> = {
@@ -95,15 +109,26 @@ const VentaDetalleAuxPage = () => {
   const configQuery = useConfiguracionPos();
   const despachosQuery = useDespachosAux(puedeVerVentas);
   const empleadosQuery = useGetEmpleados(1, 300, puedeVerVentas);
+  const cajaAbiertaQuery = useCajaAbierta();
+  const mediosPagoQuery = useMediosPagoActivos();
+  const serviciosQuery = useServiciosSucursal();
+  const cobrarPendienteMutation = useCobrarVentaPendiente();
   const mutations = usePosAuxMutation();
   const [tipoFiscal, setTipoFiscal] = useState<TipoFiscal>('TICKET');
   const [editing, setEditing] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
+  const [pagoOpen, setPagoOpen] = useState(false);
+  const [medioPagoId, setMedioPagoId] = useState('');
+  const [referenciaPago, setReferenciaPago] = useState('');
   const [emailDestino, setEmailDestino] = useState('');
   const [emailMensaje, setEmailMensaje] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [fechaVencimiento, setFechaVencimiento] = useState('');
   const venta = ventasQuery.data?.find((item) => item.comprobante.id === id) ?? null;
+  const cajaAbierta = cajaAbiertaQuery.data;
+  const mediosPago = mediosPagoQuery.data ?? [];
+  const medioPagoSeleccionado = mediosPago.find((medio) => medio.id === medioPagoId) ?? null;
+  const emailDisponible = !!serviciosQuery.data?.email.disponible;
   const historialQuery = useAuditoriaAux(
     {
       page: 1,
@@ -130,6 +155,11 @@ const VentaDetalleAuxPage = () => {
   const puedeEditar =
     !!venta &&
     ['BORRADOR', 'ENVIADO', 'PENDIENTE_COBRO'].includes(venta.comprobante.estado);
+  const puedeCobrar = permisos.includes(POS_PERMISSIONS.cajaCobrar);
+  const puedeMarcarPagada =
+    !!venta &&
+    puedeCobrar &&
+    ['BORRADOR', 'PENDIENTE_COBRO'].includes(venta.comprobante.estado);
   const usaDespacho = configQuery.data?.modo_pos === 'CON_DESPACHO' || !!despacho;
   const comprobanteParaEnviar = useMemo(() => {
     if (!venta) return null;
@@ -141,6 +171,12 @@ const VentaDetalleAuxPage = () => {
     setObservaciones(venta.comprobante.observaciones ?? '');
     setFechaVencimiento(toInputDate(venta.comprobante.fecha_vencimiento));
   }, [venta]);
+
+  useEffect(() => {
+    if (!medioPagoId && mediosPago[0]) {
+      setMedioPagoId(mediosPago[0].id);
+    }
+  }, [medioPagoId, mediosPago]);
 
   const imprimir = () => {
     if (!venta) return;
@@ -189,6 +225,10 @@ const VentaDetalleAuxPage = () => {
   };
 
   const enviarEmail = () => {
+    if (!emailDisponible) {
+      toast.warning('El servicio de email no esta configurado para esta sucursal');
+      return;
+    }
     if (!comprobanteParaEnviar || !emailDestino.trim()) return;
     mutations.enviarComprobanteEmail.mutate(
       {
@@ -200,6 +240,47 @@ const VentaDetalleAuxPage = () => {
         onSuccess: () => {
           setEmailOpen(false);
           setEmailMensaje('');
+        },
+      },
+    );
+  };
+
+  const marcarPagada = () => {
+    if (!venta || !puedeMarcarPagada) return;
+    if (!cajaAbierta) {
+      toast.warning('Abra una caja para marcar la venta como pagada');
+      return;
+    }
+    if (!medioPagoSeleccionado) {
+      toast.warning('Seleccione un medio de pago');
+      return;
+    }
+    if (medioPagoSeleccionado.requiereReferencia && !referenciaPago.trim()) {
+      toast.warning(`El medio de pago "${medioPagoSeleccionado.nombre}" requiere referencia`);
+      return;
+    }
+
+    cobrarPendienteMutation.mutate(
+      {
+        ventaId: venta.comprobante.id,
+        cajaId: cajaAbierta.id,
+        pagos: [
+          {
+            tipo: mapMedioPagoToTipo(medioPagoSeleccionado),
+            medio_pago_id: medioPagoSeleccionado.id,
+            monto: toNumber(venta.comprobante.total),
+            referencia: referenciaPago.trim() || null,
+          },
+        ],
+        emitirComprobante: false,
+        tipoFiscal,
+      },
+      {
+        onSuccess: () => {
+          setPagoOpen(false);
+          setReferenciaPago('');
+          ventasQuery.refetch();
+          historialQuery.refetch();
         },
       },
     );
@@ -253,14 +334,31 @@ const VentaDetalleAuxPage = () => {
                   <FileText size={14} />
                   Emitir
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setEmailOpen((current) => !current)}
-                  className="inline-flex h-9 items-center gap-2 rounded border border-[#cfe2de] bg-[#f3fbf9] px-3 text-[12px] font-semibold text-[#075E54] hover:bg-[#e8f7f3]"
-                >
-                  <Mail size={14} />
-                  Enviar email
-                </button>
+                {puedeMarcarPagada ? (
+                  <button
+                    type="button"
+                    onClick={() => setPagoOpen((current) => !current)}
+                    disabled={cobrarPendienteMutation.isPending}
+                    className="inline-flex h-9 items-center gap-2 rounded bg-[#0f766e] px-3 text-[12px] font-semibold text-white hover:bg-[#115e59] disabled:opacity-50"
+                  >
+                    {cobrarPendienteMutation.isPending ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <CreditCard size={14} />
+                    )}
+                    Marcar pagada
+                  </button>
+                ) : null}
+                {emailDisponible ? (
+                  <button
+                    type="button"
+                    onClick={() => setEmailOpen((current) => !current)}
+                    className="inline-flex h-9 items-center gap-2 rounded border border-[#cfe2de] bg-[#f3fbf9] px-3 text-[12px] font-semibold text-[#075E54] hover:bg-[#e8f7f3]"
+                  >
+                    <Mail size={14} />
+                    Enviar email
+                  </button>
+                ) : null}
                 {usaDespacho ? (
                   <Link
                     to={
@@ -333,7 +431,7 @@ const VentaDetalleAuxPage = () => {
                 </div>
               </div>
             ) : null}
-            {emailOpen ? (
+            {emailOpen && emailDisponible ? (
               <div className="mb-4 rounded-lg border border-[#c4c6cd] bg-white p-4 shadow-sm">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <div>
@@ -393,6 +491,80 @@ const VentaDetalleAuxPage = () => {
                     Enviar
                   </button>
                 </div>
+              </div>
+            ) : null}
+            {pagoOpen && venta ? (
+              <div className="mb-4 rounded-lg border border-[#c4c6cd] bg-white p-4 shadow-sm">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="text-[14px] font-bold text-[#041627]">
+                      Marcar venta como pagada
+                    </div>
+                    <div className="text-[12px] text-[#44474c]">
+                      Total a ingresar en caja: {money(venta.comprobante.total)}
+                      {cajaAbierta ? ` | Caja ${cajaAbierta.id.slice(0, 8)}` : ' | Sin caja abierta'}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPagoOpen(false)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded border border-[#c4c6cd] bg-white text-[#041627] hover:bg-[#f4f5f6]"
+                    title="Cerrar"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+                <div className="grid gap-3 md:grid-cols-[260px_1fr_auto]">
+                  <label className="text-[12px] font-semibold text-[#041627]">
+                    Medio de pago
+                    <select
+                      value={medioPagoId}
+                      onChange={(event) => setMedioPagoId(event.target.value)}
+                      className="mt-1 h-9 w-full rounded border border-[#c4c6cd] bg-white px-2 text-[13px] outline-none focus:border-[#075E54]"
+                    >
+                      {mediosPago.map((medio) => (
+                        <option key={medio.id} value={medio.id}>
+                          {medio.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-[12px] font-semibold text-[#041627]">
+                    Referencia
+                    <input
+                      value={referenciaPago}
+                      onChange={(event) => setReferenciaPago(event.target.value)}
+                      className="mt-1 h-9 w-full rounded border border-[#c4c6cd] px-2 text-[13px] outline-none focus:border-[#075E54]"
+                      placeholder={
+                        medioPagoSeleccionado?.requiereReferencia
+                          ? 'Obligatoria para este medio'
+                          : 'Opcional'
+                      }
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={marcarPagada}
+                    disabled={
+                      !cajaAbierta ||
+                      !medioPagoSeleccionado ||
+                      cobrarPendienteMutation.isPending
+                    }
+                    className="mt-auto inline-flex h-9 items-center justify-center gap-2 rounded bg-[#075E54] px-3 text-[12px] font-semibold text-white hover:bg-[#0b6d62] disabled:opacity-50"
+                  >
+                    {cobrarPendienteMutation.isPending ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <CreditCard size={14} />
+                    )}
+                    Confirmar pago
+                  </button>
+                </div>
+                {!cajaAbierta ? (
+                  <div className="mt-3 rounded border border-[#f1c7c7] bg-[#fff5f5] px-3 py-2 text-[12px] font-semibold text-[#b42318]">
+                    Necesitas una caja abierta para registrar el cobro.
+                  </div>
+                ) : null}
               </div>
             ) : null}
             <VentaDetalleFicha venta={venta} />

@@ -800,6 +800,8 @@ const PedidosEnvioPage = () => {
           isLoading={pedidosQuery.isLoading}
           loadingMessage="Cargando pedidos del dia..."
           emptyMessage="Sin pedidos de envio cargados hoy."
+          emptyTitle="No hay pedidos de envio cargados"
+          emptyDescription="Cuando registres pedidos para entregar, van a aparecer aca para prepararlos, asignarlos y rendirlos."
           minWidth="1120px"
           onRowClick={abrirDetalle}
           getContextActions={(pedido) => [

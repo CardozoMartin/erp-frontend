@@ -3,6 +3,7 @@ import type { IProducto } from '../../types/productos.type';
 import { ImagenesSection } from '../ProductFormSections/ImagenesSection';
 import { useFormContext } from 'react-hook-form';
 import Swal from 'sweetalert2';
+import { useServiciosSucursal } from '../../../POSAuxiliares/hooks/usePosAux';
 
 interface TabImagenesProps {
   product: IProducto | null;
@@ -13,6 +14,8 @@ interface TabImagenesProps {
 
 const TabImagenes = ({ product, isEditing, imagenesLocales = [], setImagenesLocales }: TabImagenesProps) => {
   const formContext = useFormContext();
+  const serviciosQuery = useServiciosSucursal();
+  const cloudinaryDisponible = !!serviciosQuery.data?.cloudinary.disponible;
   const watchedTieneVariantes = formContext ? formContext.watch('tiene_variantes') : product?.tiene_variantes;
 
   if (watchedTieneVariantes) {
@@ -29,7 +32,7 @@ const TabImagenes = ({ product, isEditing, imagenesLocales = [], setImagenesLoca
     );
   }
 
-  if (isEditing && setImagenesLocales) {
+  if (isEditing && setImagenesLocales && cloudinaryDisponible) {
     return (
       <div className="p-4 bg-white rounded border border-slate-100">
         <div className="flex items-center gap-2 mb-4 bg-slate-50 p-3 rounded text-xs text-gray-500 border border-slate-150">

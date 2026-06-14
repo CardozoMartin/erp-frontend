@@ -27,17 +27,16 @@ import {
   ReceiptText,
   Users,
   Truck,
-  Mail,
-  ImageIcon,
-  QrCode,
+  AlertTriangle,
 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
 import Swal from 'sweetalert2';
 import { logoutFn, seleccionarSucursalFn } from '../../modules/Auth/api/auth.api';
 import type { AxiosError } from 'axios';
+import { useConteoAlertasStock } from '../../modules/Productos/hooks/useAlertasStock';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -62,8 +61,10 @@ type NavItem = {
 type UserAction = {
   label: string;
   icon: React.ReactNode;
+  link?: string;
   danger?: boolean;
   dividerBefore?: boolean;
+  requiredAny?: string[];
 };
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -74,7 +75,7 @@ const navItems: NavItem[] = [
     label: 'Punto venta',
     icon: <ShoppingCart size={15} />,
     link: '/punto-venta',
-    requiredAny: ['ventas.crear', 'caja.cobrar'],
+    requiredAny: ['ventas.crear', 'caja.cobrar', 'caja.abrir'],
   },
   {
     id: 'gestion-pos',
@@ -87,11 +88,6 @@ const navItems: NavItem[] = [
       { label: 'Cuenta corriente', icon: <Wallet size={15} />, link: '/cuenta-corriente', requiredAny: ['clientes.ver', 'ventas.ver'] },
       { label: 'Listas de precio', icon: <BadgePercent size={15} />, link: '/listas-precio', requiredAny: ['precios.ver', 'config.listas_precio'] },
       { label: 'Reportes POS', icon: <BarChart2 size={15} />, link: '/reportes-pos', requiredAny: ['reportes.ver', 'reportes.ventas', 'reportes.caja'] },
-      { label: 'Configuracion POS', icon: <Settings size={15} />, link: '/configuracion-pos', highlight: true, requiredAny: ['config.pos'] },
-      { label: 'Mercado Pago', icon: <QrCode size={15} />, link: '/configuracion-mercadopago', highlight: true, requiredAny: ['mp.crear', 'config.pos'] },
-      { label: 'Configuracion Cloudinary', icon: <ImageIcon size={15} />, link: '/configuracion-cloudinary', highlight: true, requiredAny: ['config.pos'] },
-      { label: 'Configuracion Email', icon: <Mail size={15} />, link: '/configuracion-email', highlight: true, requiredAny: ['config.email'] },
-      { label: 'Auditoria', icon: <Clock size={15} />, link: '/auditoria', requiredAny: ['reportes.ver'] },
     ],
   },
   {
@@ -106,31 +102,35 @@ const navItems: NavItem[] = [
     label: 'Productos',
     icon: <Package size={15} />,
     subItems: [
-      { label: 'Todos los productos', icon: <List size={15} />, link: '/productos' },
-      { label: 'Categorías', icon: <Tag size={15} />, link: '/productos/category' },
-      { label: 'Stock e inventario', icon: <Warehouse size={15} />, link: '/productos/stock' },
+      { label: 'Todos los productos', icon: <List size={15} />, link: '/productos', requiredAny: ['productos.ver'] },
+      { label: 'Categorías', icon: <Tag size={15} />, link: '/productos/category', requiredAny: ['productos.ver', 'productos.crear', 'productos.editar'] },
+      { label: 'Stock e inventario', icon: <Warehouse size={15} />, link: '/productos/stock', requiredAny: ['stock.ver', 'stock.editar', 'stock.ajuste', 'deposito.stock'] },
       {
         label: 'Precios y descuentos',
         icon: <BadgePercent size={15} />,
         link: '/productos/precios',
+        requiredAny: ['precios.ver', 'precios.cambiar', 'config.listas_precio'],
       },
       {
         label: 'Nuevo producto',
         icon: <Plus size={15} />,
         link: '/productos/nuevo',
         highlight: true,
+        requiredAny: ['productos.crear'],
       },
       {
         label: 'Marca de Productos',
         icon: <MarsStroke size={15} />,
         link: '/productos/marca',
         highlight: true,
+        requiredAny: ['productos.ver', 'productos.crear', 'productos.editar'],
       },
       {
         label: 'Eliminar productos',
         icon: <Trash2 size={15} />,
         link: '/productos/eliminar',
         danger: true,
+        requiredAny: ['productos.eliminar'],
       },
     ],
   },
@@ -139,14 +139,15 @@ const navItems: NavItem[] = [
     label: 'Sucursales',
     icon: <Warehouse size={15} />,
     link: '/sucursales',
+    requiredAny: ['sucursales.ver', 'sucursales.crear', 'sucursales.editar'],
   },
   {
     id: 'empleados',
     label: 'Empleados',
     icon: <UserRoundPen size={15} />,
     subItems: [
-      { label: 'Todos los empleados', icon: <List size={15} />, link: '/empleados' },
-      { label: 'Nuevo empleado', icon: <Plus size={15} />, link: '/empleados/nuevo', highlight: true },
+      { label: 'Todos los empleados', icon: <List size={15} />, link: '/empleados', requiredAny: ['empleados.ver', 'empleados.gestionar', 'empleados.roles'] },
+      { label: 'Nuevo empleado', icon: <Plus size={15} />, link: '/empleados/nuevo', highlight: true, requiredAny: ['empleados.crear', 'empleados.gestionar'] },
     ],
   },
   {
@@ -154,6 +155,7 @@ const navItems: NavItem[] = [
     label: 'Clientes',
     icon: <Users size={15} />,
     link: '/clientes',
+    requiredAny: ['clientes.ver', 'clientes.cargar', 'clientes.editar'],
   },
   {
     id: 'caja',
@@ -171,13 +173,14 @@ const navItems: NavItem[] = [
     label: 'Transferencias',
     icon: <ArrowLeftRight size={15} />,
     subItems: [
-      { label: 'Historial', icon: <Clock size={15} />, link: '/transferencias' },
-      { label: 'Pendientes', icon: <Loader size={15} />, link: '/transferencias/pendientes' },
+      { label: 'Historial', icon: <Clock size={15} />, link: '/transferencias', requiredAny: ['deposito.ver', 'deposito.despachar', 'deposito.recepcionar', 'stock.ver'] },
+      { label: 'Pendientes', icon: <Loader size={15} />, link: '/transferencias/pendientes', requiredAny: ['deposito.ver', 'deposito.despachar', 'deposito.recepcionar', 'stock.ver'] },
       {
         label: 'Nueva transferencia',
         icon: <Plus size={15} />,
         link: '/transferencias/nueva',
         highlight: true,
+        requiredAny: ['deposito.despachar', 'deposito.recepcionar', 'stock.editar', 'stock.ajuste'],
       },
     ],
   },
@@ -186,7 +189,7 @@ const navItems: NavItem[] = [
 const userActions: UserAction[] = [
   { label: 'Favoritos', icon: <Star size={14} /> },
   { label: 'Renombrar', icon: <Pencil size={14} /> },
-  { label: 'Ajustes', icon: <Settings size={14} /> },
+  { label: 'Ajustes', icon: <Settings size={14} />, link: '/ajustes', requiredAny: ['admin.servicios', 'config.pos', 'mp.crear', 'config.email', 'reportes.ver'] },
   { label: 'Cerrar sesión', icon: <LogOut size={14} />, danger: true, dividerBefore: true },
 ];
 
@@ -248,32 +251,51 @@ const Dropdown = ({ items, onClose }: DropdownProps) => {
 
 export default function Navbar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const navRef = useRef<HTMLElement>(null);
   const queryClient = useQueryClient();
-  const { cerrarSesion, empleado, sucursales, sucursalActiva, cambiarSucursalActiva, permisos } =
+  const { cerrarSesion, empleado, sucursales, sucursalActiva, cambiarSucursalActiva, permisos, rutas } =
     useAuthStore();
   const permisosSet = useMemo(() => new Set(permisos), [permisos]);
+  const rutasSet = useMemo(() => new Set(rutas.map((ruta) => ruta.path)), [rutas]);
   const canSee = (requiredAny?: string[]) =>
     !requiredAny?.length || requiredAny.some((permiso) => permisosSet.has(permiso));
+  const canAccessLink = (link?: string, requiredAny?: string[]) =>
+    !link || (rutas.length ? rutasSet.has(link) : canSee(requiredAny));
   const visibleNavItems = useMemo(
     () =>
       navItems
         .map((item) => {
           if (item.subItems) {
-            const subItems = item.subItems.filter((subItem) => canSee(subItem.requiredAny));
+            const subItems = item.subItems.filter((subItem) =>
+              canAccessLink(subItem.link, subItem.requiredAny),
+            );
             return { ...item, subItems };
           }
           return item;
         })
-        .filter((item) => (item.subItems ? item.subItems.length > 0 : canSee(item.requiredAny))),
-    [permisosSet],
+        .filter((item) =>
+          item.subItems ? item.subItems.length > 0 : canAccessLink(item.link, item.requiredAny),
+        ),
+    [permisosSet, rutas, rutasSet],
   );
+  const visibleUserActions = useMemo(
+    () => userActions.filter((action) => canAccessLink(action.link, action.requiredAny)),
+    [permisosSet, rutas, rutasSet],
+  );
+
+  const { data: conteoAlertas = 0 } = useConteoAlertasStock();
+
   const seleccionarSucursalMutation = useMutation({
     mutationFn: seleccionarSucursalFn,
     onSuccess: (data) => {
-      cambiarSucursalActiva(data.token, data.sucursal);
+      cambiarSucursalActiva(data.token, data.sucursal, {
+        permisos: data.permisos,
+        rutas: data.rutas,
+        rutaInicio: data.rutaInicio,
+      });
       queryClient.invalidateQueries();
     },
     onError: (error: AxiosError<{ message?: string; mensaje?: string }>) => {
@@ -353,6 +375,17 @@ export default function Navbar() {
     });
   };
 
+  const handleUserAction = (action: UserAction) => {
+    setUserMenuOpen(false);
+    if (action.danger) {
+      handleLogout();
+      return;
+    }
+    if (action.link) {
+      navigate(action.link);
+    }
+  };
+
   return (
     <nav
       ref={navRef}
@@ -429,6 +462,21 @@ export default function Navbar() {
 
       {/* ── Derecha ── */}
       <div className="flex items-center gap-2">
+        {/* Badge alertas de stock mínimo */}
+        {conteoAlertas > 0 && (
+          <Link
+            to="/productos/stock"
+            title={`${conteoAlertas} producto${conteoAlertas !== 1 ? 's' : ''} con stock bajo el mínimo`}
+            className="relative flex h-8 items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2.5 text-[12px] font-medium text-amber-700 transition-colors hover:bg-amber-100"
+          >
+            <AlertTriangle size={14} className="text-amber-500" />
+            <span>Stock mínimo</span>
+            <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white">
+              {conteoAlertas > 99 ? '99+' : conteoAlertas}
+            </span>
+          </Link>
+        )}
+
         <div className="flex h-8 items-center gap-2 rounded-md border border-gray-300 bg-white px-2 text-[12px] text-gray-500">
           <Warehouse size={14} className="text-[#075E54]" />
           <span className="font-semibold text-gray-600">Sucursal:</span>
@@ -486,12 +534,12 @@ export default function Navbar() {
 
           {userMenuOpen && (
             <div className="absolute right-0 top-[calc(100%+6px)] z-50 min-w-[190px] overflow-hidden rounded-md border border-gray-500/20 bg-white py-1 shadow-sm">
-              {userActions.map((action) => (
+              {visibleUserActions.map((action) => (
                 <div key={action.label}>
                   {action.dividerBefore && <div className="my-1 h-px bg-gray-200/70" />}
                   <button
                     type="button"
-                    onClick={() => setUserMenuOpen(false)}
+                    onClick={() => handleUserAction(action)}
                     className={`
                       flex w-full cursor-pointer items-center justify-between gap-3 px-3 py-2 text-[13px] font-medium transition-colors
                       ${

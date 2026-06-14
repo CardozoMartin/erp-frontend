@@ -16,16 +16,20 @@ import {
   CheckCircle2,
   XCircle
 } from 'lucide-react';
+import { usePermisos } from '../../../../store/usePermisos';
 
 const TabResumen = ({ product, isEditing }: any) => {
   const { register, watch, setValue } = useFormContext<any>();
+  const { tiene } = usePermisos();
   const { data: categorias } = useGetAllProductCategoriesActives(1, 1000);
   const todasLasCategorias = categorias?.data || [];
-  
+  const puedeVerCosto = tiene('productos.ver_costos');
+  const puedeVerMargen = tiene('productos.ver_margenes');
+
   const watchedCategoriaId = watch('categoria_id') || product?.categoria_id;
   const categoriaSeleccionada = todasLasCategorias.find((cat: any) => cat.id === watchedCategoriaId);
   const atributosCategoria = categoriaSeleccionada?.atributos || [];
-  
+
   const watchedTieneVariantes = watch('tiene_variantes');
   const watchedTieneVencimiento = watch('tiene_vencimiento');
   const watchedEsFraccionable = watch('es_fraccionable');
@@ -48,7 +52,7 @@ const TabResumen = ({ product, isEditing }: any) => {
     <div className="py-4">
       {/* ── SECTIONS GRID (Odoo 2-Column Sheet) ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-6">
-        
+
         {/* LEFT COLUMN: Datos de Facturación / Venta */}
         <div className="flex flex-col gap-5">
           <h3 className="text-xs font-bold text-[#075E54] uppercase tracking-wider border-b border-slate-100 pb-1 flex items-center gap-1.5">
@@ -107,31 +111,32 @@ const TabResumen = ({ product, isEditing }: any) => {
             </div>
           </div>
 
-          {/* Precio Costo */}
-          <div className="flex items-center justify-between min-h-[40px] py-1 border-b border-slate-50">
-            <span className="text-[13px] text-gray-500 font-semibold flex items-center gap-2">
-              <DollarSign size={14} className="text-gray-400" />
-              Precio de Costo
-            </span>
-            <div className="w-2/3 flex justify-end">
-              {isEditing ? (
-                <div className="relative w-full max-w-[280px]">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-bold">$</span>
-                  <input
-                    type="number"
-                    step="any"
-                    placeholder="0.00"
-                    {...register('precio_costo', { valueAsNumber: true })}
-                    className="w-full h-9 border border-gray-300 rounded pl-7 pr-3 text-sm focus:ring-2 focus:ring-[#075E54]/20 focus:border-[#075E54] outline-none text-[#041627] font-semibold bg-white"
-                  />
-                </div>
-              ) : (
-                <span className="text-lg font-black text-[#44474c]">
-                  {formatPrice(product?.precio_costo)}
-                </span>
-              )}
+          {puedeVerCosto && (
+            <div className="flex items-center justify-between min-h-[40px] py-1 border-b border-slate-50">
+              <span className="text-[13px] text-gray-500 font-semibold flex items-center gap-2">
+                <DollarSign size={14} className="text-gray-400" />
+                Precio de Costo
+              </span>
+              <div className="w-2/3 flex justify-end">
+                {isEditing ? (
+                  <div className="relative w-full max-w-[280px]">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-bold">$</span>
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder="0.00"
+                      {...register('precio_costo', { valueAsNumber: true })}
+                      className="w-full h-9 border border-gray-300 rounded pl-7 pr-3 text-sm focus:ring-2 focus:ring-[#075E54]/20 focus:border-[#075E54] outline-none text-[#041627] font-semibold bg-white"
+                    />
+                  </div>
+                ) : (
+                  <span className="text-lg font-black text-[#44474c]">
+                    {formatPrice(product?.precio_costo)}
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Precio Venta */}
           <div className="flex items-center justify-between min-h-[40px] py-1 border-b border-slate-50">
@@ -158,16 +163,17 @@ const TabResumen = ({ product, isEditing }: any) => {
               )}
             </div>
           </div>
-
-          <div className="flex items-center justify-between min-h-[40px] py-1 border-b border-slate-50">
-            <span className="text-[13px] text-gray-500 font-semibold flex items-center gap-2">
-              <DollarSign size={14} className="text-gray-400" />
-              Margen de Ganancia
-            </span>
-            <span className={`text-lg font-black ${Number(margen) >= 0 ? 'text-[#075E54]' : 'text-red-600'}`}>
-              {Number(margen).toFixed(2)}%
-            </span>
-          </div>
+          {puedeVerMargen && (
+            <div className="flex items-center justify-between min-h-[40px] py-1 border-b border-slate-50">
+              <span className="text-[13px] text-gray-500 font-semibold flex items-center gap-2">
+                <DollarSign size={14} className="text-gray-400" />
+                Margen de Ganancia
+              </span>
+              <span className={`text-lg font-black ${Number(margen) >= 0 ? 'text-[#075E54]' : 'text-red-600'}`}>
+                {Number(margen).toFixed(2)}%
+              </span>
+            </div>
+          )}
         </div>
 
         {/* RIGHT COLUMN: Propiedades Logísticas / Avanzadas */}
@@ -227,7 +233,7 @@ const TabResumen = ({ product, isEditing }: any) => {
 
       {/* ── FULL WIDTH DESCRIPTION & ATTRIBUTES ── */}
       <div className="mt-8 flex flex-col gap-6">
-        
+
         {/* Descripción */}
         <div className="flex flex-col gap-2">
           <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">

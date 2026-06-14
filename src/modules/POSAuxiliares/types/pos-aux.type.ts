@@ -3,6 +3,11 @@ export interface IComprobanteAux {
   tipo: string;
   estado: string;
   numero: string;
+  numero_secuencial?: number | string;
+  punto_venta?: string | null;
+  codigo_fiscal?: string | null;
+  cae?: string | null;
+  cae_vencimiento?: string | null;
   total: number | string;
   subtotal?: number | string;
   descuento_total?: number | string;
@@ -331,6 +336,18 @@ export interface IConfiguracionCloudinarySucursal {
   api_secret_configurado: boolean;
   disponible: boolean;
   fuente: 'SUCURSAL' | 'ENV';
+}
+
+export interface IEstadoServicioSucursal {
+  disponible: boolean;
+  estado: 'activo' | 'pendiente' | 'error' | 'no_configurado';
+  ultimoTestAt?: string | null;
+}
+
+export interface IEstadoServiciosSucursal {
+  mercadoPago: IEstadoServicioSucursal;
+  email: IEstadoServicioSucursal;
+  cloudinary: IEstadoServicioSucursal;
 }
 
 export type ConfiguracionCloudinaryPayload = {

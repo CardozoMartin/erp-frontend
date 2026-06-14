@@ -1,5 +1,6 @@
 import type { IVentaGeneralAux } from '../types/pos-aux.type';
 import { dateTime, money, shortId, toNumber } from '../utils/format';
+import { EstadoBadge } from './VentasDetalles/EstadoBadge';
 
 const tipoLabel: Record<string, string> = {
   VENTA: 'Venta',
@@ -16,19 +17,26 @@ const VentaDetalleFicha = ({ venta }: Props) => {
     (sum, pago) => sum + toNumber(pago.monto) + toNumber(pago.recargo_monto),
     0,
   );
+  const totalCantidad = (comprobante.items ?? []).reduce(
+    (sum, item) => sum + toNumber(item.cantidad),
+    0,
+  );
+  const totalPrecio = (comprobante.items ?? []).reduce(
+    (sum, item) => sum + toNumber(item.precio_unitario),
+    0,
+  );
 
   return (
     <div className="rounded-lg border border-[#c4c6cd] bg-white shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#c4c6cd] px-4 py-3">
         <div>
-          <div className="text-[18px] font-bold text-[#041627]">Detalle {comprobante.numero}</div>
+          <div className="text-[28px] font-bold text-[#0D5C63]">Detalle {comprobante.numero}</div>
           <div className="text-[13px] text-[#44474c]">
             {tipoLabel[comprobante.tipo] ?? comprobante.tipo} | {dateTime(comprobante.created_at)}
           </div>
         </div>
-        <span className="rounded border border-[#cfe2de] bg-[#f3fbf9] px-2.5 py-1 text-[11px] font-semibold text-[#075E54]">
-          {comprobante.estado}
-        </span>
+        {/* Estado del comprobante con badge de colores */}
+        <EstadoBadge estado={comprobante.estado} />
       </div>
 
       <div className="grid gap-4 p-4 xl:grid-cols-[1fr_1fr]">
@@ -75,40 +83,66 @@ const VentaDetalleFicha = ({ venta }: Props) => {
       </div>
 
       <div className="px-4 pb-4">
-        <section className="rounded border border-[#c4c6cd]">
-          <div className="border-b border-[#c4c6cd] px-3 py-2 text-[13px] font-bold uppercase text-[#041627]">
-            Items
-          </div>
-          <div className="overflow-auto">
-            <table className="w-full min-w-[720px] border-collapse text-[13px]">
-              <thead className="bg-[#fbf9fa] text-[#44474c]">
-                <tr>
-                  <th className="px-3 py-2 text-left">Producto</th>
-                  <th className="px-3 py-2 text-right">Cant.</th>
-                  <th className="px-3 py-2 text-right">Precio</th>
-                  <th className="px-3 py-2 text-right">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(comprobante.items ?? []).map((item) => (
-                  <tr key={item.id} className="border-t border-[#e5e7eb]">
-                    <td className="px-3 py-2 font-semibold text-[#041627]">{item.descripcion}</td>
-                    <td className="px-3 py-2 text-right">{toNumber(item.cantidad)}</td>
-                    <td className="px-3 py-2 text-right">{money(item.precio_unitario)}</td>
-                    <td className="px-3 py-2 text-right font-semibold">{money(item.subtotal)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="grid gap-2 border-t border-[#c4c6cd] bg-[#fbfbfc] px-3 py-3 text-[13px] md:grid-cols-4">
-            <TotalLine label="Subtotal" value={comprobante.subtotal} />
-            <TotalLine label="Descuento" value={comprobante.descuento_total} />
-            <TotalLine label="Recargo" value={comprobante.recargo_total} />
-            <TotalLine label="Total final" value={comprobante.total} strong />
-          </div>
-        </section>
-      </div>
+  <section className="overflow-hidden rounded-lg border border-[#c4c6cd]">
+    
+    {/* Header con contador de referencias */}
+    <div className="flex items-center justify-between border-b border-[#c4c6cd] px-4 py-2.5">
+      <span className="text-[12px] font-bold uppercase tracking-wider text-[#041627]">
+        Productos / Items
+      </span>
+      <span className="text-[12px] font-semibold text-[#44474c]">
+        {(comprobante.items ?? []).length} referencia{(comprobante.items ?? []).length !== 1 ? 's' : ''}
+      </span>
+    </div>
+
+    {/* Tabla */}
+    <div className="overflow-auto">
+      <table className="w-full min-w-160 border-collapse text-[13px]">
+        <thead>
+          <tr className="bg-[#f4f5f7] text-[11px] font-bold uppercase tracking-wider text-[#44474c]">
+            <th className="px-4 py-2.5 text-left">Producto</th>
+            <th className="px-4 py-2.5 text-center">Cant.</th>
+            <th className="px-4 py-2.5 text-right">Precio</th>
+            <th className="px-4 py-2.5 text-right">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(comprobante.items ?? []).map((item, idx) => (
+            <tr
+              key={item.id}
+              className={`border-t border-[#e5e7eb] transition-colors hover:bg-[#f9fafb] ${
+                idx % 2 === 0 ? 'bg-white' : 'bg-[#fafafa]'
+              }`}
+            >
+              <td className="px-4 py-3 font-semibold text-[#041627]">{item.descripcion}</td>
+              <td className="px-4 py-3 text-center text-[#44474c]">{toNumber(item.cantidad)}</td>
+              <td className="px-4 py-3 text-right text-[#44474c]">{money(item.precio_unitario)}</td>
+              <td className="px-4 py-3 text-right font-bold text-[#041627]">{money(item.subtotal)}</td>
+            </tr>
+          ))}
+        </tbody>
+      <tfoot className="bg-[#0D3D45] text-white">
+        <tr className="border-t border-[#1a5260]">
+          <td className="px-4 py-3 text-left text-[11px] uppercase tracking-wider text-[#7ab8c0]">Totales</td>
+          <td className="px-4 py-3 text-center">
+            <div className="text-[13px] font-semibold">{totalCantidad}</div>
+            <div className="text-[10px] uppercase tracking-wider text-[#7ab8c0]">productos</div>
+          </td>
+          <td className="px-4 py-3 text-right">
+            <div className="text-[13px] font-semibold">{money(totalPrecio)}</div>
+            <div className="text-[10px] uppercase tracking-wider text-[#7ab8c0]">suma precio</div>
+          </td>
+          <td className="px-4 py-3 text-right">
+            <div className="text-[13px] font-semibold">{money(comprobante.subtotal)}</div>
+            <div className="text-[10px] uppercase tracking-wider text-[#7ab8c0]">subtotal</div>
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  </section>
+</div>
     </div>
   );
 };

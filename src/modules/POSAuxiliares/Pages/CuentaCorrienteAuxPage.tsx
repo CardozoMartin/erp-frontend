@@ -1,5 +1,6 @@
 import { Calculator, CreditCard, FileText, Loader2, Mail, Plus, Search, Wallet, X, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import DataTable from '../../../components/common/DataTable';
 import type { DataTableColumn } from '../../../components/common/DataTable';
 import {
@@ -7,6 +8,7 @@ import {
   useCajaAbiertaAux,
   useMovimientosCuentaCorrienteAux,
   usePosAuxMutation,
+  useServiciosSucursal,
 } from '../hooks/usePosAux';
 import { useMediosPagoActivos } from '../../PuntoDeVenta/hooks/usePos';
 import type { IMovimientoCuentaCorrienteAux } from '../types/pos-aux.type';
@@ -30,6 +32,7 @@ const CuentaCorrienteAuxPage = () => {
   const clientesQuery = useClientesCuentaCorrienteAux();
   const cajaQuery = useCajaAbiertaAux();
   const mediosPagoQuery = useMediosPagoActivos();
+  const serviciosQuery = useServiciosSucursal();
   const mutations = usePosAuxMutation();
   const [clienteId, setClienteId] = useState('');
   const [search, setSearch] = useState('');
@@ -51,6 +54,7 @@ const CuentaCorrienteAuxPage = () => {
   const clientes = (clientesQuery.data ?? []).filter((cliente) => cliente.cuentaCorriente?.activa);
   const cajaAbierta = cajaQuery.data;
   const mediosPago = mediosPagoQuery.data ?? [];
+  const emailDisponible = !!serviciosQuery.data?.email.disponible;
   const clientesFiltrados = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) return clientes;
@@ -159,6 +163,10 @@ const CuentaCorrienteAuxPage = () => {
 
   const abrirEmail = () => {
     if (!clienteSeleccionado) return;
+    if (!emailDisponible) {
+      toast.warning('El servicio de email no esta configurado para esta sucursal');
+      return;
+    }
     setEmailDestino(clienteSeleccionado.email ?? '');
     setEmailMensaje('');
     setEmailDesde('');
@@ -169,6 +177,10 @@ const CuentaCorrienteAuxPage = () => {
   };
 
   const enviarResumen = () => {
+    if (!emailDisponible) {
+      toast.warning('El servicio de email no esta configurado para esta sucursal');
+      return;
+    }
     if (!clienteSeleccionado || !emailDestino.trim()) return;
     mutations.enviarResumenCuentaCorrienteEmail.mutate(
       {
@@ -336,17 +348,19 @@ const CuentaCorrienteAuxPage = () => {
                 <span className={`rounded border px-3 py-1.5 text-[12px] font-bold ${saldo > 0 ? 'border-[#f1c7c7] bg-[#fff5f5] text-[#b42318]' : 'border-[#cfe2de] bg-[#f3fbf9] text-[#075E54]'}`}>
                   Saldo {money(saldo)}
                 </span>
-                <button
-                  type="button"
-                  onClick={abrirEmail}
-                  className="inline-flex h-9 items-center gap-2 rounded border border-[#cfe2de] bg-[#f3fbf9] px-3 text-[12px] font-semibold text-[#075E54] hover:bg-[#e8f7f3]"
-                >
-                  <Mail size={14} />
-                  Enviar resumen
-                </button>
+                {emailDisponible ? (
+                  <button
+                    type="button"
+                    onClick={abrirEmail}
+                    className="inline-flex h-9 items-center gap-2 rounded border border-[#cfe2de] bg-[#f3fbf9] px-3 text-[12px] font-semibold text-[#075E54] hover:bg-[#e8f7f3]"
+                  >
+                    <Mail size={14} />
+                    Enviar resumen
+                  </button>
+                ) : null}
               </div>
 
-              {emailOpen ? (
+              {emailOpen && emailDisponible ? (
                 <div className="border-b border-[#c4c6cd] bg-white p-4">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div>

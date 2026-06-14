@@ -15,6 +15,9 @@ export const seleccionarSucursalFn = async (sucursalId: string) => {
   const res = await api.post<{
     token: string;
     sucursal: { id: string; nombre: string };
+    permisos: string[];
+    rutas: LoginResponse['rutas'];
+    rutaInicio: string;
   }>('/auth/seleccionar-sucursal', { sucursalId });
   return res.data;
 };

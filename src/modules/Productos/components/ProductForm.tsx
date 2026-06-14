@@ -77,6 +77,8 @@ export default function ProductForm() {
   const [imagenesLocales, setImagenesLocales] = useState<IImagenLocal[]>([]);
   const [showNoBranchModal, setShowNoBranchModal] = useState(false);
   const { tiene } = usePermisos();
+  const puedeVerCosto = tiene('productos.ver_costos');
+  const puedeVerMargen = tiene('productos.ver_margenes');
 
   //validamos que el usuario tenga permisos para crear productos y si no tiene permisos mostramos el modal de no autorizado
   if (!tiene('productos.crear')) {
@@ -459,20 +461,22 @@ export default function ProductForm() {
                 <h3 className="text-lg font-semibold">Precios y Canales</h3>
               </div>
               <div className="flex flex-col gap-6">
-                <div>
-                  <Label>Precio de Costo</Label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#595f66] text-sm">
-                      $
-                    </span>
-                    <Input
-                      type="number"
-                      className="pl-8"
-                      placeholder="0.00"
-                      {...register('precio_costo', { valueAsNumber: true })}
-                    />
+                {puedeVerCosto && (
+                  <div>
+                    <Label>Precio de Costo</Label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#595f66] text-sm">
+                        $
+                      </span>
+                      <Input
+                        type="number"
+                        className="pl-8"
+                        placeholder="0.00"
+                        {...register('precio_costo', { valueAsNumber: true })}
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div>
                   <Label>Precio de Venta</Label>
@@ -489,14 +493,16 @@ export default function ProductForm() {
                   </div>
                 </div>
 
-                <div className="rounded-sm border border-[#d8dee6] bg-[#fbf9fa] px-4 py-3">
-                  <p className="text-[12px] font-medium uppercase tracking-wide text-[#595f66]">
-                    Margen de ganancia
-                  </p>
-                  <p className={`mt-1 text-xl font-bold ${margenGanancia >= 0 ? 'text-[#075E54]' : 'text-red-600'}`}>
-                    {margenGanancia.toFixed(2)}%
-                  </p>
-                </div>
+                {puedeVerMargen && (
+                  <div className="rounded-sm border border-[#d8dee6] bg-[#fbf9fa] px-4 py-3">
+                    <p className="text-[12px] font-medium uppercase tracking-wide text-[#595f66]">
+                      Margen de ganancia
+                    </p>
+                    <p className={`mt-1 text-xl font-bold ${margenGanancia >= 0 ? 'text-[#075E54]' : 'text-red-600'}`}>
+                      {margenGanancia.toFixed(2)}%
+                    </p>
+                  </div>
+                )}
 
                 <div className="p-4 border border-[#efedef] rounded-sm bg-[#fbf9fa] flex flex-col gap-4">
                   <h4 className="text-sm font-semibold text-[#041627]">

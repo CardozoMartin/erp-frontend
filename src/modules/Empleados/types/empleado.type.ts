@@ -31,6 +31,11 @@ export interface IEmpleado {
   bono_ventas_corresponde?: boolean;
   roles: Array<Pick<IEmpleadoRol, 'id' | 'nombre' | 'rutaInicio'>>;
   permisos: string[];
+  permisosExtra?: {
+    permiso: { id: string; clave: string; nombre: string; modulo: string };
+    tipo: 'grant' | 'revoke';
+    sucursalId: string;
+  }[];
   sucursales: IEmpleadoSucursalAsignada[];
 }
 
