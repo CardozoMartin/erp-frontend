@@ -82,3 +82,28 @@ export type AuditoriaCajaQuery = {
   entidad_id?: string;
   q?: string;
 };
+
+export type CajaPanel = 'resumen' | 'egreso' | 'consumo' | 'cierre' | 'historial' | 'movimientos' | 'auditoria';
+
+export type CobroMedio = IResumenCaja['cobros_por_medio'][number];
+
+export type CajaMovimientoEvent = {
+  id: string;
+  accion: string;
+  descripcion?: string | null;
+  created_at: string;
+  monto: number | string;
+  categoria_egreso?: string | null;
+  entidad_nombre?: string | null;
+};
+
+export const CATEGORIAS_EGRESO = [
+  { value: 'RETIRO_DINERO', label: 'Retiro de dinero' },
+  { value: 'PAGO_PROVEEDOR', label: 'Pago a proveedor' },
+  { value: 'PAGO_EMPLEADO', label: 'Pago a empleado' },
+  { value: 'COMPRA_LOCAL', label: 'Compra para el local' },
+  { value: 'CONSUMO_INTERNO', label: 'Consumo interno' },
+  { value: 'OTRO', label: 'Otro egreso' },
+] as const;
+
+export type CategoriaEgreso = (typeof CATEGORIAS_EGRESO)[number]['value'];
