@@ -46,6 +46,26 @@ export interface IEmpleadosPaginationResponse {
   lastPage: number;
 }
 
+export type EmpleadoDetailFormValues = {
+  nombreCompleto: string;
+  email: string;
+  telefono: string;
+  direccion: string;
+  cargo: string;
+  contrasena: string;
+  activo: boolean;
+  activo_pos: boolean;
+  activo_web: boolean;
+  rolesIds: string[];
+};
+
+export type DetailEmpleado = IEmpleado & {
+  creadoEn: string;
+  ultimoAcceso: string;
+  activo_pos?: boolean;
+  activo_web?: boolean;
+};
+
 export interface ICreateEmpleadoPayload {
   nombreCompleto: string;
   email: string;
