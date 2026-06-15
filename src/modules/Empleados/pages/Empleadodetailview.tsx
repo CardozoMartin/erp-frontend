@@ -1,622 +1,56 @@
 import {
-  User, ChevronRight, Shield, Check, RotateCcw, Camera, Trash2,
-  Mail, Phone, MapPin, Briefcase, Key, ToggleLeft, ToggleRight,
-  ShieldCheck, ShieldOff, Clock, Star, UserCheck, AlertCircle,
-  Search, X, Plus
+  Camera, Check, ChevronRight, Clock, Key, RotateCcw, Shield,
+  ShieldCheck, ShieldOff, Star, Trash2, User, UserCheck,
 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import type { FieldErrors, UseFormRegister, UseFormSetValue } from 'react-hook-form';
 import FichaHistoryPanel from '../../../components/common/FichaHistoryPanel';
-import {
-  useGetEmpleados,
-  useGetRoles,
-  useGetPermisos,
-  useAsignarPermiso,
-  useRemoverPermiso,
-  usePutEmpleado,
-} from '../hooks/useEmpleados';
 import { useAuthStore } from '../../../store/auth.store';
 import { useAuditoriaAux } from '../../POSAuxiliares/hooks/usePosAux';
+import { EmpleadoTabActividad } from '../components/empleado/EmpleadoTabActividad';
+import { EmpleadoTabInfo } from '../components/empleado/EmpleadoTabInfo';
+import { EmpleadoTabPermisos } from '../components/empleado/EmpleadoTabPermisos';
+import { EmpleadoTabRoles } from '../components/empleado/EmpleadoTabRoles';
+import { RolBadge, StatusBadge } from '../components/empleado/EmpleadoBadges';
+import { useGetEmpleados, useGetRoles, usePutEmpleado } from '../hooks/useEmpleados';
 import { useEmpleadoStore } from '../store/useEmpleadoStore';
-import type { ICreateEmpleadoPayload, IEmpleado, IEmpleadoRol } from '../types/empleado.type';
-
-type EmpleadoDetailFormValues = {
-  nombreCompleto: string;
-  email: string;
-  telefono: string;
-  direccion: string;
-  cargo: string;
-  contrasena: string;
-  activo: boolean;
-  activo_pos: boolean;
-  activo_web: boolean;
-  rolesIds: string[];
-};
+import type { DetailEmpleado, EmpleadoDetailFormValues, ICreateEmpleadoPayload, IEmpleadoRol } from '../types/empleado.type';
+import { empleadoChanges, empleadoHistoryLabels, formatDate, formatDateTime, getInitials, MODULE_COLORS } from '../utils/empleado.utils';
+import type { RoleColorKey } from '../utils/empleado.utils';
 
 type RolAsignado = Pick<IEmpleadoRol, 'id' | 'nombre' | 'rutaInicio'>;
-type RoleColorKey = 'green' | 'amber' | 'purple' | 'blue' | 'gray';
 type RoleOption = IEmpleadoRol & { color?: RoleColorKey };
-type DetailEmpleado = IEmpleado & {
-  creadoEn: string;
-  ultimoAcceso: string;
-  activo_pos?: boolean;
-  activo_web?: boolean;
-};
-
-type TabInfoProps = {
-  emp: EmpleadoDetailFormValues;
-  isEditing: boolean;
-  form: EmpleadoDetailFormValues;
-  register: UseFormRegister<EmpleadoDetailFormValues>;
-  setValue: UseFormSetValue<EmpleadoDetailFormValues>;
-  errors: FieldErrors<EmpleadoDetailFormValues>;
-};
-
-// ─── MOCK DATA ────────────────────────────────────────────────────────────────
-
-const EMPLEADO_MOCK = {
-  id: 'emp-001',
-  nombreCompleto: 'Valentina Rodríguez',
-  email: 'v.rodriguez@empresa.com',
-  telefono: '+54 9 381 555-0192',
-  direccion: 'Av. Independencia 1452, Tucumán',
-  cargo: 'Vendedora Senior',
-  foto_url: null,
-  activo: true,
-  roles: [
-    { id: 'rol-1', nombre: 'Vendedor', rutaInicio: '/punto-venta' },
-    { id: 'rol-2', nombre: 'Cajero', rutaInicio: '/caja' },
-  ],
-  permisos: [
-    'ventas.crear', 'ventas.ver', 'caja.cobrar', 'caja.abrir',
-    'caja.cerrar', 'clientes.ver', 'clientes.cargar', 'productos.ver',
-  ],
-  sucursales: [],
-  creadoEn: '2024-03-15',
-  ultimoAcceso: '2025-05-22T14:32:00',
-};
-
-const ROLES_DISPONIBLES: RoleOption[] = [
-  { id: 'rol-1', nombre: 'Vendedor', descripcion: 'Puede crear y gestionar ventas', rutaInicio: '/punto-venta', color: 'green' },
-  { id: 'rol-2', nombre: 'Cajero', descripcion: 'Puede cobrar y gestionar caja', rutaInicio: '/caja', color: 'amber' },
-  { id: 'rol-3', nombre: 'Depósito', descripcion: 'Puede cargar y editar productos', rutaInicio: '/despachos', color: 'purple' },
-  { id: 'rol-4', nombre: 'Supervisor', descripcion: 'Acceso a reportes y supervisión', rutaInicio: '/reportes-pos', color: 'blue' },
-  { id: 'rol-5', nombre: 'Administrador', descripcion: 'Acceso total al sistema', rutaInicio: '/ajustes', color: 'gray' },
-];
-
-// Permisos y labels ahora se obtienen del backend mediante useGetPermisos()
-
-const ROL_COLORS: Record<RoleColorKey, { bg: string; text: string; border: string; dot: string }> = {
-  green: { bg: '#EAF3DE', text: '#3B6D11', border: '#C0DD97', dot: '#639922' },
-  amber: { bg: '#FAEEDA', text: '#854F0B', border: '#FAC775', dot: '#BA7517' },
-  purple: { bg: '#EEEDFE', text: '#534AB7', border: '#CECBF6', dot: '#7F77DD' },
-  blue: { bg: '#E6F1FB', text: '#185FA5', border: '#B5D4F4', dot: '#378ADD' },
-  gray: { bg: '#F1EFE8', text: '#5F5E5A', border: '#D3D1C7', dot: '#888780' },
-};
-
-const MODULE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  VENTAS: { bg: '#EAF3DE', text: '#3B6D11', border: '#C0DD97' },
-  CAJA: { bg: '#FAEEDA', text: '#854F0B', border: '#FAC775' },
-  PRODUCTOS: { bg: '#EEEDFE', text: '#534AB7', border: '#CECBF6' },
-  CLIENTES: { bg: '#E6F1FB', text: '#185FA5', border: '#B5D4F4' },
-  REPORTES: { bg: '#F1EFE8', text: '#5F5E5A', border: '#D3D1C7' },
-};
-
-// ─── HELPERS ──────────────────────────────────────────────────────────────────
-
-function getInitials(name: string) {
-  return name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-
-const empleadoHistoryLabels: Record<string, string> = {
-  LOGIN: 'Inicio sesion',
-  LOGOUT: 'Cerro sesion',
-  CREAR_EMPLEADO: 'Creo el empleado',
-  ACTUALIZAR_EMPLEADO: 'Actualizo la ficha',
-  ACTUALIZAR_ROLES_EMPLEADO: 'Actualizo roles',
-  ASIGNAR_SUCURSAL_EMPLEADO: 'Asigno sucursal',
-  QUITAR_SUCURSAL_EMPLEADO: 'Quito sucursal',
-  CAMBIAR_SUCURSAL_PRINCIPAL_EMPLEADO: 'Cambio sucursal principal',
-};
-
-const empleadoFieldLabels: Record<string, string> = {
-  nombreCompleto: 'Nombre',
-  email: 'Email',
-  telefono: 'Telefono',
-  direccion: 'Direccion',
-  cargo: 'Cargo',
-  activo: 'Activo',
-  roles: 'Roles',
-  permisos: 'Permisos',
-  sucursales: 'Sucursales',
-};
-
-const formatAuditValue = (value: any) => {
-  if (value === null || value === undefined || value === '') return 'vacio';
-  if (typeof value === 'boolean') return value ? 'Si' : 'No';
-  if (Array.isArray(value)) return `${value.length} item(s)`;
-  if (typeof value === 'object') return 'datos actualizados';
-  return String(value);
-};
-
-const empleadoChanges = (before?: Record<string, any> | null, after?: Record<string, any> | null) => {
-  if (!before && after) return ['Alta inicial del empleado'];
-  if (!before || !after) return [];
-  return Object.keys(empleadoFieldLabels)
-    .filter((key) => JSON.stringify(before[key] ?? null) !== JSON.stringify(after[key] ?? null))
-    .map((key) => `${empleadoFieldLabels[key]}: ${formatAuditValue(before[key])} -> ${formatAuditValue(after[key])}`);
-};
-
-// ─── SUB-COMPONENTS ───────────────────────────────────────────────────────────
-
-function StatusBadge({ active }: { active: boolean }) {
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 6,
-      padding: '3px 12px', borderRadius: 999, fontSize: 11, fontWeight: 700,
-      letterSpacing: '0.04em',
-      background: active ? '#EAF3DE' : '#FCEBEB',
-      color: active ? '#3B6D11' : '#A32D2D',
-      border: `1px solid ${active ? '#C0DD97' : '#F7C1C1'}`,
-    }}>
-      <span style={{
-        width: 7, height: 7, borderRadius: '50%',
-        background: active ? '#639922' : '#E24B4A',
-        animation: active ? 'pulse 2s infinite' : 'none',
-      }} />
-      {active ? 'Activo' : 'Inactivo'}
-    </span>
-  );
-}
-
-function RolBadge({
-  rol,
-  onRemove,
-  isEditing,
-}: {
-  rol: RolAsignado;
-  onRemove: (id: string) => void;
-  isEditing: boolean;
-}) {
-  const color = (ROLES_DISPONIBLES.find(r => r.id === rol.id)?.color ?? 'gray') as RoleColorKey;
-  const rc = ROL_COLORS[color] || ROL_COLORS.gray;
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 6,
-      padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600,
-      background: rc.bg, color: rc.text, border: `1px solid ${rc.border}`,
-    }}>
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: rc.dot }} />
-      {rol.nombre}
-      {isEditing && (
-        <button onClick={() => onRemove(rol.id)} style={{
-          marginLeft: 2, background: 'none', border: 'none', cursor: 'pointer',
-          color: rc.text, opacity: 0.7, padding: 0, display: 'flex', alignItems: 'center',
-        }}>
-          <X size={11} />
-        </button>
-      )}
-    </span>
-  );
-}
-
-// ─── TABS ─────────────────────────────────────────────────────────────────────
-
-function TabInfo({ emp, isEditing, form, register, setValue, errors }: TabInfoProps) {
-  type TextFieldKey = 'nombreCompleto' | 'email' | 'telefono' | 'cargo';
-  const getRules = (key: TextFieldKey) => ({
-    nombreCompleto: { required: 'El nombre es requerido' },
-    email: { required: 'El email es requerido', pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Email invalido' } },
-    telefono: { required: 'El telefono es requerido' },
-    cargo: { required: 'El cargo es requerido' },
-  })[key];
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-        {([
-          { label: 'Nombre completo', key: 'nombreCompleto', icon: User },
-          { label: 'Email', key: 'email', icon: Mail },
-          { label: 'Teléfono', key: 'telefono', icon: Phone },
-          { label: 'Cargo', key: 'cargo', icon: Briefcase },
-        ] as Array<{ label: string; key: TextFieldKey; icon: typeof User }>).map(({ label, key, icon: Icon }) => (
-          <div key={key}>
-            <label style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-              <Icon size={12} /> {label}
-            </label>
-            {isEditing ? (
-              <>
-                <input
-                  {...register(key, getRules(key))}
-                  style={{
-                    width: '100%', padding: '8px 12px', fontSize: 14, fontWeight: 500,
-                    border: `1.5px solid ${errors[key] ? '#fca5a5' : '#e2e8f0'}`, borderRadius: 6, outline: 'none',
-                    color: '#041627', background: errors[key] ? '#fef2f2' : '#f8fafc', fontFamily: 'inherit',
-                    borderBottom: '2px solid #075E54',
-                  }}
-                />
-                {errors[key]?.message && (
-                  <div style={{ marginTop: 4, fontSize: 11, color: '#dc2626', fontWeight: 600 }}>
-                    {errors[key].message}
-                  </div>
-                )}
-              </>
-            ) : (
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#041627', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
-                {emp[key] || <span style={{ color: '#ccc', fontWeight: 400 }}>Sin datos</span>}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <div>
-        <label style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-          <MapPin size={12} /> Dirección
-        </label>
-        {isEditing ? (
-          <>
-            <input
-              {...register('direccion', { required: 'La direccion es requerida' })}
-              style={{
-                width: '100%', padding: '8px 12px', fontSize: 14, fontWeight: 500,
-                border: `1.5px solid ${errors.direccion ? '#fca5a5' : '#e2e8f0'}`, borderRadius: 6, outline: 'none',
-                color: '#041627', background: errors.direccion ? '#fef2f2' : '#f8fafc', fontFamily: 'inherit',
-                borderBottom: '2px solid #075E54',
-              }}
-            />
-            {errors.direccion?.message && (
-              <div style={{ marginTop: 4, fontSize: 11, color: '#dc2626', fontWeight: 600 }}>
-                {errors.direccion.message}
-              </div>
-            )}
-          </>
-        ) : (
-          <div style={{ fontSize: 14, fontWeight: 600, color: '#041627', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
-            {emp.direccion}
-          </div>
-        )}
-      </div>
-
-      {isEditing && (
-        <div style={{ padding: '14px 16px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-          <label style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 5, marginBottom: 10 }}>
-            <Key size={12} /> Nueva contraseña (opcional)
-          </label>
-          <input
-            type="password"
-            placeholder="Dejar vacío para no cambiar"
-            {...register('contrasena', {
-              minLength: { value: 8, message: 'Minimo 8 caracteres' },
-            })}
-            style={{
-              width: '100%', padding: '8px 12px', fontSize: 14,
-              border: `1.5px solid ${errors.contrasena ? '#fca5a5' : '#e2e8f0'}`, borderRadius: 6, outline: 'none',
-              color: '#041627', background: errors.contrasena ? '#fef2f2' : '#fff', fontFamily: 'inherit',
-              borderBottom: '2px solid #075E54',
-            }}
-          />
-          {errors.contrasena?.message && (
-            <div style={{ marginTop: 4, fontSize: 11, color: '#dc2626', fontWeight: 600 }}>
-              {errors.contrasena.message}
-            </div>
-          )}
-          <p style={{ fontSize: 11, color: '#aaa', marginTop: 6 }}>Mínimo 8 caracteres. Solo completar si se desea cambiar.</p>
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-        {([
-          { label: 'Activo General', key: 'activo' },
-          { label: 'Activo en POS', key: 'activo_pos' },
-          { label: 'Activo en Web', key: 'activo_web' },
-        ] as Array<{ label: string; key: 'activo' | 'activo_pos' | 'activo_web' }>).map(({ label, key }) => {
-          const val = form[key] ?? emp[key] ?? false;
-          return (
-            <label key={key} style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '10px 14px', borderRadius: 8, cursor: isEditing ? 'pointer' : 'default',
-              border: `1px solid ${val ? '#C0DD97' : '#e2e8f0'}`,
-              background: val ? '#EAF3DE' : '#f8fafc',
-              transition: 'all .15s',
-            }}>
-              <div
-                onClick={() => isEditing && setValue(key, !val, { shouldDirty: true })}
-                style={{ color: val ? '#3B6D11' : '#ccc', cursor: isEditing ? 'pointer' : 'default' }}
-              >
-                {val ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
-              </div>
-              <span style={{ fontSize: 12, fontWeight: 600, color: val ? '#3B6D11' : '#888' }}>{label}</span>
-            </label>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function TabRoles({
-  isEditing,
-  rolesAsignados,
-  setRolesAsignados,
-  availableRoles = ROLES_DISPONIBLES,
-}: {
-  isEditing: boolean;
-  rolesAsignados: RolAsignado[];
-  setRolesAsignados: (updater: RolAsignado[] | ((roles: RolAsignado[]) => RolAsignado[])) => void;
-  availableRoles?: RoleOption[];
-}) {
-  const [search, setSearch] = useState('');
-  const rolesParaMostrar = availableRoles.length > 0 ? availableRoles : ROLES_DISPONIBLES;
-  const disponibles = rolesParaMostrar.filter(r =>
-    !rolesAsignados.find(a => a.id === r.id) &&
-    r.nombre.toLowerCase().includes(search.toLowerCase())
-  );
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div>
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Shield size={13} /> Roles asignados
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {rolesAsignados.length === 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: '#FCEBEB', borderRadius: 8, border: '1px solid #F7C1C1' }}>
-              <AlertCircle size={14} style={{ color: '#A32D2D' }} />
-              <span style={{ fontSize: 13, color: '#A32D2D', fontWeight: 600 }}>Sin roles asignados — el empleado no podrá iniciar sesión</span>
-            </div>
-          )}
-          {rolesAsignados.map(rol => (
-            <RolBadge key={rol.id} rol={rol} isEditing={isEditing}
-              onRemove={id => setRolesAsignados(rs => rs.filter(r => r.id !== id))} />
-          ))}
-        </div>
-      </div>
-
-      {rolesAsignados.length > 0 && (
-        <div style={{ padding: '12px 16px', background: '#E6F1FB', borderRadius: 8, border: '1px solid #B5D4F4', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <ChevronRight size={14} style={{ color: '#185FA5' }} />
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#185FA5', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Al iniciar sesión será redirigido a:</div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#0C447C', fontFamily: 'monospace', marginTop: 2 }}>
-              {rolesAsignados[0]?.rutaInicio ?? '/sin-acceso'}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 20 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-          {isEditing ? 'Agregar roles disponibles' : 'Todos los roles del sistema'}
-        </div>
-        {isEditing && (
-          <div style={{ position: 'relative', marginBottom: 12 }}>
-            <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#aaa' }} />
-            <input
-              placeholder="Buscar rol..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{ width: '100%', padding: '7px 12px 7px 30px', fontSize: 13, border: '1px solid #e2e8f0', borderRadius: 6, outline: 'none', fontFamily: 'inherit', background: '#f8fafc' }}
-            />
-          </div>
-        )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {(isEditing ? disponibles : rolesParaMostrar).map(rol => {
-            const rc = ROL_COLORS[(rol.color ?? ROLES_DISPONIBLES.find(r => r.id === rol.id)?.color ?? 'gray') as RoleColorKey];
-            const yaAsignado = !!rolesAsignados.find(r => r.id === rol.id);
-            return (
-              <div key={rol.id} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '12px 16px', borderRadius: 8,
-                border: `1px solid ${yaAsignado ? rc.border : '#e2e8f0'}`,
-                background: yaAsignado ? rc.bg : '#fff',
-                transition: 'all .15s',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: rc.dot, flexShrink: 0 }} />
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#041627' }}>{rol.nombre}</div>
-                    <div style={{ fontSize: 11, color: '#888', marginTop: 1 }}>{rol.descripcion}</div>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#aaa' }}>{rol.rutaInicio}</span>
-                  {isEditing && !yaAsignado && (
-                    <button
-                      onClick={() => setRolesAsignados(rs => [...rs, { id: rol.id, nombre: rol.nombre, rutaInicio: rol.rutaInicio }])}
-                      style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: '#075E54', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                    >
-                      <Plus size={11} /> Asignar
-                    </button>
-                  )}
-                  {yaAsignado && <span style={{ fontSize: 11, color: rc.text, fontWeight: 700 }}>✓ Asignado</span>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TabPermisos({ 
-  empleado, 
-  isEditing 
-}: { 
-  empleado: DetailEmpleado;
-  isEditing: boolean;
-}) {
-  const { data: todosLosPermisos = [] } = useGetPermisos();
-  const asignarPermiso = useAsignarPermiso();
-  const removerPermiso = useRemoverPermiso();
-  const authStore = useAuthStore();
-  const sucursalActivaId = authStore.sucursalActiva?.id ?? '';
-
-  // Agrupar por modulo
-  const permisosPorModulo = useMemo(() => {
-    const agrupado: Record<string, any[]> = {};
-    todosLosPermisos.forEach((p: any) => {
-      const mod = p.modulo.toUpperCase();
-      if (!agrupado[mod]) agrupado[mod] = [];
-      agrupado[mod].push(p);
-    });
-    return agrupado;
-  }, [todosLosPermisos]);
-
-  const permisosActivos = empleado.permisos || [];
-  const extras = empleado.permisosExtra || [];
-
-  const handleToggleExtra = async (permisoId: string, yaTieneExtra: boolean) => {
-    if (!isEditing) return;
-    try {
-      if (yaTieneExtra) {
-        await removerPermiso.mutateAsync({ empleadoId: empleado.id, permisoId });
-      } else {
-        await asignarPermiso.mutateAsync({ empleadoId: empleado.id, permisoId, tipo: 'grant' });
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ padding: '10px 14px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#666' }}>
-        <span style={{ fontWeight: 700, color: '#041627' }}>{permisosActivos.length}</span> permisos activos en total.
-        {isEditing && <span> Podés asignar o revocar permisos específicos (extras) para este empleado en la sucursal actual.</span>}
-      </div>
-      {Object.entries(permisosPorModulo).map(([modulo, perms]) => {
-        const mc = MODULE_COLORS[modulo] || { bg: '#f1f5f9', text: '#334155', border: '#cbd5e1' };
-        return (
-          <div key={modulo}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: mc.text, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: mc.text }} /> {modulo}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {perms.map(p => {
-                const tieneActivo = permisosActivos.includes(p.clave);
-                const extra = extras.find(e => e.permiso.clave === p.clave && e.sucursalId === sucursalActivaId);
-                const tieneExtraGrant = extra?.tipo === 'grant';
-                const isLoading = asignarPermiso.isPending || removerPermiso.isPending;
-
-                return (
-                  <div key={p.id} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '9px 14px', borderRadius: 7,
-                    background: tieneActivo ? mc.bg : '#f8fafc',
-                    border: `1px solid ${tieneActivo ? mc.border : '#e2e8f0'}`,
-                    transition: 'all .15s',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {tieneActivo
-                        ? <ShieldCheck size={14} style={{ color: mc.text }} />
-                        : <ShieldOff size={14} style={{ color: '#ccc' }} />}
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: tieneActivo ? '#041627' : '#aaa', display: 'flex', alignItems: 'center', gap: 6 }}>
-                          {p.nombre}
-                          {tieneExtraGrant && (
-                            <span style={{ fontSize: 9, padding: '2px 6px', background: '#378ADD', color: '#fff', borderRadius: 4, fontWeight: 800 }}>EXTRA</span>
-                          )}
-                        </div>
-                        <div style={{ fontSize: 10, fontFamily: 'monospace', color: tieneActivo ? mc.text : '#ccc', marginTop: 1 }}>{p.clave}</div>
-                      </div>
-                    </div>
-                    
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      {!isEditing ? (
-                        tieneActivo
-                          ? <span style={{ fontSize: 11, fontWeight: 700, color: mc.text, background: mc.bg, border: `1px solid ${mc.border}`, borderRadius: 999, padding: '2px 8px' }}>Habilitado</span>
-                          : <span style={{ fontSize: 11, color: '#ccc', fontWeight: 600 }}>Sin acceso</span>
-                      ) : (
-                        <button
-                          onClick={(e) => { e.preventDefault(); handleToggleExtra(p.id, tieneExtraGrant); }}
-                          disabled={isLoading}
-                          style={{
-                            padding: '4px 10px', fontSize: 11, fontWeight: 700, borderRadius: 6, cursor: isLoading ? 'wait' : 'pointer', border: 'none',
-                            background: tieneExtraGrant ? '#fee2e2' : '#EAF3DE',
-                            color: tieneExtraGrant ? '#991b1b' : '#3B6D11',
-                          }}
-                        >
-                          {tieneExtraGrant ? 'Quitar Extra' : 'Asignar Extra'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function TabActividad() {
-  const items = [
-    { tipo: 'login', desc: 'Inició sesión', detalle: 'Desde IP 192.168.1.45', ts: '2025-05-22T14:32:00', color: '#3B6D11' },
-    { tipo: 'venta', desc: 'Registró venta #00892', detalle: '$12.450 · 3 productos', ts: '2025-05-22T11:15:00', color: '#185FA5' },
-    { tipo: 'rol', desc: 'Rol Cajero asignado', detalle: 'Por Admin Torres', ts: '2025-05-20T09:00:00', color: '#854F0B' },
-    { tipo: 'login', desc: 'Inició sesión', detalle: 'Desde IP 192.168.1.45', ts: '2025-05-20T08:55:00', color: '#3B6D11' },
-    { tipo: 'edit', desc: 'Datos actualizados', detalle: 'Teléfono y dirección', ts: '2025-05-18T16:00:00', color: '#534AB7' },
-  ];
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-      {items.map((item, i) => (
-        <div key={i} style={{ display: 'flex', gap: 14, paddingBottom: 16, position: 'relative' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-            <div style={{ width: 10, height: 10, borderRadius: '50%', background: item.color, marginTop: 4, flexShrink: 0 }} />
-            {i < items.length - 1 && <div style={{ width: 1, flex: 1, background: '#e2e8f0', marginTop: 4 }} />}
-          </div>
-          <div style={{ flex: 1, paddingBottom: 4 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#041627' }}>{item.desc}</div>
-            <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{item.detalle}</div>
-            <div style={{ fontSize: 11, color: '#bbb', marginTop: 3 }}>{formatDateTime(item.ts)}</div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
 const TABS_DEF = [
-  { id: 'info', label: 'Información General', icon: User },
-  { id: 'roles', label: 'Roles', icon: Shield },
-  { id: 'sucursales', label: 'Sucursales', icon: MapPin },
-  { id: 'permisos', label: 'Permisos', icon: Key },
-  { id: 'actividad', label: 'Actividad', icon: Clock },
+  { id: 'info',      label: 'Información General', icon: User },
+  { id: 'roles',     label: 'Roles',               icon: Shield },
+  { id: 'permisos',  label: 'Permisos',            icon: Key },
+  { id: 'actividad', label: 'Actividad',            icon: Clock },
 ];
+
+const EMPLEADO_FALLBACK: DetailEmpleado = {
+  id: '', nombreCompleto: '', email: '', telefono: '', direccion: '', cargo: '',
+  foto_url: null, activo: true, roles: [], permisos: [], sucursales: [],
+  creadoEn: '', ultimoAcceso: '',
+};
 
 export default function EmpleadoDetailView() {
   const { empleado, setEmpleado } = useEmpleadoStore();
   const rolesQuery = useGetRoles();
   const empleadosQuery = useGetEmpleados(1, 100);
-  const empleadoActual: DetailEmpleado = empleado
-    ? {
-        ...EMPLEADO_MOCK,
-        ...empleado,
-        creadoEn: '2024-03-15',
-        ultimoAcceso: '2025-05-22T14:32:00',
-      }
-    : EMPLEADO_MOCK;
-  const emp = empleadoActual;
+
+  const emp: DetailEmpleado = empleado
+    ? { ...EMPLEADO_FALLBACK, ...empleado, creadoEn: (empleado as DetailEmpleado).creadoEn ?? '', ultimoAcceso: (empleado as DetailEmpleado).ultimoAcceso ?? '' }
+    : EMPLEADO_FALLBACK;
+
   const putEmpleado = usePutEmpleado(emp.id);
   const [activeTab, setActiveTab] = useState('info');
   const [isEditing, setIsEditing] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
-  const defaultFormValues: EmpleadoDetailFormValues = {
+  const [fotoPreview, setFotoPreview] = useState<string | null>(emp.foto_url);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  const defaultValues: EmpleadoDetailFormValues = {
     nombreCompleto: emp.nombreCompleto,
     email: emp.email,
     telefono: emp.telefono,
@@ -624,62 +58,40 @@ export default function EmpleadoDetailView() {
     cargo: emp.cargo,
     contrasena: '',
     activo: emp.activo,
-    activo_pos: true,
-    activo_web: false,
-    rolesIds: emp.roles.map((rol) => rol.id),
+    activo_pos: emp.activo_pos ?? true,
+    activo_web: emp.activo_web ?? false,
+    rolesIds: emp.roles.map((r) => r.id),
   };
-  const {
-    register,
-    watch,
-    setValue,
-    reset,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<EmpleadoDetailFormValues>({
-    defaultValues: defaultFormValues,
-  });
+
+  const { register, watch, setValue, reset, handleSubmit, formState: { errors } } = useForm<EmpleadoDetailFormValues>({ defaultValues });
   const form = watch();
-  const historialQuery = useAuditoriaAux(
-    {
-      page: 1,
-      limit: 30,
-      entidad: 'empleado',
-      entidad_id: emp.id,
-    },
-    !!emp.id,
-  );
-  const empleadosById = useMemo(() => {
-    const empleados = empleadosQuery.data?.data ?? [];
-    return new Map(empleados.map((item) => [item.id, item]));
-  }, [empleadosQuery.data]);
-  const historialEmpleado = historialQuery.data?.data ?? [];
-  const rolesDisponibles: RoleOption[] = rolesQuery.data ?? ROLES_DISPONIBLES;
-  const rolesAsignados = useMemo(
-    () =>
-      form.rolesIds
-        .map((id) => {
-          const rol = rolesDisponibles.find((role) => role.id === id);
-          if (rol) return { id: rol.id, nombre: rol.nombre, rutaInicio: rol.rutaInicio };
-          return emp.roles.find((role) => role.id === id) ?? null;
-        })
-        .filter((role): role is RolAsignado => Boolean(role)),
+
+  const rolesDisponibles: RoleOption[] = rolesQuery.data ?? [];
+  const rolesAsignados = useMemo<RolAsignado[]>(
+    () => form.rolesIds
+      .map((id) => {
+        const rol = rolesDisponibles.find((r) => r.id === id);
+        if (rol) return { id: rol.id, nombre: rol.nombre, rutaInicio: rol.rutaInicio };
+        return emp.roles.find((r) => r.id === id) ?? null;
+      })
+      .filter((r): r is RolAsignado => Boolean(r)),
     [emp.roles, form.rolesIds, rolesDisponibles],
   );
-  const setRolesAsignados = (updater: RolAsignado[] | ((roles: RolAsignado[]) => RolAsignado[])) => {
-    const nextRoles = typeof updater === 'function' ? updater(rolesAsignados) : updater;
-    setValue('rolesIds', nextRoles.map((rol) => rol.id), {
-      shouldDirty: true,
-      shouldValidate: true,
-    });
-  };
-  const [fotoPreview, setFotoPreview] = useState(emp.foto_url);
-  const fileRef = useRef<HTMLInputElement | null>(null);
 
-  const handleDiscard = () => {
-    reset(defaultFormValues);
-    setFotoPreview(emp.foto_url);
-    setIsEditing(false);
+  const setRolesAsignados = (updater: RolAsignado[] | ((roles: RolAsignado[]) => RolAsignado[])) => {
+    const next = typeof updater === 'function' ? updater(rolesAsignados) : updater;
+    setValue('rolesIds', next.map((r) => r.id), { shouldDirty: true, shouldValidate: true });
   };
+
+  const empleadosById = useMemo(() => {
+    const lista = empleadosQuery.data?.data ?? [];
+    return new Map(lista.map((e) => [e.id, e]));
+  }, [empleadosQuery.data]);
+
+  const historialQuery = useAuditoriaAux({ page: 1, limit: 30, entidad: 'empleado', entidad_id: emp.id }, !!emp.id);
+  const historialEmpleado = historialQuery.data?.data ?? [];
+
+  const handleDiscard = () => { reset(defaultValues); setFotoPreview(emp.foto_url); setIsEditing(false); };
 
   const handleSave = handleSubmit(async (data) => {
     const payload: Partial<ICreateEmpleadoPayload> = {
@@ -691,173 +103,80 @@ export default function EmpleadoDetailView() {
       activo: data.activo,
       rolesIds: data.rolesIds,
     };
-
-    if (data.contrasena.trim()) {
-      payload.contrasena = data.contrasena;
-    }
-
+    if (data.contrasena.trim()) payload.contrasena = data.contrasena;
     try {
-      const empleadoActualizado = await putEmpleado.mutateAsync(payload);
-      setEmpleado(empleadoActualizado);
-      reset({
-        ...data,
-        contrasena: '',
-        rolesIds: empleadoActualizado.roles.map((rol) => rol.id),
-      });
+      const actualizado = await putEmpleado.mutateAsync(payload);
+      setEmpleado(actualizado);
+      reset({ ...data, contrasena: '', rolesIds: actualizado.roles.map((r) => r.id) });
       setIsEditing(false);
-    } catch {
-      // El hook ya muestra el toast con el mensaje del backend.
-    }
+    } catch { /* El hook ya muestra el toast */ }
   });
-
-  const permisoCount = emp.permisos?.length ?? 0;
 
   return (
     <div style={{ minHeight: '100vh', background: '#f3f4f6', fontFamily: "'Inter', sans-serif" }}>
-      <style>{`
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-        * { box-sizing: border-box; }
-        input:focus { border-color: #075E54 !important; }
-        button { font-family: inherit; }
-      `}</style>
+      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}*{box-sizing:border-box}input:focus{border-color:#075E54!important}button{font-family:inherit}`}</style>
 
-      {/* ── TOP ACTION BAR ── */}
-      <div style={{
-        top: 64, zIndex: 20, background: '#fff',
-        borderBottom: '1px solid #e2e8f0',
-        padding: '12px 32px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
-      }}>
+      {/* Barra de acciones */}
+      <div style={{ top: 64, zIndex: 20, background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '12px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {/* Breadcrumb */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#666', fontWeight: 500 }}>
             <span style={{ color: '#075E54', cursor: 'pointer', fontWeight: 600 }}>Empleados</span>
             <ChevronRight size={14} style={{ color: '#ccc' }} />
             <span style={{ color: '#041627', fontWeight: 700 }}>{emp.nombreCompleto}</span>
           </div>
-          {/* Actions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
             {isEditing ? (
               <>
-                <button onClick={handleSave} disabled={putEmpleado.isPending} style={{
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  padding: '6px 16px', background: '#075E54', color: '#fff',
-                  border: 'none', borderRadius: 5, fontSize: 13, fontWeight: 700, cursor: putEmpleado.isPending ? 'wait' : 'pointer',
-                  opacity: putEmpleado.isPending ? 0.7 : 1,
-                }}>
+                <button onClick={handleSave} disabled={putEmpleado.isPending} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 16px', background: '#075E54', color: '#fff', border: 'none', borderRadius: 5, fontSize: 13, fontWeight: 700, cursor: putEmpleado.isPending ? 'wait' : 'pointer', opacity: putEmpleado.isPending ? 0.7 : 1 }}>
                   <Check size={13} /> {putEmpleado.isPending ? 'Guardando...' : 'Guardar'}
                 </button>
-                <button onClick={handleDiscard} style={{
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  padding: '6px 16px', background: '#fff', color: '#555',
-                  border: '1px solid #d1d5db', borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                }}>
+                <button onClick={handleDiscard} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 16px', background: '#fff', color: '#555', border: '1px solid #d1d5db', borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                   <RotateCcw size={13} /> Descartar
                 </button>
               </>
             ) : (
               <>
-                <button onClick={() => setIsEditing(true)} style={{
-                  padding: '6px 16px', background: '#075E54', color: '#fff',
-                  border: 'none', borderRadius: 5, fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                }}>
-                  Editar
-                </button>
-                <button style={{
-                  padding: '6px 14px', background: '#fff', color: '#041627',
-                  border: '1px solid #d1d5db', borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                }}>
-                  Resetear contraseña
-                </button>
-                <button style={{
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  padding: '6px 14px', background: form.activo ? '#FCEBEB' : '#EAF3DE',
-                  color: form.activo ? '#A32D2D' : '#3B6D11',
-                  border: `1px solid ${form.activo ? '#F7C1C1' : '#C0DD97'}`,
-                  borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                }}
-                  onClick={() => setValue('activo', !form.activo, { shouldDirty: true })}
-                >
+                <button onClick={() => setIsEditing(true)} style={{ padding: '6px 16px', background: '#075E54', color: '#fff', border: 'none', borderRadius: 5, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Editar</button>
+                <button style={{ padding: '6px 14px', background: '#fff', color: '#041627', border: '1px solid #d1d5db', borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Resetear contraseña</button>
+                <button onClick={() => setValue('activo', !form.activo, { shouldDirty: true })} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', background: form.activo ? '#FCEBEB' : '#EAF3DE', color: form.activo ? '#A32D2D' : '#3B6D11', border: `1px solid ${form.activo ? '#F7C1C1' : '#C0DD97'}`, borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                   {form.activo ? <><ShieldOff size={13} /> Desactivar</> : <><ShieldCheck size={13} /> Activar</>}
                 </button>
               </>
             )}
           </div>
         </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', padding: '6px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600, color: '#041627' }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#639922' }} />
-            Conectado al sistema
-          </span>
-        </div>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', padding: '6px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600, color: '#041627' }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#639922' }} /> Conectado al sistema
+        </span>
       </div>
 
-      {/* ── MAIN SHEET ── */}
       <main style={{ maxWidth: 1480, margin: '0 auto', padding: '24px 16px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: 20, alignItems: 'start' }}>
 
-          {/* ── LEFT SHEET ── */}
-          <div style={{
-            background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.04)', padding: 32,
-            display: 'flex', flexDirection: 'column', gap: 24, minHeight: 550,
-          }}>
-
-            {/* ── ROW 1: HEADER ── */}
+          {/* Panel principal */}
+          <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.04)', padding: 32, display: 'flex', flexDirection: 'column', gap: 24, minHeight: 550 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24 }}>
-
-              {/* Left: Avatar + Info */}
               <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flex: 1 }}>
-                {/* Avatar */}
                 <div style={{ position: 'relative', flexShrink: 0 }}>
-                  <div style={{
-                    width: 96, height: 96, borderRadius: 12,
-                    background: fotoPreview ? 'transparent' : '#E6F1FB',
-                    border: '2px dashed #B5D4F4',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    overflow: 'hidden', position: 'relative',
-                  }}>
-                    {fotoPreview
-                      ? <img src={fotoPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : <span style={{ fontSize: 28, fontWeight: 800, color: '#378ADD' }}>{getInitials(emp.nombreCompleto)}</span>
-                    }
+                  <div style={{ width: 96, height: 96, borderRadius: 12, background: fotoPreview ? 'transparent' : '#E6F1FB', border: '2px dashed #B5D4F4', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
+                    {fotoPreview ? <img src={fotoPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 28, fontWeight: 800, color: '#378ADD' }}>{getInitials(emp.nombreCompleto || '?')}</span>}
                     {isEditing && (
-                      <div style={{
-                        position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                        opacity: 0, transition: 'opacity .15s',
-                      }}
-                        onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-                        onMouseLeave={e => e.currentTarget.style.opacity = '0'}
-                      >
-                        <button onClick={() => fileRef.current?.click()} style={{ padding: 6, background: '#075E54', border: 'none', borderRadius: '50%', cursor: 'pointer', color: '#fff', display: 'flex' }}>
-                          <Camera size={13} />
-                        </button>
-                        <button onClick={() => setFotoPreview(null)} style={{ padding: 6, background: '#dc2626', border: 'none', borderRadius: '50%', cursor: 'pointer', color: '#fff', display: 'flex' }}>
-                          <Trash2 size={13} />
-                        </button>
+                      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: 0, transition: 'opacity .15s' }} onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')} onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}>
+                        <button onClick={() => fileRef.current?.click()} style={{ padding: 6, background: '#075E54', border: 'none', borderRadius: '50%', cursor: 'pointer', color: '#fff', display: 'flex' }}><Camera size={13} /></button>
+                        <button onClick={() => setFotoPreview(null)} style={{ padding: 6, background: '#dc2626', border: 'none', borderRadius: '50%', cursor: 'pointer', color: '#fff', display: 'flex' }}><Trash2 size={13} /></button>
                       </div>
                     )}
                   </div>
-                  <input type="file" ref={fileRef} accept="image/*" style={{ display: 'none' }}
-                    onChange={e => e.target.files?.[0] && setFotoPreview(URL.createObjectURL(e.target.files[0]))} />
+                  <input type="file" ref={fileRef} accept="image/*" style={{ display: 'none' }} onChange={(e) => e.target.files?.[0] && setFotoPreview(URL.createObjectURL(e.target.files[0]))} />
                 </div>
-
-                {/* Name & meta */}
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                    <button onClick={() => setIsFavorite(f => !f)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
+                    <button onClick={() => setIsFavorite((f) => !f)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
                       <Star size={20} style={{ fill: isFavorite ? '#FBBF24' : 'none', stroke: isFavorite ? '#FBBF24' : '#d1d5db' }} />
                     </button>
-                    <span style={{ fontSize: 10, fontWeight: 800, color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em', background: '#f1f5f9', padding: '2px 8px', borderRadius: 4 }}>
-                      Ficha de Empleado
-                    </span>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em', background: '#f1f5f9', padding: '2px 8px', borderRadius: 4 }}>Ficha de Empleado</span>
                   </div>
-                  <h1 style={{ fontSize: 28, fontWeight: 800, color: '#041627', margin: 0, lineHeight: 1.2 }}>
-                    {form.nombreCompleto}
-                  </h1>
+                  <h1 style={{ fontSize: 28, fontWeight: 800, color: '#041627', margin: 0, lineHeight: 1.2 }}>{form.nombreCompleto}</h1>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
                     <span style={{ fontSize: 13, color: '#666', fontWeight: 500 }}>{form.cargo}</span>
                     <span style={{ color: '#e2e8f0' }}>·</span>
@@ -865,28 +184,18 @@ export default function EmpleadoDetailView() {
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
                     <StatusBadge active={form.activo} />
-                    {rolesAsignados.map(r => <RolBadge key={r.id} rol={r} isEditing={false} onRemove={() => {}} />)}
+                    {rolesAsignados.map((r) => <RolBadge key={r.id} rol={r} isEditing={false} onRemove={() => {}} colorKey={(rolesDisponibles.find((rd) => rd.id === r.id)?.color ?? 'gray') as RoleColorKey} />)}
                   </div>
                 </div>
               </div>
-
-              {/* Right: Smart buttons */}
               <div style={{ display: 'flex', border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', flexShrink: 0 }}>
                 {[
-                  { label: 'Roles', value: rolesAsignados.length, icon: Shield, sub: 'asignados' },
-                  { label: 'Permisos', value: permisoCount, icon: Key, sub: 'activos' },
-                  { label: 'Último acceso', value: '22 may', icon: Clock, sub: '14:32 hs' },
-                  { label: 'Estado', value: form.activo ? 'Activo' : 'Inactivo', icon: UserCheck, sub: form.activo ? '🟢' : '🔴' },
+                  { label: 'Roles',         value: rolesAsignados.length,      icon: Shield,    sub: 'asignados' },
+                  { label: 'Permisos',      value: emp.permisos?.length ?? 0,  icon: Key,       sub: 'activos' },
+                  { label: 'Último acceso', value: '22 may',                   icon: Clock,     sub: '14:32 hs' },
+                  { label: 'Estado',        value: form.activo ? 'Activo' : 'Inactivo', icon: UserCheck, sub: form.activo ? '🟢' : '🔴' },
                 ].map(({ label, value, icon: Icon, sub }, i, arr) => (
-                  <div key={label} style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                    padding: '10px 16px', textAlign: 'center', minWidth: 90,
-                    borderRight: i < arr.length - 1 ? '1px solid #e2e8f0' : 'none',
-                    cursor: 'pointer', background: '#fff', transition: 'background .1s',
-                  }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                    onMouseLeave={e => e.currentTarget.style.background = '#fff'}
-                  >
+                  <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '10px 16px', textAlign: 'center', minWidth: 90, borderRight: i < arr.length - 1 ? '1px solid #e2e8f0' : 'none', cursor: 'pointer', background: '#fff', transition: 'background .1s' }} onMouseEnter={(e) => (e.currentTarget.style.background = '#f8fafc')} onMouseLeave={(e) => (e.currentTarget.style.background = '#fff')}>
                     <Icon size={15} style={{ color: '#075E54', marginBottom: 4 }} />
                     <span style={{ fontSize: 9, color: '#aaa', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em', lineHeight: 1 }}>{label}</span>
                     <span style={{ fontSize: 15, fontWeight: 800, color: '#041627', marginTop: 4 }}>{value}</span>
@@ -898,64 +207,28 @@ export default function EmpleadoDetailView() {
 
             <div style={{ height: 1, background: '#f1f5f9' }} />
 
-            {/* ── TABS ── */}
             <div style={{ display: 'flex', borderBottom: '1px solid #f1f5f9', gap: 4, background: '#fafafa', padding: 4, borderRadius: '6px 6px 0 0', overflowX: 'auto' }}>
               {TABS_DEF.map(({ id, label, icon: Icon }) => (
-                <button key={id} onClick={() => setActiveTab(id)} style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '9px 18px', fontSize: 13, fontWeight: activeTab === id ? 700 : 600,
-                  whiteSpace: 'nowrap', border: 'none', cursor: 'pointer',
-                  background: activeTab === id ? '#fff' : 'transparent',
-                  color: activeTab === id ? '#075E54' : '#888',
-                  borderBottom: `2px solid ${activeTab === id ? '#075E54' : 'transparent'}`,
-                  borderRadius: '4px 4px 0 0',
-                  boxShadow: activeTab === id ? '0 1px 4px rgba(0,0,0,0.06)' : 'none',
-                  transition: 'all .15s',
-                }}>
-                  <Icon size={13} style={{ color: activeTab === id ? '#075E54' : '#bbb' }} />
-                  {label}
+                <button key={id} onClick={() => setActiveTab(id)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', fontSize: 13, fontWeight: activeTab === id ? 700 : 600, whiteSpace: 'nowrap', border: 'none', cursor: 'pointer', background: activeTab === id ? '#fff' : 'transparent', color: activeTab === id ? '#075E54' : '#888', borderBottom: `2px solid ${activeTab === id ? '#075E54' : 'transparent'}`, borderRadius: '4px 4px 0 0', boxShadow: activeTab === id ? '0 1px 4px rgba(0,0,0,0.06)' : 'none', transition: 'all .15s' }}>
+                  <Icon size={13} style={{ color: activeTab === id ? '#075E54' : '#bbb' }} /> {label}
                 </button>
               ))}
             </div>
 
-            {/* ── TAB CONTENT ── */}
             <div style={{ flex: 1, paddingTop: 4 }}>
-              {activeTab === 'info' && (
-                <TabInfo
-                  emp={form}
-                  isEditing={isEditing}
-                  form={form}
-                  register={register}
-                  setValue={setValue}
-                  errors={errors}
-                />
-              )}
-              {activeTab === 'roles' && (
-                <TabRoles
-                  isEditing={isEditing}
-                  rolesAsignados={rolesAsignados}
-                  setRolesAsignados={setRolesAsignados}
-                  availableRoles={rolesDisponibles}
-                />
-              )}
-              {activeTab === 'permisos' && <TabPermisos empleado={emp} isEditing={isEditing} />}
-              {activeTab === 'actividad' && <TabActividad />}
+              {activeTab === 'info'      && <EmpleadoTabInfo emp={form} isEditing={isEditing} form={form} register={register} setValue={setValue} errors={errors} />}
+              {activeTab === 'roles'     && <EmpleadoTabRoles isEditing={isEditing} rolesAsignados={rolesAsignados} setRolesAsignados={setRolesAsignados} availableRoles={rolesDisponibles} />}
+              {activeTab === 'permisos'  && <EmpleadoTabPermisos empleado={emp} isEditing={isEditing} />}
+              {activeTab === 'actividad' && <EmpleadoTabActividad />}
             </div>
           </div>
 
-          {/* ── RIGHT SIDEBAR ── */}
-          <aside style={{
-            display: 'flex', flexDirection: 'column', borderRadius: 8,
-            border: '1px solid #e2e8f0', background: '#f8fafc',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.03)', overflow: 'hidden', minHeight: 550,
-          }}>
+          {/* Sidebar */}
+          <aside style={{ display: 'flex', flexDirection: 'column', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', overflow: 'hidden', minHeight: 550 }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', background: '#fff' }}>
-              <h2 style={{ fontSize: 12, fontWeight: 800, color: '#041627', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
-                Resumen del acceso
-              </h2>
+              <h2 style={{ fontSize: 12, fontWeight: 800, color: '#041627', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>Resumen del acceso</h2>
               <p style={{ fontSize: 12, color: '#aaa', marginTop: 4 }}>Qué puede hacer este empleado</p>
             </div>
-
             <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
               <FichaHistoryPanel
                 variant="section"
@@ -968,45 +241,31 @@ export default function EmpleadoDetailView() {
                 maxChanges={4}
                 emptyTitle="Sin movimientos"
                 emptyDescription="Aca se vera quien cambio el empleado y cuando."
-                getActorName={(evento: any) => {
+                getActorName={(evento) => {
                   const actor = evento.empleado_id ? empleadosById.get(evento.empleado_id) : null;
                   return actor?.nombreCompleto ?? 'Sistema';
                 }}
-                getChanges={(evento: any) => empleadoChanges(evento.antes, evento.despues)}
+                getChanges={(evento) => empleadoChanges(evento.antes, evento.despues)}
               />
-
-              {/* Ruta de inicio */}
               <div style={{ padding: '12px 14px', background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Al iniciar sesión va a:</div>
-                <div style={{ fontSize: 14, fontFamily: 'monospace', fontWeight: 700, color: '#075E54' }}>
-                  {rolesAsignados[0]?.rutaInicio ?? '/sin-acceso'}
-                </div>
+                <div style={{ fontSize: 14, fontFamily: 'monospace', fontWeight: 700, color: '#075E54' }}>{rolesAsignados[0]?.rutaInicio ?? '/sin-acceso'}</div>
               </div>
-
-              {/* Módulos con acceso */}
               <div style={{ padding: '12px 14px', background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Módulos habilitados</div>
-                {Object.entries(MODULE_COLORS).map(([mod, mc]) => {
-                  const tieneAcceso = true; // Simplified for UI purposes as we are now fully dynamic
-                  return (
-                    <div key={mod} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: tieneAcceso ? '#041627' : '#ccc' }}>{mod}</span>
-                      {tieneAcceso
-                        ? <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 999, background: mc.bg, color: mc.text, fontWeight: 700, border: `1px solid ${mc.border}` }}>✓ Acceso</span>
-                        : <span style={{ fontSize: 10, color: '#ddd', fontWeight: 600 }}>Sin acceso</span>
-                      }
-                    </div>
-                  );
-                })}
+                {Object.entries(MODULE_COLORS).map(([mod, mc]) => (
+                  <div key={mod} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#041627' }}>{mod}</span>
+                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 999, background: mc.bg, color: mc.text, fontWeight: 700, border: `1px solid ${mc.border}` }}>✓ Acceso</span>
+                  </div>
+                ))}
               </div>
-
-              {/* Datos del registro */}
               <div style={{ padding: '12px 14px', background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Datos del registro</div>
                 {[
-                  { label: 'Creado el', value: formatDate(emp.creadoEn) },
-                  { label: 'Último acceso', value: formatDateTime(emp.ultimoAcceso) },
-                  { label: 'ID interno', value: emp.id },
+                  { label: 'Creado el',     value: formatDate(emp.creadoEn || new Date().toISOString()) },
+                  { label: 'Último acceso', value: formatDateTime(emp.ultimoAcceso || new Date().toISOString()) },
+                  { label: 'ID interno',    value: emp.id },
                 ].map(({ label, value }) => (
                   <div key={label} style={{ marginBottom: 8 }}>
                     <div style={{ fontSize: 10, color: '#aaa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
@@ -1014,13 +273,10 @@ export default function EmpleadoDetailView() {
                   </div>
                 ))}
               </div>
-
               {!form.activo && (
                 <div style={{ padding: '12px 14px', background: '#FCEBEB', borderRadius: 8, border: '1px solid #F7C1C1', display: 'flex', gap: 8 }}>
-                  <AlertCircle size={14} style={{ color: '#A32D2D', flexShrink: 0, marginTop: 1 }} />
-                  <div style={{ fontSize: 12, color: '#A32D2D', fontWeight: 600, lineHeight: 1.5 }}>
-                    Empleado inactivo. No puede iniciar sesión en el sistema.
-                  </div>
+                  <ShieldOff size={14} style={{ color: '#A32D2D', flexShrink: 0, marginTop: 1 }} />
+                  <div style={{ fontSize: 12, color: '#A32D2D', fontWeight: 600, lineHeight: 1.5 }}>Empleado inactivo. No puede iniciar sesión en el sistema.</div>
                 </div>
               )}
             </div>
