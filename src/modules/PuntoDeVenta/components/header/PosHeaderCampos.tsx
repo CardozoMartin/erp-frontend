@@ -1,4 +1,4 @@
-import { Truck } from 'lucide-react';
+import { RefreshCw, Truck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { TipoEmisionFiscal, IListaPrecioPos } from '../../types/pos.type';
 import { describePriceList } from '../../utils/pos.utils';
@@ -15,6 +15,8 @@ interface Props {
   listasPrecioLoading: boolean;
   selectedListaId: string;
   selectedLista: IListaPrecioPos | undefined;
+  rolPosElegido?: 'vendedor' | 'cajero' | null;
+  onCambiarRol?: () => void;
   onTipoFiscalChange: (tipo: TipoEmisionFiscal) => void;
   onEmitirTicketChange: (value: boolean) => void;
   onClienteChange: (id: string) => void;
@@ -33,6 +35,8 @@ export const PosHeaderCampos = ({
   listasPrecioLoading,
   selectedListaId,
   selectedLista,
+  rolPosElegido,
+  onCambiarRol,
   onTipoFiscalChange,
   onEmitirTicketChange,
   onClienteChange,
@@ -60,14 +64,39 @@ export const PosHeaderCampos = ({
           />
         </div>
 
-        {/* Vendedor (solo lectura) */}
+        {/* Vendedor (solo lectura) + badge de rol si aplica */}
         <div>
-          <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-[#44474c]">Vendedor</label>
-          <input
-            value={empleadoNombre}
-            readOnly
-            className="w-full rounded border border-[#c4c6cd] bg-[#f8f9fa] px-3 py-2 text-[14px] text-[#041627] outline-none"
-          />
+          <div className="mb-1 flex items-center justify-between">
+            <label className="text-[11px] font-bold uppercase tracking-wide text-[#44474c]">
+              {rolPosElegido ? (rolPosElegido === 'vendedor' ? 'Vendedor' : 'Cajero') : 'Empleado'}
+            </label>
+            {rolPosElegido && onCambiarRol && (
+              <button
+                type="button"
+                onClick={onCambiarRol}
+                className="flex items-center gap-1 text-[11px] font-semibold text-[#075E54] hover:underline"
+              >
+                <RefreshCw size={11} />
+                Cambiar rol
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              value={empleadoNombre}
+              readOnly
+              className="min-w-0 flex-1 rounded border border-[#c4c6cd] bg-[#f8f9fa] px-3 py-2 text-[14px] text-[#041627] outline-none"
+            />
+            {rolPosElegido && (
+              <span className={`shrink-0 rounded px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${
+                rolPosElegido === 'vendedor'
+                  ? 'bg-[#eef8f6] text-[#075E54]'
+                  : 'bg-[#fff3e0] text-[#e65100]'
+              }`}>
+                {rolPosElegido === 'vendedor' ? 'Vendedor' : 'Cajero'}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Tipo fiscal + emitir ticket */}

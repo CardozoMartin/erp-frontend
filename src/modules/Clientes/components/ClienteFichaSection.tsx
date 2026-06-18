@@ -1,4 +1,4 @@
-import { CreditCard, Mail, MapPin, Phone, Save, UserRound, Wallet } from 'lucide-react';
+import { AlertTriangle, CreditCard, Mail, MapPin, Phone, Save, ShieldCheck, ShieldOff, UserRound, Wallet } from 'lucide-react';
 import type { UseFormReturn } from 'react-hook-form';
 import FichaHistoryPanel from '../../../components/common/FichaHistoryPanel';
 import type { ICliente } from '../types/cliente.type';
@@ -16,12 +16,17 @@ interface Props {
   creating: boolean;
   selectedCliente: ICliente | null;
   isSaving: boolean;
+  isActualizandoEstado?: boolean;
   historialCliente: any[];
   isLoadingHistorial: boolean;
-  empleadosById: Map<string, Empleado>;
+  empleadosById: Map<string, IEmpleado>;
   onSubmit: (values: ClienteFormValues) => void;
   onVolver: () => void;
   onVerCuenta: () => void;
+  onToggleActivo?: () => void;
+  onToggleCuentaCorriente?: () => void;
+  onBloqueo?: () => void;
+  onAccionLegal?: () => void;
 }
 
 export default function ClienteFichaSection({
@@ -29,12 +34,17 @@ export default function ClienteFichaSection({
   creating,
   selectedCliente,
   isSaving,
+  isActualizandoEstado = false,
   historialCliente,
   isLoadingHistorial,
   empleadosById,
   onSubmit,
   onVolver,
   onVerCuenta,
+  onToggleActivo,
+  onToggleCuentaCorriente,
+  onBloqueo,
+  onAccionLegal,
 }: Props) {
   const usarCuentaCorriente = form.watch('usarCuentaCorriente');
   const creditoSinLimite = form.watch('credito_sin_limite');
@@ -52,12 +62,39 @@ export default function ClienteFichaSection({
         >
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#c4c6cd] px-4 py-3">
             <div>
-              <div className="text-[18px] font-bold text-[#041627]">
-                {creating
-                  ? 'Nuevo cliente'
-                  : selectedCliente
-                    ? clienteNombre(selectedCliente)
-                    : 'Ficha de cliente'}
+              <div className="flex items-center gap-2">
+                <div className="text-[18px] font-bold text-[#041627]">
+                  {creating
+                    ? 'Nuevo cliente'
+                    : selectedCliente
+                      ? clienteNombre(selectedCliente)
+                      : 'Ficha de cliente'}
+                </div>
+                {!creating && selectedCliente && (
+                  <>
+                    {!selectedCliente.activo && (
+                      <span className="rounded-full bg-[#fce8e8] px-2 py-0.5 text-[10px] font-bold text-[#ba1a1a]">
+                        INACTIVO
+                      </span>
+                    )}
+                    {selectedCliente.accion_legal && (
+                      <span className="flex items-center gap-1 rounded-full bg-[#FCEBEB] px-2 py-0.5 text-[10px] font-bold text-[#A32D2D]">
+                        <AlertTriangle size={10} /> Acción Legal
+                      </span>
+                    )}
+                    {selectedCliente.bloqueado && (
+                      <span className="flex items-center gap-1 rounded-full bg-[#FFF3CD] px-2 py-0.5 text-[10px] font-bold text-[#856404]">
+                        <ShieldOff size={10} /> Crédito bloqueado
+                        {selectedCliente.razon_bloqueo ? ` — ${selectedCliente.razon_bloqueo}` : ''}
+                      </span>
+                    )}
+                    {selectedCliente.cuentaCorriente && !selectedCliente.cuentaCorriente.activa && (
+                      <span className="rounded-full bg-[#f1f5f9] px-2 py-0.5 text-[10px] font-bold text-[#64748b]">
+                        Cuenta suspendida
+                      </span>
+                    )}
+                  </>
+                )}
               </div>
               <div className="text-[13px] text-[#44474c]">
                 Datos comerciales, contacto y cuenta corriente.
@@ -71,16 +108,75 @@ export default function ClienteFichaSection({
               >
                 Volver
               </button>
-              {!creating && selectedCliente?.cuentaCorriente ? (
-                <button
-                  type="button"
-                  onClick={onVerCuenta}
-                  className="flex h-9 items-center gap-2 rounded border border-[#c4c6cd] bg-white px-3 text-[13px] font-semibold text-[#041627] hover:bg-[#f4f5f6]"
-                >
-                  <Wallet size={15} />
-                  Ver cuenta
-                </button>
-              ) : null}
+              {!creating && selectedCliente && (
+                <>
+                  {selectedCliente.cuentaCorriente && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={onVerCuenta}
+                        className="flex h-9 items-center gap-2 rounded border border-[#c4c6cd] bg-white px-3 text-[13px] font-semibold text-[#041627] hover:bg-[#f4f5f6]"
+                      >
+                        <Wallet size={15} />
+                        Ver cuenta
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onToggleCuentaCorriente}
+                        disabled={isActualizandoEstado}
+                        className={`flex h-9 items-center gap-1.5 rounded border px-3 text-[13px] font-semibold disabled:opacity-60 ${
+                          selectedCliente.cuentaCorriente.activa
+                            ? 'border-[#F7C1C1] bg-[#FCEBEB] text-[#A32D2D] hover:bg-[#fad8d8]'
+                            : 'border-[#C0DD97] bg-[#EAF3DE] text-[#3B6D11] hover:bg-[#d8edbb]'
+                        }`}
+                      >
+                        {selectedCliente.cuentaCorriente.activa
+                          ? <><ShieldOff size={14} /> Suspender cuenta</>
+                          : <><ShieldCheck size={14} /> Reactivar cuenta</>
+                        }
+                      </button>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    onClick={onBloqueo}
+                    disabled={isActualizandoEstado}
+                    className={`flex h-9 items-center gap-1.5 rounded border px-3 text-[13px] font-semibold disabled:opacity-60 ${
+                      selectedCliente.bloqueado
+                        ? 'border-[#C0DD97] bg-[#EAF3DE] text-[#3B6D11] hover:bg-[#d8edbb]'
+                        : 'border-[#FAC775] bg-[#FAEEDA] text-[#854F0B] hover:bg-[#f5ddb8]'
+                    }`}
+                  >
+                    <ShieldOff size={14} />
+                    {selectedCliente.bloqueado ? 'Desbloquear crédito' : 'Bloquear crédito'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onAccionLegal}
+                    disabled={isActualizandoEstado}
+                    className={`flex h-9 items-center gap-1.5 rounded border px-3 text-[13px] font-semibold disabled:opacity-60 ${
+                      selectedCliente.accion_legal
+                        ? 'border-[#C0DD97] bg-[#EAF3DE] text-[#3B6D11] hover:bg-[#d8edbb]'
+                        : 'border-[#F7C1C1] bg-[#FCEBEB] text-[#A32D2D] hover:bg-[#fad8d8]'
+                    }`}
+                  >
+                    <AlertTriangle size={14} />
+                    {selectedCliente.accion_legal ? 'Quitar acción legal' : 'Acción legal'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onToggleActivo}
+                    disabled={isActualizandoEstado}
+                    className={`flex h-9 items-center gap-1.5 rounded border px-3 text-[13px] font-semibold disabled:opacity-60 ${
+                      selectedCliente.activo
+                        ? 'border-[#F7C1C1] bg-[#FCEBEB] text-[#A32D2D] hover:bg-[#fad8d8]'
+                        : 'border-[#C0DD97] bg-[#EAF3DE] text-[#3B6D11] hover:bg-[#d8edbb]'
+                    }`}
+                  >
+                    {selectedCliente.activo ? 'Desactivar' : 'Activar'}
+                  </button>
+                </>
+              )}
               <button
                 type="submit"
                 disabled={isSaving}

@@ -88,6 +88,7 @@ const navItems: NavItem[] = [
       { label: 'Cuenta corriente', icon: <Wallet size={15} />, link: '/cuenta-corriente', requiredAny: ['clientes.ver', 'ventas.ver'] },
       { label: 'Listas de precio', icon: <BadgePercent size={15} />, link: '/listas-precio', requiredAny: ['precios.ver', 'config.listas_precio'] },
       { label: 'Reportes POS', icon: <BarChart2 size={15} />, link: '/reportes-pos', requiredAny: ['reportes.ver', 'reportes.ventas', 'reportes.caja'] },
+      { label: 'Reporte contable', icon: <BarChart2 size={15} />, link: '/reportes-contables', requiredAny: ['reportes.ver', 'reportes.ventas', 'reportes.caja'] },
     ],
   },
   {

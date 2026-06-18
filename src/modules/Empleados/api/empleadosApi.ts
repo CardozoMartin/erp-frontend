@@ -113,3 +113,12 @@ export const removerPermisoFn = async (
   const { data } = await api.delete(`/empleados/${empleadoId}/permisos/${permisoId}`);
   return data;
 };
+
+export const resetPasswordFn = async (
+  id: string,
+): Promise<{ mensaje: string; contrasenaGenerada: string }> => {
+  const { data } = await api.patch<{ mensaje: string; contrasenaGenerada: string }>(
+    `/empleados/${id}/reset-password`,
+  );
+  return data;
+};

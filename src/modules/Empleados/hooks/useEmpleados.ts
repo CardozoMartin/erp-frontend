@@ -15,6 +15,7 @@ import {
   getPermisosFn,
   asignarPermisoFn,
   removerPermisoFn,
+  resetPasswordFn,
 } from '../api/empleadosApi';
 import type { ICreateEmpleadoPayload } from '../types/empleado.type';
 
@@ -176,6 +177,15 @@ export const useRemoverPermiso = () => {
       queryClient.invalidateQueries({ queryKey: ["empleados"] });
       toast.success("Permiso removido correctamente");
     },
+    onError: (error: AxiosError<IErrorResponse>) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+};
+
+export const useResetPassword = (id: string) => {
+  return useMutation({
+    mutationFn: () => resetPasswordFn(id),
     onError: (error: AxiosError<IErrorResponse>) => {
       toast.error(getErrorMessage(error));
     },

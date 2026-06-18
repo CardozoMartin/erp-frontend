@@ -17,30 +17,73 @@ type Props = {
   children?: ReactNode;
 };
 
-const itemColumns: DataTableColumn<ComprobanteItem>[] = [
-  {
-    key: 'producto',
-    header: 'Producto',
-    render: (item) => (
-      <div className="min-w-0">
-        <div className="truncate font-semibold text-[#041627]">{item.descripcion}</div>
-        <div className="text-[12px] text-[#44474c]">{money(item.precio_unitario)}</div>
-      </div>
-    ),
-  },
-  {
-    key: 'cantidad',
-    header: 'Cant.',
-    align: 'center',
-    render: (item) => <span className="font-medium text-[#041627]">x{toNumber(item.cantidad)}</span>,
-  },
-  {
-    key: 'subtotal',
-    header: 'Subtotal',
-    align: 'right',
-    render: (item) => <span className="font-bold text-[#041627]">{money(item.subtotal)}</span>,
-  },
-];
+const buildDevueltosPorItem = (notasCredito: IComprobanteAux[]): Map<string, number> => {
+  const mapa = new Map<string, number>();
+  for (const nc of notasCredito) {
+    for (const item of nc.items ?? []) {
+      if (!item.comprobante_item_origen_id) continue;
+      mapa.set(
+        item.comprobante_item_origen_id,
+        (mapa.get(item.comprobante_item_origen_id) ?? 0) + toNumber(item.cantidad),
+      );
+    }
+  }
+  return mapa;
+};
+
+const ItemsConDevoluciones = ({ items, notasCredito }: { items: ComprobanteItem[]; notasCredito: IComprobanteAux[] }) => {
+  const devueltos = buildDevueltosPorItem(notasCredito);
+  const columns: DataTableColumn<ComprobanteItem>[] = [
+    {
+      key: 'producto',
+      header: 'Producto',
+      render: (item) => {
+        const devuelto = devueltos.get(item.id) ?? 0;
+        const todoDevuelto = devuelto >= toNumber(item.cantidad);
+        return (
+          <div className="min-w-0">
+            <div className={`truncate font-semibold ${todoDevuelto ? 'text-[#b42318] line-through' : 'text-[#041627]'}`}>
+              {item.descripcion}
+              {devuelto > 0 && (
+                <span className="ml-1.5 rounded bg-[#fff5f5] px-1 text-[10px] font-bold text-[#b42318]">
+                  -{devuelto} dev.
+                </span>
+              )}
+            </div>
+            <div className="text-[12px] text-[#44474c]">{money(item.precio_unitario)}</div>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'cantidad',
+      header: 'Cant.',
+      align: 'center',
+      render: (item) => {
+        const devuelto = devueltos.get(item.id) ?? 0;
+        const neto = Math.max(0, toNumber(item.cantidad) - devuelto);
+        const todoDevuelto = neto === 0;
+        return todoDevuelto
+          ? <span className="font-medium text-[#b42318] line-through">x{toNumber(item.cantidad)}</span>
+          : <span className="font-medium text-[#041627]">x{neto}{devuelto > 0 ? <span className="text-[11px] text-[#44474c] line-through"> ({toNumber(item.cantidad)})</span> : null}</span>;
+      },
+    },
+    {
+      key: 'subtotal',
+      header: 'Subtotal',
+      align: 'right',
+      render: (item) => {
+        const devuelto = devueltos.get(item.id) ?? 0;
+        const neto = Math.max(0, toNumber(item.cantidad) - devuelto);
+        const todoDevuelto = neto === 0;
+        return todoDevuelto
+          ? <span className="font-bold text-[#b42318] line-through">{money(item.subtotal)}</span>
+          : <span className="font-bold text-[#041627]">{money(neto * toNumber(item.precio_unitario))}</span>;
+      },
+    },
+  ];
+  return <DataTable rows={items} columns={columns} getRowKey={(item) => item.id} emptyMessage="Sin items registrados." />;
+};
 
 const ComprobanteFicha = ({
   comprobante,
@@ -109,7 +152,16 @@ const ComprobanteFicha = ({
             <CreditCard size={14} />
             Total
           </div>
-          <div className="mt-1 text-[16px] font-bold text-[#041627]">{money(comprobante.total)}</div>
+          {(comprobante.notasCredito ?? []).length > 0 ? (
+            <>
+              <div className="mt-1 text-[13px] text-[#44474c] line-through">{money(comprobante.total)}</div>
+              <div className="text-[16px] font-bold text-[#041627]">
+                {money(toNumber(comprobante.total) - (comprobante.notasCredito ?? []).reduce((sum, nc) => sum + toNumber(nc.subtotal ?? nc.total), 0))}
+              </div>
+            </>
+          ) : (
+            <div className="mt-1 text-[16px] font-bold text-[#041627]">{money(comprobante.total)}</div>
+          )}
         </div>
       </div>
 
@@ -117,12 +169,21 @@ const ComprobanteFicha = ({
         <div className="border-b border-[#e5e7eb] px-4 py-3 text-[12px] font-bold uppercase tracking-wide text-[#44474c]">
           Items
         </div>
-        <DataTable
-          rows={comprobante.items ?? []}
-          columns={itemColumns}
-          getRowKey={(item) => item.id}
-          emptyMessage="Sin items registrados."
+        <ItemsConDevoluciones
+          items={comprobante.items ?? []}
+          notasCredito={comprobante.notasCredito ?? []}
         />
+        {(comprobante.notasCredito ?? []).length > 0 && (
+          <div className="space-y-1 border-t border-[#e5e7eb] px-4 py-3">
+            <div className="mb-1 text-[11px] font-bold uppercase text-[#b42318]">Notas de crédito</div>
+            {comprobante.notasCredito!.map((nc) => (
+              <div key={nc.id} className="flex items-center justify-between rounded border border-[#f1c7c7] bg-[#fff5f5] px-3 py-1.5 text-[12px]">
+                <span className="font-semibold text-[#b42318]">{nc.numero}</span>
+                <span className="font-bold text-[#b42318]">-{money(nc.subtotal ?? nc.total)}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 p-4 lg:grid-cols-[1fr_260px]">
@@ -135,22 +196,36 @@ const ComprobanteFicha = ({
           </p>
         </div>
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-[14px] text-[#44474c]">
-            <span>Subtotal</span>
-            <span>{money(comprobante.subtotal)}</span>
-          </div>
-          <div className="flex items-center justify-between text-[14px] text-[#44474c]">
-            <span>Descuentos</span>
-            <span>{money(comprobante.descuento_total)}</span>
-          </div>
-          <div className="flex items-center justify-between text-[14px] text-[#44474c]">
-            <span>Recargos</span>
-            <span>{money(comprobante.recargo_total)}</span>
-          </div>
-          <div className="flex items-center justify-between border-t border-[#c4c6cd] pt-2 text-[18px] font-bold text-[#041627]">
-            <span>Total</span>
-            <span>{money(comprobante.total)}</span>
-          </div>
+          {(() => {
+            const totalNC = (comprobante.notasCredito ?? []).reduce((sum, nc) => sum + toNumber(nc.subtotal ?? nc.total), 0);
+            const tieneNC = totalNC > 0;
+            return (
+              <>
+                <div className="flex items-center justify-between text-[14px] text-[#44474c]">
+                  <span>Subtotal</span>
+                  <span>{money(comprobante.subtotal)}</span>
+                </div>
+                <div className="flex items-center justify-between text-[14px] text-[#44474c]">
+                  <span>Descuentos</span>
+                  <span>{money(comprobante.descuento_total)}</span>
+                </div>
+                <div className="flex items-center justify-between text-[14px] text-[#44474c]">
+                  <span>Recargos</span>
+                  <span>{money(comprobante.recargo_total)}</span>
+                </div>
+                {tieneNC && (
+                  <div className="flex items-center justify-between text-[14px] text-[#b42318]">
+                    <span>Notas de crédito</span>
+                    <span>-{money(totalNC)}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between border-t border-[#c4c6cd] pt-2 text-[18px] font-bold text-[#041627]">
+                  <span>Total</span>
+                  <span>{money(toNumber(comprobante.total) - totalNC)}</span>
+                </div>
+              </>
+            );
+          })()}
         </div>
       </div>
 

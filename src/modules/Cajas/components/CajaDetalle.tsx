@@ -9,16 +9,40 @@ import { dateTime, money, toNumber } from '../utils/format';
 import { POS_PERMISSIONS } from '../utils/cajaPermissions';
 import { useAuthStore } from '../../../store/auth.store';
 import { useVentasCaja } from '../../PuntoDeVenta/hooks/usePos';
-import type { IVentaCajaPos } from '../../PuntoDeVenta/types/pos.type';
+import type { IComprobantePos, IVentaCajaPos } from '../../PuntoDeVenta/types/pos.type';
 
 const formatVentaPagos = (ventaCaja: IVentaCajaPos) => {
   if (!ventaCaja.pagos.length) return 'Sin pagos';
   return ventaCaja.pagos.map((p) => `${p.medioPago?.nombre ?? p.tipo}: ${money(p.monto)}`).join(' | ');
 };
 
+const calcDevueltosPorItem = (notasCredito: IComprobantePos[]): Map<string, number> => {
+  const mapa = new Map<string, number>();
+  for (const nc of notasCredito) {
+    for (const item of nc.items ?? []) {
+      if (!item.comprobante_item_origen_id) continue;
+      mapa.set(
+        item.comprobante_item_origen_id,
+        (mapa.get(item.comprobante_item_origen_id) ?? 0) + toNumber(item.cantidad),
+      );
+    }
+  }
+  return mapa;
+};
+
 const formatVentaProductos = (ventaCaja: IVentaCajaPos) => {
   if (!ventaCaja.venta.items.length) return 'Sin productos';
-  return ventaCaja.venta.items.map((item) => `${Number(item.cantidad ?? 0)} x ${item.descripcion}`).join(' | ');
+  const devueltos = calcDevueltosPorItem(ventaCaja.notasCredito ?? []);
+  return ventaCaja.venta.items
+    .map((item) => {
+      const devuelto = devueltos.get(item.id) ?? 0;
+      const neto = Math.max(0, toNumber(item.cantidad) - devuelto);
+      if (neto === 0) return `0 x ${item.descripcion} (devuelto)`;
+      return devuelto > 0
+        ? `${neto} x ${item.descripcion} (-${devuelto} dev.)`
+        : `${neto} x ${item.descripcion}`;
+    })
+    .join(' | ');
 };
 
 const ventasCajaColumns: DataTableColumn<IVentaCajaPos>[] = [
@@ -188,17 +212,50 @@ export const CajaDetalle = ({ cajaId, cajaAbierta, movimientosCaja, puedeVerCaja
                 <div className="border-b border-[#c4c6cd] px-4 py-3">
                   <div className="mb-2 text-[12px] font-bold uppercase text-[#44474c]">Productos</div>
                   <div className="space-y-2">
-                    {selectedVenta.venta.items.map((item) => (
-                      <div key={item.id} className="grid grid-cols-[1fr_60px_100px] gap-2 rounded border border-[#e5e7eb] px-3 py-2 text-[13px]">
-                        <div className="min-w-0">
-                          <div className="truncate font-semibold text-[#041627]">{item.descripcion}</div>
-                          <div className="text-[#44474c]">{money(item.precio_unitario)}</div>
-                        </div>
-                        <div className="text-center text-[#041627]">x{toNumber(item.cantidad)}</div>
-                        <div className="text-right font-semibold text-[#041627]">{money(item.subtotal)}</div>
-                      </div>
-                    ))}
+                    {(() => {
+                      const devueltos = calcDevueltosPorItem(selectedVenta.notasCredito ?? []);
+                      return selectedVenta.venta.items.map((item) => {
+                        const devuelto = devueltos.get(item.id) ?? 0;
+                        const neto = Math.max(0, toNumber(item.cantidad) - devuelto);
+                        const todoDevuelto = neto === 0;
+                        return (
+                          <div
+                            key={item.id}
+                            className={`grid grid-cols-[1fr_60px_100px] gap-2 rounded border px-3 py-2 text-[13px] ${todoDevuelto ? 'border-[#f1c7c7] bg-[#fff5f5] opacity-60' : 'border-[#e5e7eb]'}`}
+                          >
+                            <div className="min-w-0">
+                              <div className={`truncate font-semibold ${todoDevuelto ? 'text-[#b42318] line-through' : 'text-[#041627]'}`}>
+                                {item.descripcion}
+                                {devuelto > 0 && (
+                                  <span className="ml-1.5 rounded bg-[#fff5f5] px-1 text-[10px] font-bold text-[#b42318]">
+                                    -{devuelto} dev.
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[#44474c]">{money(item.precio_unitario)}</div>
+                            </div>
+                            <div className={`text-center ${todoDevuelto ? 'text-[#b42318] line-through' : 'text-[#041627]'}`}>
+                              x{todoDevuelto ? toNumber(item.cantidad) : neto}
+                            </div>
+                            <div className={`text-right font-semibold ${todoDevuelto ? 'text-[#b42318] line-through' : 'text-[#041627]'}`}>
+                              {money(todoDevuelto ? item.subtotal : neto * toNumber(item.precio_unitario))}
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
+                  {(selectedVenta.notasCredito ?? []).length > 0 && (
+                    <div className="mt-3 space-y-1">
+                      <div className="text-[11px] font-bold uppercase text-[#b42318]">Notas de crédito</div>
+                      {selectedVenta.notasCredito.map((nc) => (
+                        <div key={nc.id} className="flex items-center justify-between rounded border border-[#f1c7c7] bg-[#fff5f5] px-3 py-1.5 text-[12px]">
+                          <span className="font-semibold text-[#b42318]">{nc.numero}</span>
+                          <span className="font-bold text-[#b42318]">-{money(nc.subtotal)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="border-b border-[#c4c6cd] px-4 py-3">
                   <div className="mb-2 flex items-center gap-2 text-[12px] font-bold uppercase text-[#44474c]">
@@ -216,12 +273,24 @@ export const CajaDetalle = ({ cajaId, cajaAbierta, movimientosCaja, puedeVerCaja
                     ))}
                   </div>
                 </div>
-                <div className="space-y-2 px-4 py-4">
-                  <div className="flex items-center justify-between text-[14px] text-[#44474c]"><span>Costo estimado</span><span>{money(selectedVenta.margen?.costo_total)}</span></div>
-                  <div className="flex items-center justify-between text-[14px] text-[#44474c]"><span>Ganancia estimada</span><span>{money(selectedVenta.margen?.ganancia_total)}</span></div>
-                  <div className="flex items-center justify-between text-[14px] text-[#44474c]"><span>Subtotal</span><span>{money(selectedVenta.venta.subtotal)}</span></div>
-                  <div className="flex items-center justify-between text-[18px] font-bold text-[#041627]"><span>Total</span><span>{money(selectedVenta.venta.total)}</span></div>
-                </div>
+                {(() => {
+                  const totalNC = (selectedVenta.notasCredito ?? []).reduce(
+                    (sum, nc) => sum + toNumber(nc.subtotal),
+                    0,
+                  );
+                  const tieneNC = totalNC > 0;
+                  return (
+                    <div className="space-y-2 px-4 py-4">
+                      <div className="flex items-center justify-between text-[14px] text-[#44474c]"><span>Costo estimado</span><span>{money(selectedVenta.margen?.costo_total)}</span></div>
+                      <div className="flex items-center justify-between text-[14px] text-[#44474c]"><span>Ganancia estimada</span><span>{money(selectedVenta.margen?.ganancia_total)}</span></div>
+                      <div className="flex items-center justify-between text-[14px] text-[#44474c]"><span>Subtotal</span><span>{money(selectedVenta.venta.subtotal)}</span></div>
+                      {tieneNC && (
+                        <div className="flex items-center justify-between text-[14px] text-[#b42318]"><span>Notas de crédito</span><span>-{money(totalNC)}</span></div>
+                      )}
+                      <div className="flex items-center justify-between text-[18px] font-bold text-[#041627]"><span>Total</span><span>{money(toNumber(selectedVenta.venta.total) - totalNC)}</span></div>
+                    </div>
+                  );
+                })()}
               </>
             ) : (
               <div className="px-4 py-10 text-center text-[14px] text-[#44474c]">Seleccione una venta para ver el detalle.</div>

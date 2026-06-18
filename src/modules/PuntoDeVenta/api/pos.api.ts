@@ -128,6 +128,23 @@ export const cancelarVentaPendienteFn = async (payload: { ventaId: string; motiv
   return unwrap<IComprobantePos>(response);
 };
 
+export const tomarVentaFn = async (ventaId: string) => {
+  const response = await api.patch<IComprobantePos>(`/pos-ventas/${ventaId}/tomar`, {});
+  return unwrap<IComprobantePos>(response);
+};
+
+export const liberarVentaFn = async (ventaId: string) => {
+  const response = await api.patch<void>(`/pos-ventas/${ventaId}/liberar`, {});
+  return unwrap<void>(response);
+};
+
+export const asignarCajaPendienteFn = async (payload: { ventaId: string; cajaId: string }) => {
+  const response = await api.patch<IComprobantePos>(`/pos-ventas/${payload.ventaId}/asignar-caja`, {
+    caja_id: payload.cajaId,
+  });
+  return unwrap<IComprobantePos>(response);
+};
+
 export const crearOrdenMercadoPagoQrFn = async (payload: {
   sucursalId: string;
   ventaId: string;
@@ -172,5 +189,17 @@ export const consultarEstadoMercadoPagoQrFn = async (payload: {
 
 export const getVentaPosFn = async (ventaId: string) => {
   const response = await api.get<IComprobantePos>(`/pos-ventas/${ventaId}`);
+  return unwrap<IComprobantePos>(response);
+};
+
+export const editarVentaPendienteFn = async (payload: {
+  ventaId: string;
+  items: IVentaPosPayload['items'];
+  cliente_id?: string | null;
+  lista_precio_id?: string | null;
+  observaciones?: string | null;
+}) => {
+  const { ventaId, ...body } = payload;
+  const response = await api.patch<IComprobantePos>(`/pos-ventas/${ventaId}`, body);
   return unwrap<IComprobantePos>(response);
 };

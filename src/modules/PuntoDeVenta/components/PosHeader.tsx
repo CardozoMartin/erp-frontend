@@ -25,6 +25,8 @@ interface Props {
   puedeVerDetallesConfigPos: boolean;
   configFetching: boolean;
   abrirCajaIsPending: boolean;
+  rolPosElegido?: 'vendedor' | 'cajero' | null;
+  onCambiarRol?: () => void;
   onClienteChange: (id: string) => void;
   onListaChange: (id: string) => void;
   onTipoFiscalChange: (tipo: TipoEmisionFiscal) => void;
@@ -53,6 +55,8 @@ export default function PosHeader({
   puedeVerDetallesConfigPos,
   configFetching,
   abrirCajaIsPending,
+  rolPosElegido,
+  onCambiarRol,
   onClienteChange,
   onListaChange,
   onTipoFiscalChange,
@@ -75,6 +79,8 @@ export default function PosHeader({
         listasPrecioLoading={listasPrecioLoading}
         selectedListaId={selectedListaId}
         selectedLista={selectedLista}
+        rolPosElegido={rolPosElegido}
+        onCambiarRol={onCambiarRol}
         onTipoFiscalChange={onTipoFiscalChange}
         onEmitirTicketChange={onEmitirTicketChange}
         onClienteChange={onClienteChange}

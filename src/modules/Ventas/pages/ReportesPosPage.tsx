@@ -1,15 +1,21 @@
-import { BarChart2, Package, Wallet } from 'lucide-react';
+import { AlertTriangle, BarChart2, ChevronLeft, ChevronRight, Package, TrendingUp, Wallet, X } from 'lucide-react';
 import { useState } from 'react';
 import { useAuthStore } from '../../../store/auth.store';
 import AccessDenied from '../../../components/common/AccessDenied';
 import DataTable from '../../../components/common/DataTable';
 import type { DataTableColumn } from '../../../components/common/DataTable';
-import { useReportesAux } from '../../POSAuxiliares/hooks/usePosAux';
-import type { IReporteCaja, IReporteProducto } from '../../POSAuxiliares/types/pos-aux.type';
+import { useReporteCajas, useReporteDiferenciasCaja, useReporteProductosCaja, useReportesAux } from '../../POSAuxiliares/hooks/usePosAux';
+import type { IReporteCaja, IReporteDiferenciaCaja, IReporteProducto } from '../../POSAuxiliares/types/pos-aux.type';
 import { dateTime, money } from '../../POSAuxiliares/utils/format';
 import { hasAnyPermission, POS_PERMISSIONS } from '../../POSAuxiliares/utils/posPermissions';
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+const primerDiaMes = () => {
+  const d = new Date();
+  d.setDate(1);
+  return d.toISOString().slice(0, 10);
+};
 
 const productosColumns: DataTableColumn<IReporteProducto>[] = [
   {
@@ -41,15 +47,57 @@ const cajasColumns: DataTableColumn<IReporteCaja>[] = [
   { key: 'stock', header: 'Stock', align: 'right', render: (caja) => caja.stock_salidas },
 ];
 
+const diferenciasColumns: DataTableColumn<IReporteDiferenciaCaja>[] = [
+  {
+    key: 'empleado',
+    header: 'Empleado',
+    render: (row) => <span className="font-semibold text-[#041627]">{row.empleado}</span>,
+  },
+  { key: 'cierre', header: 'Cierre', render: (row) => row.fecha_cierre ? dateTime(row.fecha_cierre) : '—' },
+  { key: 'calculado', header: 'Calculado', align: 'right', render: (row) => money(row.monto_final_calculado) },
+  { key: 'declarado', header: 'Declarado', align: 'right', render: (row) => money(row.monto_final_declarado) },
+  {
+    key: 'diferencia',
+    header: 'Diferencia',
+    align: 'right',
+    render: (row) => {
+      const dif = row.diferencia ?? 0;
+      const color = dif > 0 ? 'text-[#027a48] font-bold' : 'text-[#b42318] font-bold';
+      return <span className={color}>{money(dif)}</span>;
+    },
+  },
+];
+
+const CAJAS_LIMIT = 20;
+const DIFERENCIAS_LIMIT = 20;
+
 const ReportesPosPage = () => {
-  const [desde, setDesde] = useState(today());
+  const [desde, setDesde] = useState(primerDiaMes());
   const [hasta, setHasta] = useState(today());
+  const [cajasPage, setCajasPage] = useState(1);
+  const [diferenciasPage, setDiferenciasPage] = useState(1);
+  const [cajaSeleccionada, setCajaSeleccionada] = useState<IReporteCaja | null>(null);
   const permisos = useAuthStore((state) => state.permisos);
   const puedeVerReportes = hasAnyPermission(permisos, POS_PERMISSIONS.reportesVer, POS_PERMISSIONS.reportesVentas, POS_PERMISSIONS.reportesCaja);
+
   const reportes = useReportesAux({ desde, hasta }, puedeVerReportes);
+  const cajasQuery = useReporteCajas({ desde, hasta, page: cajasPage, limit: CAJAS_LIMIT }, puedeVerReportes);
+  const diferenciasQuery = useReporteDiferenciasCaja({ desde, hasta, page: diferenciasPage, limit: DIFERENCIAS_LIMIT }, puedeVerReportes);
+  const productosCajaQuery = useReporteProductosCaja(cajaSeleccionada?.caja_id ?? null, {});
+
   const resumen = reportes.resumen.data;
   const productos = reportes.productos.data ?? [];
-  const cajas = reportes.cajas.data ?? [];
+  const cajas = cajasQuery.data?.data ?? [];
+  const cajasMeta = cajasQuery.data?.meta;
+  const diferencias = diferenciasQuery.data?.data ?? [];
+  const diferenciasMeta = diferenciasQuery.data?.meta;
+  const resumenDiferencias = diferenciasQuery.data?.resumen;
+
+  const manejarCambioFecha = (setter: (v: string) => void) => (event: React.ChangeEvent<HTMLInputElement>) => {
+    setter(event.target.value);
+    setCajasPage(1);
+    setDiferenciasPage(1);
+  };
 
   if (!puedeVerReportes) {
     return (
@@ -76,13 +124,13 @@ const ReportesPosPage = () => {
               <input
                 type="date"
                 value={desde}
-                onChange={(event) => setDesde(event.target.value)}
+                onChange={manejarCambioFecha(setDesde)}
                 className="h-9 rounded border border-[#c4c6cd] px-3 text-[14px] outline-none focus:border-[#075E54]"
               />
               <input
                 type="date"
                 value={hasta}
-                onChange={(event) => setHasta(event.target.value)}
+                onChange={manejarCambioFecha(setHasta)}
                 className="h-9 rounded border border-[#c4c6cd] px-3 text-[14px] outline-none focus:border-[#075E54]"
               />
             </div>
@@ -135,20 +183,170 @@ const ReportesPosPage = () => {
           </div>
 
           <div className="rounded-lg border border-[#c4c6cd] bg-white shadow-sm">
-            <div className="flex items-center gap-2 border-b border-[#c4c6cd] px-4 py-3 text-[14px] font-bold text-[#041627]">
-              <Wallet size={16} className="text-[#075E54]" />
-              Cajas
+            <div className="flex items-center justify-between border-b border-[#c4c6cd] px-4 py-3">
+              <div className="flex items-center gap-2 text-[14px] font-bold text-[#041627]">
+                <Wallet size={16} className="text-[#075E54]" />
+                Cajas
+                {cajasMeta && (
+                  <span className="text-[12px] font-normal text-[#44474c]">
+                    ({cajasMeta.total} total)
+                  </span>
+                )}
+              </div>
+              {cajasMeta && cajasMeta.totalPages > 1 && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setCajasPage((p) => Math.max(1, p - 1))}
+                    disabled={cajasPage <= 1 || cajasQuery.isFetching}
+                    className="flex h-7 w-7 items-center justify-center rounded border border-[#c4c6cd] text-[#44474c] hover:bg-[#f3f4f6] disabled:opacity-40"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <span className="px-2 text-[13px] text-[#44474c]">
+                    {cajasPage} / {cajasMeta.totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCajasPage((p) => Math.min(cajasMeta.totalPages, p + 1))}
+                    disabled={cajasPage >= cajasMeta.totalPages || cajasQuery.isFetching}
+                    className="flex h-7 w-7 items-center justify-center rounded border border-[#c4c6cd] text-[#44474c] hover:bg-[#f3f4f6] disabled:opacity-40"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              )}
             </div>
             <div className="max-h-[520px] overflow-auto">
               <DataTable
                 rows={cajas}
                 columns={cajasColumns}
                 getRowKey={(caja) => caja.caja_id}
-                isLoading={reportes.cajas.isLoading}
+                isLoading={cajasQuery.isLoading}
                 loadingMessage="Cargando cajas..."
                 emptyMessage="Sin cajas en el periodo."
+                onRowClick={(caja) => setCajaSeleccionada((prev) => prev?.caja_id === caja.caja_id ? null : caja)}
+                rowClassName={(caja) => cajaSeleccionada?.caja_id === caja.caja_id ? 'bg-[#f0faf8] ring-1 ring-inset ring-[#075E54]' : ''}
               />
             </div>
+            <div className="border-t border-[#c4c6cd] px-3 py-2 text-[11px] text-[#44474c]">
+              Hacé click en una caja para ver sus productos vendidos
+            </div>
+          </div>
+        </section>
+
+        {cajaSeleccionada && (
+          <section className="rounded-lg border border-[#c4c6cd] bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-[#c4c6cd] px-4 py-3">
+              <div>
+                <div className="flex items-center gap-2 text-[14px] font-bold text-[#041627]">
+                  <TrendingUp size={16} className="text-[#075E54]" />
+                  Productos vendidos — {cajaSeleccionada.empleado}
+                </div>
+                <div className="text-[12px] text-[#44474c]">
+                  {dateTime(cajaSeleccionada.fecha_apertura)}
+                  {cajaSeleccionada.fecha_cierre ? ` → ${dateTime(cajaSeleccionada.fecha_cierre)}` : ' (abierta)'}
+                  {' · '}{cajaSeleccionada.ventas} ventas · vendido {money(cajaSeleccionada.total_vendido)} · ganancia {money(cajaSeleccionada.ganancia_estimada)}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCajaSeleccionada(null)}
+                className="flex h-8 w-8 items-center justify-center rounded border border-[#c4c6cd] text-[#44474c] hover:bg-[#f3f4f6]"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div className="max-h-105 overflow-auto">
+              <DataTable
+                rows={productosCajaQuery.data ?? []}
+                columns={productosColumns}
+                getRowKey={(p) => p.producto_id}
+                isLoading={productosCajaQuery.isLoading}
+                loadingMessage="Cargando productos..."
+                emptyMessage="Sin productos vendidos en esta caja."
+              />
+            </div>
+            {(productosCajaQuery.data?.length ?? 0) > 0 && (
+              <div className="flex flex-wrap gap-6 border-t border-[#c4c6cd] px-4 py-3 text-[13px]">
+                <span className="text-[#44474c]">
+                  Total productos: <span className="font-bold text-[#041627]">
+                    {productosCajaQuery.data!.reduce((s, p) => s + p.cantidad, 0)} unidades
+                  </span>
+                </span>
+                <span className="text-[#44474c]">
+                  Total vendido: <span className="font-bold text-[#041627]">
+                    {money(productosCajaQuery.data!.reduce((s, p) => s + p.total, 0))}
+                  </span>
+                </span>
+                <span className="text-[#44474c]">
+                  Ganancia estimada: <span className="font-bold text-[#027a48]">
+                    {money(productosCajaQuery.data!.reduce((s, p) => s + p.margen, 0))}
+                  </span>
+                </span>
+              </div>
+            )}
+          </section>
+        )}
+
+        <section className="rounded-lg border border-[#c4c6cd] bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-[#c4c6cd] px-4 py-3">
+            <div className="flex items-center gap-2 text-[14px] font-bold text-[#041627]">
+              <AlertTriangle size={16} className="text-[#b42318]" />
+              Diferencias históricas de caja
+              {diferenciasMeta && (
+                <span className="text-[12px] font-normal text-[#44474c]">
+                  ({diferenciasMeta.total} cajas con diferencia)
+                </span>
+              )}
+            </div>
+            {diferenciasMeta && diferenciasMeta.totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setDiferenciasPage((p) => Math.max(1, p - 1))}
+                  disabled={diferenciasPage <= 1 || diferenciasQuery.isFetching}
+                  className="flex h-7 w-7 items-center justify-center rounded border border-[#c4c6cd] text-[#44474c] hover:bg-[#f3f4f6] disabled:opacity-40"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                <span className="px-2 text-[13px] text-[#44474c]">
+                  {diferenciasPage} / {diferenciasMeta.totalPages}
+                </span>
+                <button
+                  onClick={() => setDiferenciasPage((p) => Math.min(diferenciasMeta.totalPages, p + 1))}
+                  disabled={diferenciasPage >= diferenciasMeta.totalPages || diferenciasQuery.isFetching}
+                  className="flex h-7 w-7 items-center justify-center rounded border border-[#c4c6cd] text-[#44474c] hover:bg-[#f3f4f6] disabled:opacity-40"
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {resumenDiferencias && diferenciasMeta && diferenciasMeta.total > 0 && (
+            <div className="flex flex-wrap gap-4 border-b border-[#c4c6cd] px-4 py-3">
+              <div className="flex items-center gap-2 text-[13px]">
+                <span className="text-[#44474c]">Total diferencias:</span>
+                <span className="font-bold text-[#041627]">{money(resumenDiferencias.total_diferencias)}</span>
+              </div>
+              <div className="flex items-center gap-2 text-[13px]">
+                <span className="text-[#44474c]">Sobrantes:</span>
+                <span className="font-bold text-[#027a48]">{resumenDiferencias.diferencias_positivas}</span>
+              </div>
+              <div className="flex items-center gap-2 text-[13px]">
+                <span className="text-[#44474c]">Faltantes:</span>
+                <span className="font-bold text-[#b42318]">{resumenDiferencias.diferencias_negativas}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="max-h-105 overflow-auto">
+            <DataTable
+              rows={diferencias}
+              columns={diferenciasColumns}
+              getRowKey={(row) => row.caja_id}
+              isLoading={diferenciasQuery.isLoading}
+              loadingMessage="Cargando diferencias..."
+              emptyMessage="Sin diferencias de caja en el periodo."
+            />
           </div>
         </section>
       </div>

@@ -71,6 +71,7 @@ export interface IComprobanteItemPos {
   id: string;
   producto_id?: string | null;
   variante_id?: string | null;
+  comprobante_item_origen_id?: string | null;
   descripcion: string;
   cantidad: number | string;
   precio_unitario: number | string;
@@ -88,6 +89,8 @@ export interface IComprobantePos {
   cliente_id?: string | null;
   empleado_vendedor_id?: string | null;
   empleado_cajero_id?: string | null;
+  tomada_por_cajero_id?: string | null;
+  tomada_por?: { id: string; nombreCompleto: string } | null;
   subtotal: number | string;
   descuento_total: number | string;
   recargo_total: number | string;
@@ -122,6 +125,7 @@ export interface IPagoVentaCajaPos {
 export interface IVentaCajaPos {
   venta: IComprobantePos;
   pagos: IPagoVentaCajaPos[];
+  notasCredito: IComprobantePos[];
   vendedor: IEmpleadoVentaCajaPos | null;
   cajero: IEmpleadoVentaCajaPos | null;
   margen?: {
@@ -169,7 +173,7 @@ export interface IVentaPosPayload {
   lista_precio_id?: string | null;
   observaciones?: string | null;
   items: {
-    producto_id: string;
+    producto_id?: string | null;
     variante_id?: string | null;
     descripcion?: string;
     cantidad: number;
@@ -216,6 +220,7 @@ export interface PropsPosCajeroView {
   puedeCancelarVenta: boolean;
   cobrarPendienteIsPending: boolean;
   crearOrdenQrIsPending: boolean;
+  usaFlujoSeparado: boolean;
   puedeUsarCuentaCorriente: (clienteId?: string | null) => boolean;
   onPendingSearchChange: (value: string) => void;
   onSelectPendiente: (id: string) => void;

@@ -8,6 +8,7 @@ import {
   cerrarCajaFn,
   getAuditoriaCajaFn,
   getCajaAbiertaFn,
+  getCajasAbiertasFn,
   getCajasFn,
   getPedidosCajaFn,
   getResumenCajaFn,
@@ -28,6 +29,15 @@ export const useCajas = (params: CajaQuery = {}, enabledExtra = true) => {
   return useQuery({
     queryKey: ['cajas', params],
     queryFn: () => getCajasFn(params),
+    enabled: enabled && enabledExtra,
+  });
+};
+
+export const useCajasAbiertas = (enabledExtra = true) => {
+  const enabled = useSucursalEnabled();
+  return useQuery({
+    queryKey: ['cajas', 'abiertas'],
+    queryFn: getCajasAbiertasFn,
     enabled: enabled && enabledExtra,
   });
 };

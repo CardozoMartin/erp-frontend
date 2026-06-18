@@ -28,6 +28,7 @@ export interface IComprobanteAux {
     variante_id?: string | null;
     comprobante_item_origen_id?: string | null;
   }[];
+  notasCredito?: IComprobanteAux[];
 }
 
 export interface IVentasPosPaginationAux {
@@ -136,6 +137,29 @@ export interface IDespachoAux {
   }[];
 }
 
+export interface IReporteVentaDia {
+  fecha: string;
+  cantidad: number;
+  total: number;
+}
+
+export interface IReporteMedioPago {
+  tipo: string;
+  medio_pago_id: string | null;
+  medio_pago: string;
+  cantidad: number;
+  monto: number;
+  recargos: number;
+  total: number;
+}
+
+export interface IReporteEmpleado {
+  empleado_id: string | null;
+  empleado: string;
+  cantidad: number;
+  total: number;
+}
+
 export interface IReporteResumen {
   periodo: { desde: string; hasta: string };
   ventas: { cantidad: number; subtotal: number; descuentos: number; recargos: number; total: number };
@@ -158,6 +182,81 @@ export interface IReporteProducto {
   costo: number;
   margen: number;
   margen_porcentaje: number;
+}
+
+export interface IReporteCobrosPendientes {
+  total_clientes: number;
+  total_deuda: number;
+  clientes: {
+    cliente_id: string;
+    cliente: string;
+    email: string | null;
+    telefono: string | null;
+    saldo: number;
+    limite_credito: number;
+    limite_disponible: number | null;
+    cantidad_cargos: number;
+    total_cargos: number;
+    total_pagado: number;
+    cargo_mas_antiguo: string | null;
+    ultimo_pago: string | null;
+    proximo_vencimiento: string | null;
+  }[];
+}
+
+export interface IReporteNotaCredito {
+  id: string;
+  numero: string;
+  estado: string;
+  fecha: string;
+  cliente_id: string | null;
+  caja_id: string | null;
+  comprobante_origen_id: string | null;
+  venta_origen_numero: string | null;
+  venta_origen_tipo: string | null;
+  empleado: string;
+  observaciones: string | null;
+  total: number;
+  items: {
+    descripcion: string;
+    cantidad: number;
+    precio_unitario: number;
+    subtotal: number;
+  }[];
+}
+
+export interface IReporteDiferenciaCaja {
+  caja_id: string;
+  empleado: string;
+  empleado_id: string;
+  fecha_apertura: string;
+  fecha_cierre: string | null;
+  monto_inicial: number;
+  monto_final_declarado: number | null;
+  monto_final_calculado: number | null;
+  diferencia: number | null;
+}
+
+export interface IReporteDiferenciasCajaResponse {
+  data: IReporteDiferenciaCaja[];
+  resumen: {
+    total_diferencias: number;
+    diferencias_positivas: number;
+    diferencias_negativas: number;
+  };
+  meta: { total: number; page: number; limit: number; totalPages: number };
+}
+
+export interface IReporteCajasMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface IReporteCajasResponse {
+  data: IReporteCaja[];
+  meta: IReporteCajasMeta;
 }
 
 export interface IReporteCaja {
@@ -284,6 +383,7 @@ export interface IConfiguracionPosSucursal {
   mostrar_recargos: boolean;
   mostrar_observaciones: boolean;
   mostrar_datos_fiscales: boolean;
+  consulta_stock_otras_sucursales: boolean;
   updated_at?: string;
 }
 

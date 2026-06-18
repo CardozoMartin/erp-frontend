@@ -7,6 +7,7 @@ import NotasCreditoPage from './pages/NotasCreditoPage';
 import CotizacionesPage from './pages/CotizacionesPage';
 import DespachosPage from './pages/DespachosPage';
 import ReportesPosPage from './pages/ReportesPosPage';
+import ReportesContablesPage from './pages/ReportesContablesPage';
 import AuditoriaPage from './pages/AuditoriaPage';
 
 export const ventasRoutes: RouteObject[] = [
@@ -18,5 +19,6 @@ export const ventasRoutes: RouteObject[] = [
   { path: 'cotizaciones', element: <CotizacionesPage /> },
   { path: 'despachos', element: <DespachosPage /> },
   { path: 'reportes-pos', element: <ReportesPosPage /> },
+  { path: 'reportes-contables', element: <ReportesContablesPage /> },
   { path: 'auditoria', element: <AuditoriaPage /> },
 ];

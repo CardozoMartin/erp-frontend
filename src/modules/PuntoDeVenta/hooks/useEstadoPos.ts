@@ -22,6 +22,8 @@ export const useEstadoPos = () => {
   const [tipoFiscal, setTipoFiscal] = useState<TipoEmisionFiscal>('TICKET');
   const [pendingSearch, setPendingSearch] = useState('');
   const [selectedPendienteId, setSelectedPendienteId] = useState<string | null>(null);
+  // Rol elegido en modo flujo separado cuando el empleado tiene ambos permisos (null = pendiente elección)
+  const [rolPosElegido, setRolPosElegido] = useState<'vendedor' | 'cajero' | null>(null);
 
   //Queries ──────────────────────────────────────────────────────────────
 
@@ -70,7 +72,13 @@ export const useEstadoPos = () => {
     cajaAbierta: !!cajaAbierta,
   });
 
-  const esSoloCajero = !posAccess.puedeVender && posAccess.puedeCobrar;
+  // Necesita elegir rol cuando el modo usa flujo separado Y tiene ambos permisos
+  const necesitaElegirRol = posAccess.usaFlujoSeparado && posAccess.puedeVenderYCobrar && rolPosElegido === null;
+
+  // En modo flujo separado con doble permiso, el rol determina la vista; si no, se deduce de los permisos
+  const esSoloCajero = posAccess.usaFlujoSeparado && posAccess.puedeVenderYCobrar
+    ? rolPosElegido === 'cajero'
+    : !posAccess.puedeVender && posAccess.puedeCobrar;
 
   const puedeVerDetallesConfigPos =
     permisos.includes('config.pos') ||
@@ -159,5 +167,9 @@ export const useEstadoPos = () => {
     setSelectedListaId,
     setEmitirTicket,
     setTipoFiscal,
+    // Rol POS en flujo separado con doble permiso
+    necesitaElegirRol,
+    rolPosElegido,
+    setRolPosElegido,
   };
 };

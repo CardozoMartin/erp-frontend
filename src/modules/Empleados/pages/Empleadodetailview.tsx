@@ -2,6 +2,7 @@ import {
   Camera, Check, ChevronRight, Clock, Key, RotateCcw, Shield,
   ShieldCheck, ShieldOff, Star, Trash2, User, UserCheck,
 } from 'lucide-react';
+import Swal from 'sweetalert2';
 import { useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import FichaHistoryPanel from '../../../components/common/FichaHistoryPanel';
@@ -12,7 +13,7 @@ import { EmpleadoTabInfo } from '../components/empleado/EmpleadoTabInfo';
 import { EmpleadoTabPermisos } from '../components/empleado/EmpleadoTabPermisos';
 import { EmpleadoTabRoles } from '../components/empleado/EmpleadoTabRoles';
 import { RolBadge, StatusBadge } from '../components/empleado/EmpleadoBadges';
-import { useGetEmpleados, useGetRoles, usePutEmpleado } from '../hooks/useEmpleados';
+import { useGetEmpleados, useGetRoles, usePutEmpleado, useResetPassword } from '../hooks/useEmpleados';
 import { useEmpleadoStore } from '../store/useEmpleadoStore';
 import type { DetailEmpleado, EmpleadoDetailFormValues, ICreateEmpleadoPayload, IEmpleadoRol } from '../types/empleado.type';
 import { empleadoChanges, empleadoHistoryLabels, formatDate, formatDateTime, getInitials, MODULE_COLORS } from '../utils/empleado.utils';
@@ -44,10 +45,12 @@ export default function EmpleadoDetailView() {
     : EMPLEADO_FALLBACK;
 
   const putEmpleado = usePutEmpleado(emp.id);
+  const resetPassword = useResetPassword(emp.id);
   const [activeTab, setActiveTab] = useState('info');
   const [isEditing, setIsEditing] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [fotoPreview, setFotoPreview] = useState<string | null>(emp.foto_url);
+  const [nuevaContrasena, setNuevaContrasena] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const defaultValues: EmpleadoDetailFormValues = {
@@ -93,6 +96,46 @@ export default function EmpleadoDetailView() {
 
   const handleDiscard = () => { reset(defaultValues); setFotoPreview(emp.foto_url); setIsEditing(false); };
 
+  const handleToggleActivo = async () => {
+    const nuevoEstado = !form.activo;
+    const { isConfirmed } = await Swal.fire({
+      title: nuevoEstado ? '¿Activar empleado?' : '¿Desactivar empleado?',
+      text: nuevoEstado
+        ? `${emp.nombreCompleto} podrá volver a iniciar sesión en el sistema.`
+        : `${emp.nombreCompleto} no podrá iniciar sesión hasta que sea reactivado.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: nuevoEstado ? '#075E54' : '#d33',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: nuevoEstado ? 'Sí, activar' : 'Sí, desactivar',
+      cancelButtonText: 'Cancelar',
+    });
+    if (!isConfirmed) return;
+    try {
+      const actualizado = await putEmpleado.mutateAsync({ activo: nuevoEstado });
+      setEmpleado(actualizado);
+      reset({ ...form, activo: actualizado.activo, contrasena: '', rolesIds: actualizado.roles.map((r) => r.id) });
+    } catch { /* El hook ya muestra el toast */ }
+  };
+
+  const handleResetPassword = async () => {
+    const { isConfirmed } = await Swal.fire({
+      title: '¿Resetear contraseña?',
+      text: `Se generará una nueva contraseña temporal para ${emp.nombreCompleto}. La contraseña actual quedará inválida de inmediato.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#075E54',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, resetear',
+      cancelButtonText: 'Cancelar',
+    });
+    if (!isConfirmed) return;
+    try {
+      const resultado = await resetPassword.mutateAsync();
+      setNuevaContrasena(resultado.contrasenaGenerada);
+    } catch { /* El hook ya muestra el toast */ }
+  };
+
   const handleSave = handleSubmit(async (data) => {
     const payload: Partial<ICreateEmpleadoPayload> = {
       nombreCompleto: data.nombreCompleto.trim(),
@@ -137,8 +180,18 @@ export default function EmpleadoDetailView() {
             ) : (
               <>
                 <button onClick={() => setIsEditing(true)} style={{ padding: '6px 16px', background: '#075E54', color: '#fff', border: 'none', borderRadius: 5, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Editar</button>
-                <button style={{ padding: '6px 14px', background: '#fff', color: '#041627', border: '1px solid #d1d5db', borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Resetear contraseña</button>
-                <button onClick={() => setValue('activo', !form.activo, { shouldDirty: true })} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', background: form.activo ? '#FCEBEB' : '#EAF3DE', color: form.activo ? '#A32D2D' : '#3B6D11', border: `1px solid ${form.activo ? '#F7C1C1' : '#C0DD97'}`, borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                <button
+                  onClick={handleResetPassword}
+                  disabled={resetPassword.isPending}
+                  style={{ padding: '6px 14px', background: '#fff', color: '#041627', border: '1px solid #d1d5db', borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: resetPassword.isPending ? 'wait' : 'pointer', opacity: resetPassword.isPending ? 0.7 : 1 }}
+                >
+                  {resetPassword.isPending ? 'Reseteando...' : 'Resetear contraseña'}
+                </button>
+                <button
+                  onClick={handleToggleActivo}
+                  disabled={putEmpleado.isPending}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', background: form.activo ? '#FCEBEB' : '#EAF3DE', color: form.activo ? '#A32D2D' : '#3B6D11', border: `1px solid ${form.activo ? '#F7C1C1' : '#C0DD97'}`, borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: putEmpleado.isPending ? 'wait' : 'pointer', opacity: putEmpleado.isPending ? 0.7 : 1 }}
+                >
                   {form.activo ? <><ShieldOff size={13} /> Desactivar</> : <><ShieldCheck size={13} /> Activar</>}
                 </button>
               </>
@@ -283,6 +336,38 @@ export default function EmpleadoDetailView() {
           </aside>
         </div>
       </main>
+
+      {nuevaContrasena && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 10, padding: 32, maxWidth: 420, width: '90%', boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <Key size={20} style={{ color: '#075E54' }} />
+              <h2 style={{ fontSize: 17, fontWeight: 800, color: '#041627', margin: 0 }}>Contraseña reseteada</h2>
+            </div>
+            <p style={{ fontSize: 13, color: '#555', marginBottom: 16, lineHeight: 1.6 }}>
+              La contraseña fue reseteada correctamente. Entregá esta contraseña temporal al empleado para que pueda iniciar sesión.
+            </p>
+            <div style={{ background: '#f1f5f9', borderRadius: 8, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20 }}>
+              <span style={{ fontSize: 20, fontFamily: 'monospace', fontWeight: 800, color: '#041627', letterSpacing: '0.08em' }}>{nuevaContrasena}</span>
+              <button
+                onClick={() => navigator.clipboard.writeText(nuevaContrasena)}
+                style={{ padding: '6px 12px', background: '#075E54', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >
+                Copiar
+              </button>
+            </div>
+            <p style={{ fontSize: 11, color: '#e67e00', fontWeight: 600, marginBottom: 20 }}>
+              ⚠ Esta contraseña solo se muestra una vez. Una vez cerrado este panel no se puede recuperar.
+            </p>
+            <button
+              onClick={() => setNuevaContrasena(null)}
+              style={{ width: '100%', padding: '10px', background: '#041627', color: '#fff', border: 'none', borderRadius: 7, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+            >
+              Entendido, cerrar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -21,6 +21,7 @@ export default function PosCajeroView({
   puedeCancelarVenta,
   cobrarPendienteIsPending,
   crearOrdenQrIsPending,
+  usaFlujoSeparado,
   puedeUsarCuentaCorriente,
   onPendingSearchChange,
   onSelectPendiente,
@@ -84,6 +85,7 @@ export default function PosCajeroView({
             onAddPaymentDraft={onAddPaymentDraft}
             onUpdatePaymentDraft={onUpdatePaymentDraft}
             onRemovePaymentDraft={onRemovePaymentDraft}
+            mostrarEnviarCaja={usaFlujoSeparado}
           />
         ) : (
           <div className="flex flex-1 items-center justify-center px-4 py-12 text-center text-[14px] text-[#44474c]">

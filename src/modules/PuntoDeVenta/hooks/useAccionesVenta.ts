@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { usePollingEstadoQr } from './usePos';
 import { toast } from 'sonner';
 import { useAuthStore } from '../../../store/auth.store';
 import { imprimirComprobante } from '../../POSAuxiliares/utils/printComprobante';
@@ -14,7 +15,8 @@ import {
   useCrearVentaPendiente,
   useCrearVentaQr,
   useVentaCompleta,
-  consultarEstadoMercadoPagoQrFn,
+  useTomarVenta,
+  useLiberarVenta,
 } from './usePos';
 import { useCarritoStore } from '../store/carrito.store';
 import type { IComprobantePos, IVentaCompletaResponse, TipoEmisionFiscal } from '../types/pos.type';
@@ -82,6 +84,8 @@ export const useAccionesVenta = ({
   const ventaCompletaMutation = useVentaCompleta();
   const cobrarPendienteMutation = useCobrarVentaPendiente();
   const cancelarPendienteMutation = useCancelarVentaPendiente();
+  const tomarVentaMutation = useTomarVenta();
+  const liberarVentaMutation = useLiberarVenta();
 
   const isBusy =
     ventaCompletaMutation.isPending ||
@@ -96,24 +100,22 @@ export const useAccionesVenta = ({
 
   // ─── Polling QR ───────────────────────────────────────────────────────────
 
-  // 1.- Polling de estado QR cada 5 segundos mientras haya una orden activa
+  const pollingParams = qrOrder && sucursalId
+    ? { sucursalId, ventaId: qrOrder.ventaId }
+    : null;
+
+  const { data: estadoQr } = usePollingEstadoQr(pollingParams);
+
   useEffect(() => {
-    if (!qrOrder || !sucursalId) return;
-    const interval = window.setInterval(async () => {
-      try {
-        const estado = await consultarEstadoMercadoPagoQrFn({ sucursalId, ventaId: qrOrder.ventaId });
-        if (estado.estado !== 'aprobado') return;
-        toast.success('Pago Mercado Pago confirmado');
-        setQrOrder(current => current?.ventaId === qrOrder.ventaId ? { ...current, status: 'confirmed' } : current);
-        window.setTimeout(() => { setQrOrder(null); limpiarCarrito(); }, 1800);
-        queryClient.invalidateQueries({ queryKey: ['products'] });
-        queryClient.invalidateQueries({ queryKey: ['pos', 'ventas-pendientes'] });
-        queryClient.invalidateQueries({ queryKey: ['pos', 'ventas-caja'] });
-        queryClient.invalidateQueries({ queryKey: ['pos', 'caja-abierta'] });
-      } catch { /* polling auxiliar — error silencioso */ }
-    }, 5000);
-    return () => window.clearInterval(interval);
-  }, [qrOrder, queryClient, sucursalId, limpiarCarrito]);
+    if (estadoQr?.estado !== 'aprobado') return;
+    toast.success('Pago Mercado Pago confirmado');
+    setQrOrder(current => current ? { ...current, status: 'confirmed' } : null);
+    window.setTimeout(() => { setQrOrder(null); limpiarCarrito(); }, 1800);
+    queryClient.invalidateQueries({ queryKey: ['products'] });
+    queryClient.invalidateQueries({ queryKey: ['pos', 'ventas-pendientes'] });
+    queryClient.invalidateQueries({ queryKey: ['pos', 'ventas-caja'] });
+    queryClient.invalidateQueries({ queryKey: ['pos', 'caja-abierta'] });
+  }, [estadoQr?.estado, queryClient, limpiarCarrito]);
 
   // ─── Helpers internos ─────────────────────────────────────────────────────
 
@@ -240,20 +242,27 @@ export const useAccionesVenta = ({
     crearOrdenQrParaVenta(venta);
   };
 
-  // 9.- Cancelar orden QR activa
+  // 9.- Cancelar orden QR activa (solo cierra la orden en MP, la venta queda pendiente)
   const manejarCancelarQr = () => {
     if (!sucursalId || !qrOrder) return;
     cancelarOrdenQrMutation.mutate({ sucursalId }, {
       onSuccess: () => {
-        if (puedeCancelarVenta) {
-          cancelarPendienteMutation.mutate({ ventaId: qrOrder.ventaId, motivo: 'Venta QR cancelada desde POS' });
-        }
         setQrOrder(null);
       },
     });
   };
 
-  // 10.- Cobrar una venta pendiente
+  // 10.- Tomar una venta pendiente para cobro (bloquea para otros cajeros)
+  const manejarTomarPendiente = (ventaId: string) => {
+    tomarVentaMutation.mutate(ventaId);
+  };
+
+  // 10b.- Liberar una venta pendiente sin cobrar (limpia el bloqueo)
+  const manejarLiberarPendiente = (ventaId: string) => {
+    liberarVentaMutation.mutate(ventaId);
+  };
+
+  // 11.- Cobrar una venta pendiente
   const manejarCobrarPendiente = (venta: IComprobantePos) => {
     if (!cajaAbiertaId) { toast.warning('Abra una caja para cobrar'); return; }
     if (!posAccess.puedeCobrarPendiente) { toast.warning('No tenés permisos para cobrar ventas'); return; }
@@ -268,11 +277,15 @@ export const useAccionesVenta = ({
       tipoFiscal,
     }, {
       onSuccess: response => imprimirVenta(response, printWindow),
-      onError: () => printWindow?.close(),
+      onError: () => {
+        // Si falla el cobro, liberar el bloqueo para que otro cajero pueda intentarlo
+        liberarVentaMutation.mutate(venta.id);
+        printWindow?.close();
+      },
     });
   };
 
-  // 11.- Cancelar una venta pendiente
+  // 12.- Cancelar una venta pendiente
   const manejarCancelarPendiente = (venta: IComprobantePos) => {
     if (!puedeCancelarVenta) { toast.warning('No tenés permisos para cancelar ventas'); return; }
     if (!window.confirm(`¿Cancelar la venta pendiente ${venta.numero}?`)) return;
@@ -303,6 +316,8 @@ export const useAccionesVenta = ({
     manejarCobrarQrCarrito,
     manejarCobrarQrPendiente,
     manejarCancelarQr,
+    manejarTomarPendiente,
+    manejarLiberarPendiente,
     manejarCobrarPendiente,
     manejarCancelarPendiente,
   };

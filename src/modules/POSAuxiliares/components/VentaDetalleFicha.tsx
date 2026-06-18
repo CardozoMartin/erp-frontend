@@ -1,4 +1,4 @@
-import type { IVentaGeneralAux } from '../types/pos-aux.type';
+import type { IComprobanteAux, IVentaGeneralAux } from '../types/pos-aux.type';
 import { dateTime, money, shortId, toNumber } from '../utils/format';
 import { EstadoBadge } from './VentasDetalles/EstadoBadge';
 
@@ -11,14 +11,29 @@ type Props = {
   venta: IVentaGeneralAux;
 };
 
+const calcularDevueltosPorItem = (notasCredito: IComprobanteAux[]): Map<string, number> => {
+  const mapa = new Map<string, number>();
+  for (const nota of notasCredito) {
+    for (const item of nota.items ?? []) {
+      if (!item.comprobante_item_origen_id) continue;
+      mapa.set(
+        item.comprobante_item_origen_id,
+        (mapa.get(item.comprobante_item_origen_id) ?? 0) + toNumber(item.cantidad),
+      );
+    }
+  }
+  return mapa;
+};
+
 const VentaDetalleFicha = ({ venta }: Props) => {
   const comprobante = venta.comprobante;
+  const devueltosPorItem = calcularDevueltosPorItem(venta.notasCredito);
   const pagosTotal = venta.pagos.reduce(
     (sum, pago) => sum + toNumber(pago.monto) + toNumber(pago.recargo_monto),
     0,
   );
   const totalCantidad = (comprobante.items ?? []).reduce(
-    (sum, item) => sum + toNumber(item.cantidad),
+    (sum, item) => sum + Math.max(0, toNumber(item.cantidad) - (devueltosPorItem.get(item.id) ?? 0)),
     0,
   );
   const totalPrecio = (comprobante.items ?? []).reduce(
@@ -72,6 +87,24 @@ const VentaDetalleFicha = ({ venta }: Props) => {
               </div>
             )}
             <TotalLine label="Total pagos" value={pagosTotal} />
+            {venta.notasCredito.length > 0 && (
+              <>
+                <div className="mt-2 border-t border-[#e5e7eb] pt-2 text-[11px] font-bold uppercase text-[#b42318]">
+                  Notas de crédito
+                </div>
+                {venta.notasCredito.map((nc) => (
+                  <div key={nc.id} className="flex items-center justify-between rounded border border-[#f1c7c7] bg-[#fff5f5] px-3 py-1.5 text-[12px]">
+                    <span className="font-semibold text-[#b42318]">{nc.numero}</span>
+                    <span className="font-bold text-[#b42318]">-{money(nc.subtotal)}</span>
+                  </div>
+                ))}
+                <TotalLine
+                  label="Total neto"
+                  value={toNumber(comprobante.total) - venta.notasCredito.reduce((sum, nc) => sum + toNumber(nc.subtotal), 0)}
+                  strong
+                />
+              </>
+            )}
             <TotalLine label="IVA estimado" value={venta.margen.iva_estimado} />
             <TotalLine label="Costo estimado" value={venta.margen.costo_total} />
             <TotalLine label="Ganancia estimada" value={venta.margen.ganancia_total} strong />
@@ -107,19 +140,50 @@ const VentaDetalleFicha = ({ venta }: Props) => {
           </tr>
         </thead>
         <tbody>
-          {(comprobante.items ?? []).map((item, idx) => (
-            <tr
-              key={item.id}
-              className={`border-t border-[#e5e7eb] transition-colors hover:bg-[#f9fafb] ${
-                idx % 2 === 0 ? 'bg-white' : 'bg-[#fafafa]'
-              }`}
-            >
-              <td className="px-4 py-3 font-semibold text-[#041627]">{item.descripcion}</td>
-              <td className="px-4 py-3 text-center text-[#44474c]">{toNumber(item.cantidad)}</td>
-              <td className="px-4 py-3 text-right text-[#44474c]">{money(item.precio_unitario)}</td>
-              <td className="px-4 py-3 text-right font-bold text-[#041627]">{money(item.subtotal)}</td>
-            </tr>
-          ))}
+          {(comprobante.items ?? []).map((item, idx) => {
+            const devuelto = devueltosPorItem.get(item.id) ?? 0;
+            const cantNeta = Math.max(0, toNumber(item.cantidad) - devuelto);
+            const todoDevuelto = cantNeta === 0;
+            return (
+              <tr
+                key={item.id}
+                className={`border-t border-[#e5e7eb] transition-colors hover:bg-[#f9fafb] ${
+                  todoDevuelto ? 'opacity-50' : idx % 2 === 0 ? 'bg-white' : 'bg-[#fafafa]'
+                }`}
+              >
+                <td className="px-4 py-3 font-semibold text-[#041627]">
+                  <span className={todoDevuelto ? 'line-through' : ''}>{item.descripcion}</span>
+                  {devuelto > 0 && (
+                    <span className="ml-2 rounded bg-[#fff5f5] px-1.5 py-0.5 text-[10px] font-bold text-[#b42318]">
+                      -{devuelto} devuelto{devuelto > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-center text-[#44474c]">
+                  {todoDevuelto ? (
+                    <span className="text-[#b42318] line-through">{toNumber(item.cantidad)}</span>
+                  ) : devuelto > 0 ? (
+                    <span>
+                      {cantNeta}{' '}
+                      <span className="text-[11px] text-[#44474c] line-through">({toNumber(item.cantidad)})</span>
+                    </span>
+                  ) : (
+                    toNumber(item.cantidad)
+                  )}
+                </td>
+                <td className="px-4 py-3 text-right text-[#44474c]">{money(item.precio_unitario)}</td>
+                <td className="px-4 py-3 text-right font-bold text-[#041627]">
+                  {todoDevuelto ? (
+                    <span className="text-[#b42318] line-through">{money(item.subtotal)}</span>
+                  ) : devuelto > 0 ? (
+                    money(cantNeta * toNumber(item.precio_unitario))
+                  ) : (
+                    money(item.subtotal)
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       <tfoot className="bg-[#0D3D45] text-white">
         <tr className="border-t border-[#1a5260]">

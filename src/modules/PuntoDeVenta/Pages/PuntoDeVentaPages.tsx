@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Lock } from 'lucide-react';
+import { Lock, ShoppingCart, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { useObtenerProductos } from '../../Productos/hooks/useProductos';
 import { getProductCode, getStockLocationForBranch, modoPosLabel, toNumber } from '../utils/pos.utils';
@@ -47,7 +47,17 @@ const PuntoDeVentaPages = () => {
     resetearPagos: pago.resetearPagos,
   });
 
-  // 5.- Productos filtrados por búsqueda
+  // 5.- Selección de venta pendiente: toma el bloqueo en el backend y libera el anterior
+  const manejarSeleccionarPendiente = (nuevoId: string) => {
+    const anteriorId = estado.selectedPendienteId;
+    if (anteriorId && anteriorId !== nuevoId) {
+      acciones.manejarLiberarPendiente(anteriorId);
+    }
+    estado.setSelectedPendienteId(nuevoId);
+    acciones.manejarTomarPendiente(nuevoId);
+  };
+
+  // 6.- Productos filtrados por búsqueda
   const productsQuery = useObtenerProductos(1, 200);
   const productos = useMemo(() => {
     const raw = productsQuery.data;
@@ -69,6 +79,55 @@ const PuntoDeVentaPages = () => {
   }, [productos, search, estado.sucursalActiva?.id]);
 
   const { posAccess, esSoloCajero } = estado;
+
+  // Modal de selección de rol para empleados con doble permiso en modo flujo separado
+  if (estado.necesitaElegirRol) {
+    return (
+      <div className="flex min-h-[calc(100vh-52px)] items-center justify-center bg-[#f3f4f6] px-4 py-8">
+        <div className="w-full max-w-md rounded-xl border border-[#c4c6cd] bg-white shadow-lg">
+          <div className="border-b border-[#c4c6cd] px-6 py-5 text-center">
+            <h2 className="text-[18px] font-bold text-[#041627]">¿Cómo vas a operar hoy?</h2>
+            <p className="mt-1 text-[13px] text-[#44474c]">
+              Tu usuario tiene permisos de vendedor y cajero.
+              Elegí tu rol para esta sesión del POS.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-4 p-6">
+            <button
+              type="button"
+              onClick={() => estado.setRolPosElegido('vendedor')}
+              className="flex flex-col items-center gap-3 rounded-lg border-2 border-[#c4c6cd] bg-white px-4 py-6 text-center transition-all hover:border-[#075E54] hover:bg-[#f3fbf9] hover:shadow-md"
+            >
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#eef8f6] text-[#075E54]">
+                <ShoppingCart size={26} />
+              </div>
+              <div>
+                <p className="text-[15px] font-bold text-[#041627]">Vendedor</p>
+                <p className="mt-1 text-[12px] text-[#44474c]">Creás ventas y cotizaciones. Las ventas quedan pendientes de cobro.</p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => estado.setRolPosElegido('cajero')}
+              className="flex flex-col items-center gap-3 rounded-lg border-2 border-[#c4c6cd] bg-white px-4 py-6 text-center transition-all hover:border-[#075E54] hover:bg-[#f3fbf9] hover:shadow-md"
+            >
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#eef8f6] text-[#075E54]">
+                <Wallet size={26} />
+              </div>
+              <div>
+                <p className="text-[15px] font-bold text-[#041627]">Cajero</p>
+                <p className="mt-1 text-[12px] text-[#44474c]">Cobrás las ventas pendientes que generaron los vendedores.</p>
+              </div>
+            </button>
+          </div>
+          <p className="border-t border-[#c4c6cd] px-6 py-3 text-center text-[11px] text-[#8b8fa3]">
+            Podés cambiar tu rol en cualquier momento desde el encabezado del POS.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[calc(100vh-52px)] bg-[#f3f4f6] px-4 py-4">
@@ -109,6 +168,8 @@ const PuntoDeVentaPages = () => {
             onEmitirTicketChange={estado.setEmitirTicket}
             onMontoInicialChange={acciones.setMontoInicial}
             onAbrirCaja={acciones.manejarAbrirCaja}
+            rolPosElegido={estado.rolPosElegido}
+            onCambiarRol={estado.rolPosElegido ? () => estado.setRolPosElegido(null) : undefined}
           />
 
           {posAccess.bloqueadoPorModo || !posAccess.puedeOperarPos ? (
@@ -148,9 +209,10 @@ const PuntoDeVentaPages = () => {
                 puedeCancelarVenta={posAccess.puedeCancelarVenta}
                 cobrarPendienteIsPending={acciones.cobrarPendienteIsPending}
                 crearOrdenQrIsPending={acciones.crearOrdenQrIsPending}
+                usaFlujoSeparado={posAccess.usaFlujoSeparado}
                 puedeUsarCuentaCorriente={estado.puedeUsarCuentaCorriente}
                 onPendingSearchChange={estado.setPendingSearch}
-                onSelectPendiente={estado.setSelectedPendienteId}
+                onSelectPendiente={manejarSeleccionarPendiente}
                 onCobrar={acciones.manejarCobrarPendiente}
                 onCobrarQr={acciones.manejarCobrarQrPendiente}
                 onCancelar={acciones.manejarCancelarPendiente}

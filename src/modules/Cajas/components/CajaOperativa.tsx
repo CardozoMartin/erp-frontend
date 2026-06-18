@@ -100,10 +100,9 @@ export const CajaOperativa = ({ movimientosCaja, puedeVerCaja }: Props) => {
     const producto = productos.find((p) => p.id === productoConsumoId);
     const descripcionFinal = descripcionConsumo.trim() || `Consumo interno${producto?.nombre ? ` de ${producto.nombre}` : ''}`;
     mutations.consumoInterno.mutate(
-      { producto_id: productoConsumoId, cantidad: toNumber(cantidadConsumo), descripcion: descripcionFinal },
+      { cajaId: cajaAbierta.id, producto_id: productoConsumoId, cantidad: toNumber(cantidadConsumo), descripcion: descripcionFinal },
       {
         onSuccess: () => {
-          mutations.movimientoCaja.mutate({ cajaId: cajaAbierta.id, tipo: 'EGRESO', monto: 0, categoria_egreso: 'CONSUMO_INTERNO', entidad_nombre: producto?.nombre ?? null, descripcion: descripcionFinal });
           setProductoConsumoId('');
           setCantidadConsumo('1');
           setDescripcionConsumo('');
