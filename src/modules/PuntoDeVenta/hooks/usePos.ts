@@ -5,6 +5,7 @@ import type { IErrorResponse } from '../../../type/api.response.type';
 import { useAuthStore } from '../../../store/auth.store';
 import {
   abrirCajaFn,
+  asignarCajaPendienteFn,
   cancelarVentaPendienteFn,
   cancelarOrdenMercadoPagoQrFn,
   consultarEstadoMercadoPagoQrFn,
@@ -14,6 +15,7 @@ import {
   crearVentaCuentaCorrienteFn,
   crearVentaPendienteFn,
   crearVentaQrFn,
+  editarVentaPendienteFn,
   getCajaAbiertaFn,
   getClientesPosFn,
   getListasPrecioPosFn,
@@ -22,6 +24,8 @@ import {
   getVentasPendientesCobroFn,
   getVentaPosFn,
   ventaCompletaFn,
+  tomarVentaFn,
+  liberarVentaFn,
 } from '../api/pos.api';
 
 const getErrorMessage = (error: AxiosError<IErrorResponse>) => {
@@ -77,6 +81,8 @@ export const useVentasPendientesCobro = (enabledByPermission = true) => {
     queryKey: ['pos', 'ventas-pendientes', sucursalActivaId],
     queryFn: getVentasPendientesCobroFn,
     enabled: !!sucursalActivaId && enabledByPermission,
+    refetchInterval: 8000,
+    staleTime: 0,
   });
 };
 
@@ -197,6 +203,39 @@ export const useCancelarVentaPendiente = () => {
   });
 };
 
+export const useTomarVenta = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: tomarVentaFn,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pos', 'ventas-pendientes'] });
+    },
+    onError: (error: AxiosError<IErrorResponse>) => toast.error(getErrorMessage(error)),
+  });
+};
+
+export const useLiberarVenta = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: liberarVentaFn,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pos', 'ventas-pendientes'] });
+    },
+  });
+};
+
+export const useAsignarCajaPendiente = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: asignarCajaPendienteFn,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pos', 'ventas-pendientes'] });
+      toast.success('Venta asignada a la caja seleccionada');
+    },
+    onError: (error: AxiosError<IErrorResponse>) => toast.error(getErrorMessage(error)),
+  });
+};
+
 export const useCrearOrdenMercadoPagoQr = () => {
   return useMutation({
     mutationFn: crearOrdenMercadoPagoQrFn,
@@ -213,6 +252,34 @@ export const useCancelarOrdenMercadoPagoQr = () => {
   });
 };
 
+export const useEditarVentaPendiente = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: editarVentaPendienteFn,
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['pos', 'ventas-pendientes'] });
+      queryClient.invalidateQueries({ queryKey: ['pos-aux', 'venta', variables.ventaId] });
+      toast.success('Venta actualizada correctamente');
+    },
+    onError: (error: AxiosError<IErrorResponse>) => toast.error(getErrorMessage(error)),
+  });
+};
+
 export { getVentaPosFn };
 
 export { consultarEstadoMercadoPagoQrFn };
+
+export const usePollingEstadoQr = (params: { sucursalId: string; ventaId: string } | null) => {
+  return useQuery({
+    queryKey: ['pos', 'qr-estado', params?.ventaId],
+    queryFn: () => consultarEstadoMercadoPagoQrFn({ sucursalId: params!.sucursalId, ventaId: params!.ventaId }),
+    enabled: !!params,
+    refetchInterval: (query) => {
+      const estado = query.state.data?.estado;
+      if (estado === 'aprobado' || estado === 'cancelado') return false;
+      return 5000;
+    },
+    retry: false,
+    staleTime: 0,
+  });
+};

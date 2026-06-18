@@ -39,6 +39,9 @@ export interface ICliente {
   codigo_postal?: string | null;
   referencia_entrega?: string | null;
   activo: boolean;
+  bloqueado: boolean;
+  razon_bloqueo?: string | null;
+  accion_legal: boolean;
   cuentaCorriente?: ICuentaCorrienteCliente | null;
   created_at?: string;
   updated_at?: string;

@@ -35,6 +35,9 @@ export const getResumenCajaFn = async (cajaId: string) =>
 export const getPedidosCajaFn = async (cajaId: string) =>
   unwrap<IPedidoEnvio[]>(await api.get(`/pedidos-envio/caja/${cajaId}`));
 
+export const getCajasAbiertasFn = async () =>
+  unwrap<ICaja[]>(await api.get('/caja/abiertas'));
+
 export const abrirCajaFn = async (payload: { monto_inicial: number; descripcion?: string }) =>
   unwrap<ICaja>(await api.post('/caja/abrir', payload));
 
@@ -71,21 +74,16 @@ export const registrarMovimientoCajaFn = async (payload: {
 };
 
 export const registrarConsumoInternoFn = async (payload: {
+  cajaId: string;
   producto_id: string;
   variante_id?: string | null;
   cantidad: number;
+  monto?: number;
   descripcion?: string | null;
-}) =>
-  unwrap(
-    await api.post('/stock-movimientos/ajuste', {
-      producto_id: payload.producto_id,
-      variante_id: payload.variante_id ?? null,
-      operacion: 'RESTAR',
-      cantidad: payload.cantidad,
-      tipo: 'SALIDA',
-      descripcion: payload.descripcion ?? 'Consumo interno del local',
-    }),
-  );
+}) => {
+  const { cajaId, ...body } = payload;
+  return unwrap(await api.post(`/caja/${cajaId}/consumo-interno`, body));
+};
 
 export const getAuditoriaCajaFn = async (params: AuditoriaCajaQuery) => {
   const response = await api.get<IAuditoriaCajaPagination | { data: IAuditoriaCajaPagination }>(

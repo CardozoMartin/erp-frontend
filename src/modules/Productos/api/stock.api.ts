@@ -12,6 +12,13 @@ export type IAlertaStock = {
   variante: { id: string; nombre: string } | null;
 };
 
+export type IStockOtraSucursal = {
+  sucursal_id: string;
+  nombre: string;
+  cantidad: number;
+  variante: string | null;
+};
+
 export const getAlertasStockFn = async (): Promise<IAlertaStock[]> => {
   const { data } = await api.get<ISuccessResponse<IAlertaStock[]>>('/stock/alertas');
   return data.data;
@@ -19,5 +26,12 @@ export const getAlertasStockFn = async (): Promise<IAlertaStock[]> => {
 
 export const getConteoAlertasStockFn = async (): Promise<number> => {
   const { data } = await api.get<ISuccessResponse<number>>('/stock/alertas/conteo');
+  return data.data;
+};
+
+export const getStockOtrasSucursalesFn = async (productoId: string): Promise<IStockOtraSucursal[]> => {
+  const { data } = await api.get<ISuccessResponse<IStockOtraSucursal[]>>(
+    `/stock/producto/${productoId}/otras-sucursales`,
+  );
   return data.data;
 };

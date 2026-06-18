@@ -12,8 +12,15 @@ import type {
   IDespachoAux,
   IAuditoriaPaginationAux,
   IReporteCaja,
+  IReporteCajasResponse,
+  IReporteCobrosPendientes,
+  IReporteDiferenciasCajaResponse,
+  IReporteNotaCredito,
   IReporteProducto,
   IReporteResumen,
+  IReporteVentaDia,
+  IReporteMedioPago,
+  IReporteEmpleado,
   IMovimientoCuentaCorrienteAux,
   IRecargosCuentaCorrienteAux,
   IResumenCajaAux,
@@ -55,21 +62,16 @@ export const registrarMovimientoCajaFn = async (payload: {
 };
 
 export const registrarConsumoInternoFn = async (payload: {
+  cajaId: string;
   producto_id: string;
   variante_id?: string | null;
   cantidad: number;
+  monto?: number;
   descripcion?: string | null;
-}) =>
-  unwrap(
-    await api.post('/stock-movimientos/ajuste', {
-      producto_id: payload.producto_id,
-      variante_id: payload.variante_id ?? null,
-      operacion: 'RESTAR',
-      cantidad: payload.cantidad,
-      tipo: 'SALIDA',
-      descripcion: payload.descripcion ?? 'Consumo interno del local',
-    }),
-  );
+}) => {
+  const { cajaId, ...body } = payload;
+  return unwrap(await api.post(`/caja/${cajaId}/consumo-interno`, body));
+};
 
 export const getCotizacionesFn = async () => unwrap<IComprobanteAux[]>(await api.get('/cotizaciones'));
 export const cambiarCotizacionFn = async (payload: {
@@ -91,6 +93,10 @@ export type VentasPosQuery = {
   desde?: string;
   hasta?: string;
   empleado_id?: string;
+  tipo?: string;
+  estado?: string;
+  cliente_id?: string;
+  numero?: string;
 };
 
 export const getVentasPosPaginadasAuxFn = async (params: VentasPosQuery) => {
@@ -101,6 +107,10 @@ export const getVentasPosPaginadasAuxFn = async (params: VentasPosQuery) => {
       desde: params.desde || undefined,
       hasta: params.hasta || undefined,
       empleado_id: params.empleado_id || undefined,
+      tipo: params.tipo || undefined,
+      estado: params.estado || undefined,
+      cliente_id: params.cliente_id || undefined,
+      numero: params.numero || undefined,
     },
   });
   return 'meta' in response.data ? response.data : response.data.data;
@@ -180,7 +190,7 @@ export const crearNotaCreditoSimpleFn = async (payload: {
   observaciones?: string;
 }) => unwrap<IComprobanteAux>(await api.post('/notas-credito', payload));
 
-export type ReporteQuery = { desde?: string; hasta?: string; caja_id?: string; empleado_id?: string };
+export type ReporteQuery = { desde?: string; hasta?: string; caja_id?: string; empleado_id?: string; page?: number; limit?: number };
 
 export type AuditoriaQuery = {
   page?: number;
@@ -215,10 +225,42 @@ export const getAuditoriaFn = async (params: AuditoriaQuery) => {
 
 export const getReporteResumenFn = async (params: ReporteQuery) =>
   unwrap<IReporteResumen>(await api.get('/reportes-pos/resumen', { params }));
+export const getReporteVentasPorDiaFn = async (params: ReporteQuery) =>
+  unwrap<IReporteVentaDia[]>(await api.get('/reportes-pos/ventas-por-dia', { params }));
+export const getReporteMediosPagoFn = async (params: ReporteQuery) =>
+  unwrap<IReporteMedioPago[]>(await api.get('/reportes-pos/medios-pago', { params }));
+export const getReporteEmpleadosFn = async (params: ReporteQuery) =>
+  unwrap<IReporteEmpleado[]>(await api.get('/reportes-pos/empleados', { params }));
 export const getReporteProductosFn = async (params: ReporteQuery) =>
   unwrap<IReporteProducto[]>(await api.get('/reportes-pos/productos', { params }));
-export const getReporteCajasFn = async (params: ReporteQuery) =>
-  unwrap<IReporteCaja[]>(await api.get('/reportes-pos/cajas', { params }));
+export const getReporteCajasFn = async (params: ReporteQuery): Promise<IReporteCajasResponse> => {
+  const response = await api.get<IReporteCajasResponse>('/reportes-pos/cajas', { params });
+  return response.data;
+};
+export const getReporteCobrosPendientesFn = async () =>
+  unwrap<IReporteCobrosPendientes>(await api.get('/reportes-pos/cobros-pendientes'));
+
+export const getReporteDiferenciasCajaFn = async (params: ReporteQuery): Promise<IReporteDiferenciasCajaResponse> => {
+  const response = await api.get<IReporteDiferenciasCajaResponse>('/reportes-pos/diferencias-caja', { params });
+  return response.data;
+};
+export const exportarReporteContableFn = async (params: ReporteQuery): Promise<Blob> => {
+  const response = await api.get('/reportes-pos/exportar/reporte-contable', { params, responseType: 'blob' });
+  return response.data as unknown as Blob;
+};
+export const exportarCobrosPendientesFn = async (): Promise<Blob> => {
+  const response = await api.get('/reportes-pos/exportar/cobros-pendientes', { responseType: 'blob' });
+  return response.data as unknown as Blob;
+};
+export const getReporteNotasCreditoFn = async (params: ReporteQuery) =>
+  unwrap<IReporteNotaCredito[]>(await api.get('/reportes-pos/notas-credito', { params }));
+export const exportarNotasCreditoFn = async (params: ReporteQuery): Promise<Blob> => {
+  const response = await api.get('/reportes-pos/exportar/notas-credito', {
+    params,
+    responseType: 'blob',
+  });
+  return response.data as unknown as Blob;
+};
 
 export const getClientesCuentaCorrienteFn = async () =>
   unwrap<IClientePos[]>(await api.get('/clientes'));

@@ -1,8 +1,10 @@
-import { AlertTriangle, Building2, HelpCircle, Layers, MapPin, Package } from 'lucide-react';
+import { AlertTriangle, Building2, HelpCircle, Layers, MapPin, Package, Store } from 'lucide-react';
 import { useFormContext } from 'react-hook-form';
 import { useGetSucursales } from '../../../Sucursal/hooks/useSucursal';
 import { StockSection } from '../ProductFormSections/StockSection';
 import { formatStockQuantity } from '../../utils/stockFormat';
+import { useStockOtrasSucursales } from '../../hooks/useAlertasStock';
+import { useAuthStore } from '../../../../store/auth.store';
 
 const formatStockLocation = (stock: any) => {
   const parts = [
@@ -21,6 +23,7 @@ const formatStockLocation = (stock: any) => {
 
 const TabStock = ({ product, onOpenStockModal, isEditing }: any) => {
   const { data: sucursales } = useGetSucursales();
+  const sucursalActiva = useAuthStore((s) => s.sucursalActiva);
   const sucursalesActivas = sucursales?.data ?? [];
   const sucursalesById = new Map(
     sucursalesActivas.map((sucursal: any) => [sucursal.id, sucursal.nombre]),
@@ -29,6 +32,15 @@ const TabStock = ({ product, onOpenStockModal, isEditing }: any) => {
   const watchedTieneVariantes = formContext
     ? formContext.watch('tiene_variantes')
     : product?.tiene_variantes;
+
+  const stocks = product?.stock ?? [];
+  const stockSucursalActiva = stocks.find((s: any) => s.sucursal_id === sucursalActiva?.id);
+  const sinStockLocal = !stockSucursalActiva || Number(stockSucursalActiva.cantidad ?? 0) === 0;
+
+  const { data: stockOtras, isLoading: cargandoOtras } = useStockOtrasSucursales(
+    product?.id,
+    !isEditing && sinStockLocal,
+  );
 
   if (watchedTieneVariantes) {
     return (
@@ -59,8 +71,6 @@ const TabStock = ({ product, onOpenStockModal, isEditing }: any) => {
       </div>
     );
   }
-
-  const stocks = product?.stock ?? [];
 
   return (
     <div className="flex flex-col gap-5 pt-3">
@@ -154,6 +164,48 @@ const TabStock = ({ product, onOpenStockModal, isEditing }: any) => {
           <p className="text-xs text-gray-400">
             Presiona el boton de ajuste rapido para agregar stock.
           </p>
+        </div>
+      )}
+
+      {/* Panel de stock en otras sucursales — solo si sin stock local y la feature está habilitada */}
+      {!isEditing && sinStockLocal && (
+        <div className="rounded-lg border border-[#c4c6cd] bg-[#f9fafb]">
+          <div className="flex items-center gap-2 border-b border-[#c4c6cd] px-4 py-3">
+            <Store size={14} className="text-[#075E54]" />
+            <span className="text-[13px] font-bold text-[#041627]">Disponible en otras sucursales</span>
+          </div>
+
+          {cargandoOtras && (
+            <p className="px-4 py-4 text-[13px] text-[#44474c]">Consultando otras sucursales...</p>
+          )}
+
+          {!cargandoOtras && stockOtras && stockOtras.length > 0 && (
+            <div className="divide-y divide-[#f0f1f3]">
+              {stockOtras.map((item) => (
+                <div key={item.sucursal_id + (item.variante ?? '')} className="flex items-center justify-between px-4 py-3">
+                  <div>
+                    <p className="text-[13px] font-semibold text-[#041627]">{item.nombre}</p>
+                    {item.variante && (
+                      <p className="text-[11px] text-[#44474c]">{item.variante}</p>
+                    )}
+                  </div>
+                  <span className={`text-[15px] font-black ${item.cantidad > 0 ? 'text-[#075E54]' : 'text-rose-500'}`}>
+                    {item.cantidad} <span className="text-[11px] font-semibold text-[#44474c]">u</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!cargandoOtras && stockOtras && stockOtras.length === 0 && (
+            <p className="px-4 py-4 text-[13px] text-[#44474c]">Sin stock en otras sucursales.</p>
+          )}
+
+          {!cargandoOtras && !stockOtras && (
+            <p className="px-4 py-4 text-[13px] text-[#8b8fa3]">
+              La consulta inter-sucursal no está habilitada. Activala en Configuración → Opciones comerciales.
+            </p>
+          )}
         </div>
       )}
     </div>

@@ -1,3 +1,6 @@
+import * as XLSX from 'xlsx';
+import type { IEmpleado } from '../types/empleado.type';
+
 export type RoleColorKey = 'green' | 'amber' | 'purple' | 'blue' | 'gray';
 
 export const ROL_COLORS: Record<RoleColorKey, { bg: string; text: string; border: string; dot: string }> = {
@@ -60,6 +63,36 @@ const formatAuditValue = (value: unknown) => {
   if (typeof value === 'object') return 'datos actualizados';
   return String(value);
 };
+
+export function exportarEmpleadosExcel(empleados: IEmpleado[], nombreArchivo = 'empleados') {
+  const filas = empleados.map((e) => ({
+    'Nombre':      e.nombreCompleto,
+    'Email':       e.email,
+    'Teléfono':    e.telefono ?? '',
+    'Cargo':       e.cargo ?? '',
+    'Roles':       e.roles.map((r) => r.nombre).join(', '),
+    'Sucursal':    e.sucursales.find((s) => s.esPrincipal)?.nombre ?? e.sucursales[0]?.nombre ?? '',
+    'Estado':      e.activo ? 'Activo' : 'Inactivo',
+  }));
+
+  const hoja = XLSX.utils.json_to_sheet(filas);
+
+  hoja['!cols'] = [
+    { wch: 30 },
+    { wch: 30 },
+    { wch: 16 },
+    { wch: 20 },
+    { wch: 25 },
+    { wch: 20 },
+    { wch: 10 },
+  ];
+
+  const libro = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(libro, hoja, 'Empleados');
+
+  const fecha = new Date().toLocaleDateString('es-AR').replace(/\//g, '-');
+  XLSX.writeFile(libro, `${nombreArchivo}_${fecha}.xlsx`);
+}
 
 export const empleadoChanges = (
   before?: Record<string, unknown> | null,

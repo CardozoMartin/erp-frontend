@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import Swal from 'sweetalert2';
 import { useGetEmpleados } from '../../Empleados/hooks/useEmpleados';
 import { useAuditoriaAux, useMovimientosCuentaCorrienteAux, useServiciosSucursal } from '../../POSAuxiliares/hooks/usePosAux';
 import { useClientes, useClienteMutations } from '../hooks/useClientes';
@@ -104,6 +105,102 @@ const ClientesPage = () => {
     form.reset(valuesFromCliente(cliente));
   };
 
+  const handleToggleActivo = async () => {
+    if (!selectedCliente) return;
+    const activar = !selectedCliente.activo;
+    const nombre = selectedCliente.razon_social || `${selectedCliente.nombre} ${selectedCliente.apellido ?? ''}`.trim();
+    const { isConfirmed } = await Swal.fire({
+      title: activar ? '¿Activar cliente?' : '¿Desactivar cliente?',
+      text: activar
+        ? `${nombre} volverá a estar disponible en el sistema.`
+        : `${nombre} quedará inactivo y no podrá operar.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: activar ? '#075E54' : '#d33',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: activar ? 'Sí, activar' : 'Sí, desactivar',
+      cancelButtonText: 'Cancelar',
+    });
+    if (!isConfirmed) return;
+    mutations.toggleActivo.mutate(selectedCliente.id);
+  };
+
+  const handleToggleCuentaCorriente = async () => {
+    if (!selectedCliente?.cuentaCorriente) return;
+    const suspender = selectedCliente.cuentaCorriente.activa;
+    const nombre = selectedCliente.razon_social || selectedCliente.nombre;
+    const { isConfirmed } = await Swal.fire({
+      title: suspender ? '¿Suspender cuenta corriente?' : '¿Reactivar cuenta corriente?',
+      text: suspender
+        ? `${nombre} no podrá operar a crédito mientras la cuenta esté suspendida.`
+        : `Se habilitará nuevamente la cuenta corriente de ${nombre}.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: suspender ? '#d33' : '#075E54',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: suspender ? 'Sí, suspender' : 'Sí, reactivar',
+      cancelButtonText: 'Cancelar',
+    });
+    if (!isConfirmed) return;
+    mutations.toggleCuentaCorriente.mutate(selectedCliente.id);
+  };
+
+  const handleBloqueo = async () => {
+    if (!selectedCliente) return;
+    const bloquear = !selectedCliente.bloqueado;
+    const nombre = selectedCliente.razon_social || selectedCliente.nombre;
+
+    if (bloquear) {
+      const { isConfirmed, value: razon } = await Swal.fire({
+        title: '¿Bloquear crédito?',
+        html: `<p style="margin-bottom:12px;font-size:14px;color:#555">El cliente <strong>${nombre}</strong> no podrá operar a crédito.</p>
+               <input id="swal-razon" class="swal2-input" placeholder="Razón del bloqueo (opcional)">`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Bloquear',
+        cancelButtonText: 'Cancelar',
+        preConfirm: () => (document.getElementById('swal-razon') as HTMLInputElement)?.value || '',
+      });
+      if (!isConfirmed) return;
+      mutations.setBloqueo.mutate({ id: selectedCliente.id, bloqueado: true, razon: razon || undefined });
+    } else {
+      const { isConfirmed } = await Swal.fire({
+        title: '¿Desbloquear crédito?',
+        text: `Se habilitará nuevamente el crédito para ${nombre}.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#075E54',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Sí, desbloquear',
+        cancelButtonText: 'Cancelar',
+      });
+      if (!isConfirmed) return;
+      mutations.setBloqueo.mutate({ id: selectedCliente.id, bloqueado: false });
+    }
+  };
+
+  const handleAccionLegal = async () => {
+    if (!selectedCliente) return;
+    const marcar = !selectedCliente.accion_legal;
+    const nombre = selectedCliente.razon_social || selectedCliente.nombre;
+    const { isConfirmed } = await Swal.fire({
+      title: marcar ? '¿Marcar acción legal?' : '¿Quitar acción legal?',
+      text: marcar
+        ? `${nombre} quedará marcado con acción legal activa y no podrá operar a crédito.`
+        : `Se quitará la marca de acción legal de ${nombre}.`,
+      icon: marcar ? 'warning' : 'question',
+      showCancelButton: true,
+      confirmButtonColor: marcar ? '#d33' : '#075E54',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: marcar ? 'Sí, marcar' : 'Sí, quitar',
+      cancelButtonText: 'Cancelar',
+    });
+    if (!isConfirmed) return;
+    mutations.setAccionLegal.mutate({ id: selectedCliente.id, accion_legal: marcar });
+  };
+
   const onSubmit = (values: ClienteFormValues) => {
     const payload = toPayload(values);
     if (creating || !selectedCliente) {
@@ -153,6 +250,12 @@ const ClientesPage = () => {
       creating={creating}
       selectedCliente={selectedCliente}
       isSaving={mutations.create.isPending || mutations.update.isPending}
+      isActualizandoEstado={
+        mutations.toggleActivo.isPending ||
+        mutations.toggleCuentaCorriente.isPending ||
+        mutations.setBloqueo.isPending ||
+        mutations.setAccionLegal.isPending
+      }
       historialCliente={historialQuery.data?.data ?? []}
       isLoadingHistorial={historialQuery.isLoading}
       empleadosById={empleadosById}
@@ -161,6 +264,10 @@ const ClientesPage = () => {
       onVerCuenta={() =>
         selectedCliente ? navigate(`/clientes/${selectedCliente.id}/cuenta`) : undefined
       }
+      onToggleActivo={handleToggleActivo}
+      onToggleCuentaCorriente={handleToggleCuentaCorriente}
+      onBloqueo={handleBloqueo}
+      onAccionLegal={handleAccionLegal}
     />
   );
 };

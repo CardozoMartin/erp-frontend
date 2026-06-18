@@ -37,8 +37,16 @@ import {
   getMovimientosCuentaCorrienteFn,
   getNotasCreditoFn,
   getReporteCajasFn,
+  getReporteCobrosPendientesFn,
+  exportarCobrosPendientesFn,
+  getReporteDiferenciasCajaFn,
+  getReporteNotasCreditoFn,
   getReporteProductosFn,
   getReporteResumenFn,
+  getReporteVentasPorDiaFn,
+  getReporteMediosPagoFn,
+  getReporteEmpleadosFn,
+  exportarNotasCreditoFn,
   getResumenCajaFn,
   getVentasPosAuxFn,
   getVentasGeneralFn,
@@ -135,8 +143,106 @@ export const useReportesAux = (params: ReporteQuery, enabledExtra = true) => {
   const queryKey = ['pos-aux', 'reportes', params];
   const resumen = useQuery({ queryKey: [...queryKey, 'resumen'], queryFn: () => getReporteResumenFn(params), enabled: enabled && enabledExtra });
   const productos = useQuery({ queryKey: [...queryKey, 'productos'], queryFn: () => getReporteProductosFn(params), enabled: enabled && enabledExtra });
-  const cajas = useQuery({ queryKey: [...queryKey, 'cajas'], queryFn: () => getReporteCajasFn(params), enabled: enabled && enabledExtra });
-  return { resumen, productos, cajas };
+  const notasCredito = useQuery({ queryKey: [...queryKey, 'notas-credito'], queryFn: () => getReporteNotasCreditoFn(params), enabled: enabled && enabledExtra });
+  return { resumen, productos, notasCredito };
+};
+
+export const useReporteCajas = (params: ReporteQuery, enabledExtra = true) => {
+  const enabled = useSucursalEnabled();
+  return useQuery({
+    queryKey: ['pos-aux', 'reportes', 'cajas', params],
+    queryFn: () => getReporteCajasFn(params),
+    enabled: enabled && enabledExtra,
+    placeholderData: (prev) => prev,
+  });
+};
+
+export const useReporteVentasPorDia = (params: ReporteQuery, enabledExtra = true) => {
+  const enabled = useSucursalEnabled();
+  return useQuery({
+    queryKey: ['pos-aux', 'reportes', 'ventas-por-dia', params],
+    queryFn: () => getReporteVentasPorDiaFn(params),
+    enabled: enabled && enabledExtra,
+  });
+};
+
+export const useReporteMediosPago = (params: ReporteQuery, enabledExtra = true) => {
+  const enabled = useSucursalEnabled();
+  return useQuery({
+    queryKey: ['pos-aux', 'reportes', 'medios-pago', params],
+    queryFn: () => getReporteMediosPagoFn(params),
+    enabled: enabled && enabledExtra,
+  });
+};
+
+export const useReporteEmpleados = (params: ReporteQuery, enabledExtra = true) => {
+  const enabled = useSucursalEnabled();
+  return useQuery({
+    queryKey: ['pos-aux', 'reportes', 'empleados', params],
+    queryFn: () => getReporteEmpleadosFn(params),
+    enabled: enabled && enabledExtra,
+  });
+};
+
+export const useReporteProductosCaja = (cajaId: string | null, params: ReporteQuery) => {
+  const enabled = useSucursalEnabled();
+  return useQuery({
+    queryKey: ['pos-aux', 'reportes', 'productos-caja', cajaId, params],
+    queryFn: () => getReporteProductosFn({ ...params, caja_id: cajaId! }),
+    enabled: enabled && !!cajaId,
+    placeholderData: (prev) => prev,
+  });
+};
+
+export const useReporteDiferenciasCaja = (params: ReporteQuery, enabledExtra = true) => {
+  const enabled = useSucursalEnabled();
+  return useQuery({
+    queryKey: ['pos-aux', 'reportes', 'diferencias-caja', params],
+    queryFn: () => getReporteDiferenciasCajaFn(params),
+    enabled: enabled && enabledExtra,
+    placeholderData: (prev) => prev,
+  });
+};
+
+export const useReporteCobrosPendientes = (enabledExtra = true) => {
+  const enabled = useSucursalEnabled();
+  return useQuery({
+    queryKey: ['pos-aux', 'reportes', 'cobros-pendientes'],
+    queryFn: getReporteCobrosPendientesFn,
+    enabled: enabled && enabledExtra,
+  });
+};
+
+export const useExportarCobrosPendientes = () => {
+  return useMutation({
+    mutationFn: exportarCobrosPendientesFn,
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'cobros-pendientes.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Exportación descargada');
+    },
+    onError: () => toast.error('No se pudo exportar el reporte'),
+  });
+};
+
+export const useExportarNotasCredito = () => {
+  return useMutation({
+    mutationFn: exportarNotasCreditoFn,
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'notas-credito.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Exportación descargada');
+    },
+    onError: () => toast.error('No se pudo exportar el reporte'),
+  });
 };
 
 export const useAuditoriaAux = (params: AuditoriaQuery, enabledExtra: boolean = true) => {
@@ -218,7 +324,7 @@ export const useServiciosSucursal = (enabledExtra = true) => {
     queryKey: ['pos-aux', 'servicios-sucursal', sucursalId],
     queryFn: getEstadoServiciosSucursalFn,
     enabled: !!sucursalId && enabledExtra,
-    staleTime: 30_000,
+    staleTime: 0,
     refetchOnMount: 'always',
   });
 };

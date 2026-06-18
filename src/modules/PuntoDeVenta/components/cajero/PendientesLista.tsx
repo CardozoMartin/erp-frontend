@@ -1,7 +1,8 @@
-import { Clock, ReceiptText, Search } from 'lucide-react';
+import { Clock, Lock, ReceiptText, Search } from 'lucide-react';
 import type { IComprobantePos } from '../../types/pos.type';
 import { formatCurrency, toNumber } from '../../utils/pos.utils';
 import type { ICaja } from '../../../Cajas/types/caja.type';
+import { useAuthStore } from '../../../../store/auth.store';
 
 interface Props {
   ventasPendientes: IComprobantePos[];
@@ -22,6 +23,7 @@ export const PendientesLista = ({
   onSearchChange,
   onSelectPendiente,
 }: Props) => {
+  const empleadoId = useAuthStore(s => s.empleado?.id);
   return (
     <section className="border-b border-[#c4c6cd] lg:border-b-0 lg:border-r">
       {/* Encabezado */}
@@ -73,34 +75,55 @@ export const PendientesLista = ({
           </div>
         ) : (
           <div className="space-y-2">
-            {ventasPendientes.map(venta => (
-              <button
-                key={venta.id}
-                type="button"
-                onClick={() => onSelectPendiente(venta.id)}
-                className={`w-full rounded border px-3 py-3 text-left hover:bg-[#f8fafc] ${
-                  selectedPendienteId === venta.id
-                    ? 'border-[#075E54] bg-[#eef8f6]'
-                    : 'border-[#e5e7eb] bg-white'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="truncate text-[14px] font-bold text-[#041627]">{venta.numero}</div>
-                    <div className="text-[12px] text-[#44474c]">
-                      {venta.items?.length ?? 0} productos | {venta.estado}
+            {ventasPendientes.map(venta => {
+              const tomadaPorOtro =
+                !!venta.tomada_por_cajero_id &&
+                venta.tomada_por_cajero_id !== empleadoId;
+              return (
+                <button
+                  key={venta.id}
+                  type="button"
+                  disabled={tomadaPorOtro}
+                  onClick={() => !tomadaPorOtro && onSelectPendiente(venta.id)}
+                  className={`w-full rounded border px-3 py-3 text-left transition-colors ${
+                    tomadaPorOtro
+                      ? 'cursor-not-allowed border-[#e5e7eb] bg-[#f4f5f6] opacity-70'
+                      : selectedPendienteId === venta.id
+                        ? 'border-[#075E54] bg-[#eef8f6]'
+                        : 'border-[#e5e7eb] bg-white hover:bg-[#f8fafc]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-[14px] font-bold text-[#041627]">{venta.numero}</span>
+                        {tomadaPorOtro && (
+                          <span className="flex shrink-0 items-center gap-1 rounded bg-[#fff3cd] px-1.5 py-0.5 text-[10px] font-semibold text-[#856404]">
+                            <Lock size={9} />
+                            En cobro
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[12px] text-[#44474c]">
+                        {venta.items?.length ?? 0} productos | {venta.estado}
+                      </div>
+                      {tomadaPorOtro && venta.tomada_por?.nombreCompleto && (
+                        <div className="mt-0.5 text-[11px] font-medium text-[#856404]">
+                          {venta.tomada_por.nombreCompleto}
+                        </div>
+                      )}
+                      <div className="mt-1 flex items-center gap-1 text-[11px] text-[#44474c]">
+                        <Clock size={12} />
+                        {new Date(venta.created_at).toLocaleString('es-AR')}
+                      </div>
                     </div>
-                    <div className="mt-1 flex items-center gap-1 text-[11px] text-[#44474c]">
-                      <Clock size={12} />
-                      {new Date(venta.created_at).toLocaleString('es-AR')}
+                    <div className="text-right text-[15px] font-bold text-[#041627]">
+                      {formatCurrency(toNumber(venta.total))}
                     </div>
                   </div>
-                  <div className="text-right text-[15px] font-bold text-[#041627]">
-                    {formatCurrency(toNumber(venta.total))}
-                  </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

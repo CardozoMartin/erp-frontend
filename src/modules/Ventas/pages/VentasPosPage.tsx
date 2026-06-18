@@ -1,12 +1,15 @@
 import {
   CalendarDays,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Eye,
   FileText,
+  Filter,
   Printer,
   ReceiptText,
   RotateCcw,
+  X,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useAuthStore } from '../../../store/auth.store';
@@ -21,9 +24,66 @@ import { imprimirComprobante } from '../../POSAuxiliares/utils/printComprobante'
 import { hasAnyPermission, POS_PERMISSIONS } from '../../POSAuxiliares/utils/posPermissions';
 
 const todayInput = () => {
-  const date = new Date();
-  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-  return date.toISOString().slice(0, 10);
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
+};
+
+const isoDate = (d: Date) => {
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
+};
+
+const TIPOS_OPERACION = [
+  { value: '',              label: 'Todos los tipos' },
+  { value: 'VENTA',        label: 'Venta' },
+  { value: 'TICKET',       label: 'Ticket' },
+  { value: 'COTIZACION',   label: 'Cotización' },
+  { value: 'FACTURA_A',    label: 'Factura A' },
+  { value: 'FACTURA_B',    label: 'Factura B' },
+  { value: 'FACTURA_C',    label: 'Factura C' },
+  { value: 'REMITO',       label: 'Remito' },
+  { value: 'NOTA_CREDITO', label: 'Nota de crédito' },
+];
+
+const ESTADOS_OPERACION = [
+  { value: '',                label: 'Todos los estados' },
+  { value: 'BORRADOR',        label: 'Borrador' },
+  { value: 'PENDIENTE_COBRO', label: 'Pendiente de cobro' },
+  { value: 'COBRADA',         label: 'Cobrada' },
+  { value: 'ENTREGADO',       label: 'Entregado' },
+  { value: 'ENTREGADO_PARCIAL', label: 'Entregado parcial' },
+  { value: 'ANULADO',         label: 'Anulado' },
+  { value: 'CANCELADA',       label: 'Cancelada' },
+  { value: 'DEVUELTA',        label: 'Devuelta' },
+];
+
+type Preset = 'hoy' | 'semana' | 'mes' | 'anio' | 'personalizado';
+
+const PRESETS: { value: Preset; label: string }[] = [
+  { value: 'hoy',          label: 'Hoy' },
+  { value: 'semana',       label: 'Esta semana' },
+  { value: 'mes',          label: 'Este mes' },
+  { value: 'anio',         label: 'Este año' },
+  { value: 'personalizado', label: 'Personalizado' },
+];
+
+const calcPreset = (preset: Preset): { desde: string; hasta: string } => {
+  const hoy = new Date();
+  const hasta = isoDate(new Date(hoy));
+  if (preset === 'hoy') return { desde: hasta, hasta };
+  if (preset === 'semana') {
+    const lunes = new Date(hoy);
+    lunes.setDate(hoy.getDate() - hoy.getDay() + (hoy.getDay() === 0 ? -6 : 1));
+    return { desde: isoDate(lunes), hasta };
+  }
+  if (preset === 'mes') {
+    return { desde: isoDate(new Date(hoy.getFullYear(), hoy.getMonth(), 1)), hasta };
+  }
+  if (preset === 'anio') {
+    return { desde: isoDate(new Date(hoy.getFullYear(), 0, 1)), hasta };
+  }
+  return { desde: hasta, hasta };
 };
 
 const VentasPosPage = () => {
@@ -33,19 +93,32 @@ const VentasPosPage = () => {
   const puedeDevolver = permisos.includes(POS_PERMISSIONS.ventasCancelarPagada);
   const puedeFiltrarEmpleado =
     permisos.includes('reportes.ver') || permisos.includes('reportes.ventas') || permisos.includes('config.pos');
+
   const [page, setPage] = useState(1);
+  const [preset, setPreset] = useState<Preset>('hoy');
   const [desde, setDesde] = useState(todayInput());
   const [hasta, setHasta] = useState(todayInput());
   const [empleadoId, setEmpleadoId] = useState('');
+  const [tipo, setTipo] = useState('');
+  const [estado, setEstado] = useState('');
+  const [numero, setNumero] = useState('');
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
+
   const [selectedVentaId, setSelectedVentaId] = useState<string | null>(null);
   const [rowMenu, setRowMenu] = useState<{ x: number; y: number; venta: IComprobanteAux } | null>(null);
+
+  const hayFiltrosExtra = !!(empleadoId || tipo || estado || numero);
+
   const ventasQuery = useVentasPosPaginadasAux(
     {
       page,
       limit: 50,
       desde,
       hasta,
-      empleado_id: puedeFiltrarEmpleado ? empleadoId : undefined,
+      empleado_id: puedeFiltrarEmpleado ? empleadoId || undefined : undefined,
+      tipo: tipo || undefined,
+      estado: estado || undefined,
+      numero: numero || undefined,
     },
     puedeVerVentas,
   );
@@ -60,19 +133,30 @@ const VentasPosPage = () => {
     () => ventas.find((venta) => venta.id === selectedVentaId) ?? ventas[0] ?? null,
     [selectedVentaId, ventas],
   );
+
   const printVenta = (venta: IComprobanteAux) =>
     imprimirComprobante(venta, { titulo: 'Venta POS', config: configQuery.data });
 
   const emitir = (tipo: 'TICKET' | 'FACTURA_A' | 'FACTURA_B' | 'FACTURA_C') => {
-    if (!puedeEmitirFiscal) return;
-    if (!selectedVenta) return;
+    if (!puedeEmitirFiscal || !selectedVenta) return;
     mutations.emitirComprobanteVenta.mutate({ ventaId: selectedVenta.id, tipo });
   };
 
-  const resetToday = () => {
-    const today = todayInput();
-    setDesde(today);
-    setHasta(today);
+  const aplicarPreset = (p: Preset) => {
+    setPreset(p);
+    if (p !== 'personalizado') {
+      const rango = calcPreset(p);
+      setDesde(rango.desde);
+      setHasta(rango.hasta);
+    }
+    setPage(1);
+  };
+
+  const limpiarFiltros = () => {
+    setEmpleadoId('');
+    setTipo('');
+    setEstado('');
+    setNumero('');
     setPage(1);
   };
 
@@ -99,7 +183,26 @@ const VentasPosPage = () => {
             </span>
           </div>
 
-          <div className="grid gap-3 border-b border-[#c4c6cd] bg-[#fbfbfc] px-4 py-3 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1.25fr_auto]">
+          {/* ── Presets de período ── */}
+          <div className="flex items-center gap-1 border-b border-[#c4c6cd] bg-[#fbfbfc] px-4 py-2 overflow-x-auto">
+            {PRESETS.map((p) => (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() => aplicarPreset(p.value)}
+                className={`whitespace-nowrap rounded-md px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+                  preset === p.value
+                    ? 'bg-[#041627] text-white'
+                    : 'border border-[#c4c6cd] bg-white text-[#44474c] hover:bg-[#efedef]'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {/* ── Fechas + botón filtros avanzados ── */}
+          <div className="flex flex-wrap items-end gap-3 border-b border-[#c4c6cd] bg-[#fbfbfc] px-4 py-3">
             <label className="text-[12px] font-semibold text-[#041627]">
               Desde
               <div className="mt-1 flex h-9 items-center gap-2 rounded border border-[#c4c6cd] bg-white px-2">
@@ -107,11 +210,8 @@ const VentasPosPage = () => {
                 <input
                   type="date"
                   value={desde}
-                  onChange={(event) => {
-                    setDesde(event.target.value);
-                    setPage(1);
-                  }}
-                  className="h-full min-w-0 flex-1 bg-transparent text-[13px] outline-none"
+                  onChange={(e) => { setDesde(e.target.value); setPreset('personalizado'); setPage(1); }}
+                  className="h-full min-w-0 bg-transparent text-[13px] outline-none"
                 />
               </div>
             </label>
@@ -122,42 +222,97 @@ const VentasPosPage = () => {
                 <input
                   type="date"
                   value={hasta}
-                  onChange={(event) => {
-                    setHasta(event.target.value);
-                    setPage(1);
-                  }}
-                  className="h-full min-w-0 flex-1 bg-transparent text-[13px] outline-none"
+                  onChange={(e) => { setHasta(e.target.value); setPreset('personalizado'); setPage(1); }}
+                  className="h-full min-w-0 bg-transparent text-[13px] outline-none"
                 />
               </div>
             </label>
-            {puedeFiltrarEmpleado ? (
-              <label className="text-[12px] font-semibold text-[#041627]">
-                Empleado
-                <select
-                  value={empleadoId}
-                  onChange={(event) => {
-                    setEmpleadoId(event.target.value);
-                    setPage(1);
-                  }}
-                  className="mt-1 h-9 w-full rounded border border-[#c4c6cd] bg-white px-2 text-[13px] outline-none"
+
+            <div className="ml-auto flex items-center gap-2">
+              {hayFiltrosExtra && (
+                <button
+                  type="button"
+                  onClick={limpiarFiltros}
+                  className="flex h-9 items-center gap-1.5 rounded border border-[#c4c6cd] bg-white px-3 text-[12px] font-semibold text-[#44474c] hover:bg-[#fce8e8] hover:text-[#ba1a1a]"
                 >
-                  <option value="">Todos</option>
-                  {empleados.map((empleado) => (
-                    <option key={empleado.id} value={empleado.id}>
-                      {empleado.nombreCompleto}
-                    </option>
+                  <X size={13} /> Limpiar
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setFiltrosAbiertos((v) => !v)}
+                className={`flex h-9 items-center gap-1.5 rounded border px-3 text-[12px] font-semibold transition-colors ${
+                  filtrosAbiertos || hayFiltrosExtra
+                    ? 'border-[#075E54] bg-[#f0faf8] text-[#075E54]'
+                    : 'border-[#c4c6cd] bg-white text-[#44474c] hover:bg-[#efedef]'
+                }`}
+              >
+                <Filter size={13} />
+                Filtros avanzados
+                {hayFiltrosExtra && (
+                  <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#075E54] text-[10px] font-bold text-white">
+                    {[empleadoId, tipo, estado, numero].filter(Boolean).length}
+                  </span>
+                )}
+                <ChevronDown size={13} className={`transition-transform ${filtrosAbiertos ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
+          </div>
+
+          {/* ── Panel filtros avanzados ── */}
+          {filtrosAbiertos && (
+            <div className="grid gap-3 border-b border-[#c4c6cd] bg-[#f8fafc] px-4 py-3 sm:grid-cols-2 xl:grid-cols-4">
+              {puedeFiltrarEmpleado && (
+                <label className="text-[12px] font-semibold text-[#041627]">
+                  Empleado
+                  <select
+                    value={empleadoId}
+                    onChange={(e) => { setEmpleadoId(e.target.value); setPage(1); }}
+                    className="mt-1 h-9 w-full rounded border border-[#c4c6cd] bg-white px-2 text-[13px] outline-none focus:border-[#075E54]"
+                  >
+                    <option value="">Todos los empleados</option>
+                    {empleados.map((emp) => (
+                      <option key={emp.id} value={emp.id}>{emp.nombreCompleto}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <label className="text-[12px] font-semibold text-[#041627]">
+                Tipo de operación
+                <select
+                  value={tipo}
+                  onChange={(e) => { setTipo(e.target.value); setPage(1); }}
+                  className="mt-1 h-9 w-full rounded border border-[#c4c6cd] bg-white px-2 text-[13px] outline-none focus:border-[#075E54]"
+                >
+                  {TIPOS_OPERACION.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
                   ))}
                 </select>
               </label>
-            ) : null}
-            <button
-              type="button"
-              onClick={resetToday}
-              className="mt-auto h-9 rounded border border-[#c4c6cd] bg-white px-3 text-[12px] font-semibold text-[#041627] hover:bg-[#f4f5f6]"
-            >
-              Hoy
-            </button>
-          </div>
+              <label className="text-[12px] font-semibold text-[#041627]">
+                Estado
+                <select
+                  value={estado}
+                  onChange={(e) => { setEstado(e.target.value); setPage(1); }}
+                  className="mt-1 h-9 w-full rounded border border-[#c4c6cd] bg-white px-2 text-[13px] outline-none focus:border-[#075E54]"
+                >
+                  {ESTADOS_OPERACION.map((e) => (
+                    <option key={e.value} value={e.value}>{e.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-[12px] font-semibold text-[#041627]">
+                N° de comprobante
+                <input
+                  type="text"
+                  value={numero}
+                  onChange={(e) => { setNumero(e.target.value); setPage(1); }}
+                  placeholder="Ej: 00001-00000042"
+                  className="mt-1 h-9 w-full rounded border border-[#c4c6cd] bg-white px-2 text-[13px] outline-none focus:border-[#075E54]"
+                />
+              </label>
+            </div>
+          )}
 
           <div className="max-h-[620px] overflow-auto">
             {ventas.map((venta) => (

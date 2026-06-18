@@ -8,8 +8,11 @@ import { useAuthStore } from '../../../../store/auth.store';
 import { useEmpleadoStore } from '../../store/useEmpleadoStore';
 import type { IEmpleado } from '../../types/empleado.type';
 
+type FiltroEstado = 'todos' | 'activos' | 'inactivos';
+
 type Props = {
   search?: string;
+  filtroEstado?: FiltroEstado;
 };
 
 const LIMIT = 10;
@@ -29,7 +32,7 @@ const money = (value: unknown) =>
     maximumFractionDigits: 0,
   });
 
-const TableEmployer = ({ search = '' }: Props) => {
+const TableEmployer = ({ search = '', filtroEstado = 'todos' }: Props) => {
   const [currentPage, setCurrentPage] = useState(1);
   const sucursalActivaId = useAuthStore((state) => state.sucursalActiva?.id);
   const navigate = useNavigate();
@@ -55,8 +58,11 @@ const TableEmployer = ({ search = '' }: Props) => {
           )
         : true;
       if (!perteneceSucursalActiva) return false;
-      if (!term) return true;
 
+      if (filtroEstado === 'activos' && !empleado.activo) return false;
+      if (filtroEstado === 'inactivos' && empleado.activo) return false;
+
+      if (!term) return true;
       const roles = empleado.roles.map((rol) => rol.nombre).join(' ');
       return (
         empleado.nombreCompleto.toLowerCase().includes(term) ||
@@ -65,7 +71,7 @@ const TableEmployer = ({ search = '' }: Props) => {
         roles.toLowerCase().includes(term)
       );
     });
-  }, [empleados, search, sucursalActivaId]);
+  }, [empleados, search, sucursalActivaId, filtroEstado]);
 
   const openEmpleado = (empleado: IEmpleado) => {
     setEmpleado(empleado);

@@ -1,4 +1,4 @@
-import { ArrowLeft, CreditCard, FileText, Loader2, Mail, PackageCheck, Pencil, Printer, ReceiptText, Save, Truck, X } from 'lucide-react';
+import { ArrowLeft, CreditCard, FileText, Loader2, Mail, PackageCheck, Pencil, Printer, ReceiptText, RotateCcw, Save, Truck, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -18,6 +18,8 @@ import { imprimirComprobante } from '../../POSAuxiliares/utils/printComprobante'
 type TipoFiscal = 'TICKET' | 'FACTURA_A' | 'FACTURA_B' | 'FACTURA_C';
 type MotivoPendiente = '' | 'RETIRA_LUEGO' | 'SIN_STOCK' | 'EN_GARANTIA';
 type EntregaDraft = Record<string, { cantidad: string; motivo: MotivoPendiente }>;
+type DestinoNC = 'SOLO_EMITIR' | 'SALDO_CUENTA' | 'REEMBOLSO';
+type NcItemDraft = Record<string, string>;
 
 const toInputDate = (value?: string | null) => {
   if (!value) return '';
@@ -118,6 +120,12 @@ const VentaDetallePage = () => {
   const [editing, setEditing] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const [pagoOpen, setPagoOpen] = useState(false);
+  const [ncOpen, setNcOpen] = useState(false);
+  const [ncItems, setNcItems] = useState<NcItemDraft>({});
+  const [ncDestino, setNcDestino] = useState<DestinoNC>('SOLO_EMITIR');
+  const [ncReingresarStock, setNcReingresarStock] = useState(true);
+  const [ncMedioPagoId, setNcMedioPagoId] = useState('');
+  const [ncReferencia, setNcReferencia] = useState('');
   const [medioPagoId, setMedioPagoId] = useState('');
   const [referenciaPago, setReferenciaPago] = useState('');
   const [emailDestino, setEmailDestino] = useState('');
@@ -148,6 +156,7 @@ const VentaDetallePage = () => {
     const ids = new Set([venta.comprobante.id, ...venta.fiscales.map((fiscal) => fiscal.id)]);
     return (despachosQuery.data ?? []).find((item) => ids.has(item.comprobante_id)) ?? null;
   }, [despachosQuery.data, venta]);
+  const esCotizacion = !!venta && venta.comprobante.tipo === 'COTIZACION';
   const puedeFacturar =
     !!venta &&
     venta.comprobante.tipo === 'VENTA' &&
@@ -156,11 +165,21 @@ const VentaDetallePage = () => {
     !!venta &&
     ['BORRADOR', 'ENVIADO', 'PENDIENTE_COBRO'].includes(venta.comprobante.estado);
   const puedeCobrar = permisos.includes(POS_PERMISSIONS.cajaCobrar);
+  const puedeNotaCredito =
+    !!venta &&
+    !esCotizacion &&
+    permisos.includes(POS_PERMISSIONS.ventasCancelarPagada) &&
+    ['COBRADA', 'EMITIDA', 'ENTREGADO', 'ENTREGADO_PARCIAL'].includes(venta.comprobante.estado) &&
+    venta.comprobante.estado !== 'DEVUELTA';
   const puedeMarcarPagada =
     !!venta &&
+    !esCotizacion &&
     puedeCobrar &&
     ['BORRADOR', 'PENDIENTE_COBRO'].includes(venta.comprobante.estado);
-  const usaDespacho = configQuery.data?.modo_pos === 'CON_DESPACHO' || !!despacho;
+  const usaDespacho =
+    !esCotizacion &&
+    !['DEVUELTA', 'ANULADO', 'CANCELADA'].includes(venta?.comprobante.estado ?? '') &&
+    (configQuery.data?.modo_pos === 'CON_DESPACHO' || !!despacho);
   const comprobanteParaEnviar = useMemo(() => {
     if (!venta) return null;
     return venta.fiscales[0] ?? venta.comprobante;
@@ -177,6 +196,66 @@ const VentaDetallePage = () => {
       setMedioPagoId(mediosPago[0].id);
     }
   }, [medioPagoId, mediosPago]);
+
+  const abrirNotaCredito = () => {
+    if (!venta) return;
+    const devueltosPorItem = new Map<string, number>();
+    for (const nc of venta.notasCredito) {
+      for (const ncItem of nc.items ?? []) {
+        if (!ncItem.comprobante_item_origen_id) continue;
+        devueltosPorItem.set(
+          ncItem.comprobante_item_origen_id,
+          (devueltosPorItem.get(ncItem.comprobante_item_origen_id) ?? 0) + toNumber(ncItem.cantidad),
+        );
+      }
+    }
+    setNcItems(
+      Object.fromEntries(
+        venta.comprobante.items.map((item) => {
+          const disponible = Math.max(0, toNumber(item.cantidad) - (devueltosPorItem.get(item.id) ?? 0));
+          return [item.id, String(disponible)];
+        }),
+      ),
+    );
+    setNcDestino('SOLO_EMITIR');
+    setNcReingresarStock(true);
+    setNcMedioPagoId(mediosPago[0]?.id ?? '');
+    setNcReferencia('');
+    setNcOpen(true);
+  };
+
+  const emitirNotaCredito = () => {
+    if (!venta) return;
+    const itemsFiltrados = venta.comprobante.items
+      .map((item) => ({ comprobante_item_id: item.id, cantidad: Number(ncItems[item.id] ?? 0) }))
+      .filter((item) => item.cantidad > 0);
+    if (!itemsFiltrados.length) {
+      toast.warning('Seleccioná al menos un producto para devolver');
+      return;
+    }
+    if (ncDestino === 'REEMBOLSO' && !cajaAbierta) {
+      toast.warning('Necesitás una caja abierta para registrar el reembolso');
+      return;
+    }
+    mutations.crearNotaCredito.mutate(
+      {
+        comprobante_origen_id: venta.comprobante.id,
+        items: itemsFiltrados,
+        destino: ncDestino,
+        reingresar_stock: ncReingresarStock,
+        caja_id: ncDestino === 'REEMBOLSO' ? cajaAbierta?.id : undefined,
+        medio_pago_id: ncDestino === 'REEMBOLSO' && ncMedioPagoId ? ncMedioPagoId : undefined,
+        referencia: ncDestino === 'REEMBOLSO' && ncReferencia.trim() ? ncReferencia.trim() : undefined,
+      },
+      {
+        onSuccess: () => {
+          setNcOpen(false);
+          ventasQuery.refetch();
+          historialQuery.refetch();
+        },
+      },
+    );
+  };
 
   const imprimir = () => {
     if (!venta) return;
@@ -347,6 +426,16 @@ const VentaDetallePage = () => {
                       <CreditCard size={14} />
                     )}
                     Marcar pagada
+                  </button>
+                ) : null}
+                {puedeNotaCredito ? (
+                  <button
+                    type="button"
+                    onClick={abrirNotaCredito}
+                    className="inline-flex h-9 items-center gap-2 rounded border border-[#f1c7c7] bg-[#fff5f5] px-3 text-[12px] font-semibold text-[#b42318] hover:bg-[#fdecec]"
+                  >
+                    <RotateCcw size={14} />
+                    Nota de crédito
                   </button>
                 ) : null}
                 {emailDisponible ? (
@@ -565,6 +654,139 @@ const VentaDetallePage = () => {
                     Necesitas una caja abierta para registrar el cobro.
                   </div>
                 ) : null}
+              </div>
+            ) : null}
+            {ncOpen && venta ? (
+              <div className="mb-4 rounded-lg border border-[#f1c7c7] bg-white p-4 shadow-sm">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="text-[14px] font-bold text-[#041627]">Nota de crédito / Devolución</div>
+                    <div className="text-[12px] text-[#44474c]">
+                      Seleccioná los productos a devolver y el destino del importe.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setNcOpen(false)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded border border-[#c4c6cd] bg-white text-[#041627] hover:bg-[#f4f5f6]"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+
+                {/* Items a devolver */}
+                <div className="mb-3 overflow-auto rounded border border-[#e5e7eb]">
+                  <table className="w-full min-w-[500px] border-collapse text-[13px]">
+                    <thead className="bg-[#fbf9fa] text-[11px] font-bold uppercase text-[#44474c]">
+                      <tr>
+                        <th className="px-3 py-2 text-left">Producto</th>
+                        <th className="px-3 py-2 text-right">Vendido</th>
+                        <th className="px-3 py-2 text-right">Precio</th>
+                        <th className="px-3 py-2 text-right w-32">Devolver</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {venta.comprobante.items.map((item) => (
+                        <tr key={item.id} className="border-t border-[#e5e7eb]">
+                          <td className="px-3 py-2 font-semibold text-[#041627]">{item.descripcion}</td>
+                          <td className="px-3 py-2 text-right text-[#44474c]">{toNumber(item.cantidad)}</td>
+                          <td className="px-3 py-2 text-right text-[#44474c]">{money(item.precio_unitario)}</td>
+                          <td className="px-3 py-2 text-right">
+                            <input
+                              type="number"
+                              min={0}
+                              max={toNumber(item.cantidad)}
+                              value={ncItems[item.id] ?? '0'}
+                              onChange={(event) =>
+                                setNcItems((prev) => ({ ...prev, [item.id]: event.target.value }))
+                              }
+                              className="h-8 w-24 rounded border border-[#c4c6cd] px-2 text-right text-[13px] outline-none focus:border-[#b42318]"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Opciones */}
+                <div className="mb-3 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+                  <label className="text-[12px] font-semibold text-[#041627]">
+                    Destino del importe
+                    <select
+                      value={ncDestino}
+                      onChange={(event) => setNcDestino(event.target.value as DestinoNC)}
+                      className="mt-1 h-9 w-full rounded border border-[#c4c6cd] bg-white px-2 text-[13px] outline-none focus:border-[#b42318]"
+                    >
+                      <option value="SOLO_EMITIR">Solo emitir nota (sin movimiento)</option>
+                      <option value="SALDO_CUENTA" disabled={!venta.comprobante.cliente_id}>
+                        Saldo a favor en cuenta corriente
+                      </option>
+                      <option value="REEMBOLSO">Reembolso en efectivo (egreso de caja)</option>
+                    </select>
+                  </label>
+                  {ncDestino === 'REEMBOLSO' ? (
+                    <label className="text-[12px] font-semibold text-[#041627]">
+                      Medio de devolución
+                      <select
+                        value={ncMedioPagoId}
+                        onChange={(event) => setNcMedioPagoId(event.target.value)}
+                        className="mt-1 h-9 w-full rounded border border-[#c4c6cd] bg-white px-2 text-[13px] outline-none focus:border-[#b42318]"
+                      >
+                        {mediosPago.map((medio) => (
+                          <option key={medio.id} value={medio.id}>{medio.nombre}</option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : (
+                    <div />
+                  )}
+                  <label className="flex items-center gap-2 self-end pb-1 text-[13px] font-semibold text-[#041627]">
+                    <input
+                      type="checkbox"
+                      checked={ncReingresarStock}
+                      onChange={(event) => setNcReingresarStock(event.target.checked)}
+                      className="h-4 w-4 accent-[#075E54]"
+                    />
+                    Reingresar stock
+                  </label>
+                </div>
+
+                {ncDestino === 'REEMBOLSO' && (
+                  <div className="mb-3">
+                    <label className="text-[12px] font-semibold text-[#041627]">
+                      Referencia (opcional)
+                      <input
+                        value={ncReferencia}
+                        onChange={(event) => setNcReferencia(event.target.value)}
+                        placeholder="Número de transferencia, recibo, etc."
+                        className="mt-1 h-9 w-full rounded border border-[#c4c6cd] px-2 text-[13px] outline-none focus:border-[#b42318]"
+                      />
+                    </label>
+                  </div>
+                )}
+
+                {ncDestino === 'REEMBOLSO' && !cajaAbierta && (
+                  <div className="mb-3 rounded border border-[#f1c7c7] bg-[#fff5f5] px-3 py-2 text-[12px] font-semibold text-[#b42318]">
+                    Necesitás una caja abierta para registrar el reembolso.
+                  </div>
+                )}
+
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={emitirNotaCredito}
+                    disabled={mutations.crearNotaCredito.isPending || (ncDestino === 'REEMBOLSO' && !cajaAbierta)}
+                    className="inline-flex h-9 items-center gap-2 rounded bg-[#b42318] px-4 text-[12px] font-semibold text-white hover:bg-[#9a1e14] disabled:opacity-50"
+                  >
+                    {mutations.crearNotaCredito.isPending ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <RotateCcw size={14} />
+                    )}
+                    Emitir nota de crédito
+                  </button>
+                </div>
               </div>
             ) : null}
             <VentaDetalleFicha venta={venta} />
