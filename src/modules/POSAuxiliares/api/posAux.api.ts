@@ -119,11 +119,16 @@ export const getVentasPosPaginadasAuxFn = async (params: VentasPosQuery) => {
 export const emitirComprobanteVentaAuxFn = async (payload: {
   ventaId: string;
   tipo: 'TICKET' | 'FACTURA_A' | 'FACTURA_B' | 'FACTURA_C';
+  /** Solo si la venta no lo tiene o hay que cambiarlo al facturar */
+  clienteId?: string | null;
 }) =>
   unwrap<IComprobanteAux>(
     await api.post(`/pos-ventas/${payload.ventaId}/emitir-comprobante`, {
       venta_id: payload.ventaId,
-      comprobante_fiscal: { tipo: payload.tipo },
+      comprobante_fiscal: {
+        tipo: payload.tipo,
+        ...(payload.clienteId ? { cliente_id: payload.clienteId } : {}),
+      },
     }),
   );
 
@@ -148,6 +153,27 @@ export const enviarComprobanteEmailFn = async (payload: {
       mensaje: payload.mensaje || undefined,
     }),
   );
+/**
+ * QR fiscal del comprobante como data URI. Lo genera el backend para no depender
+ * de un servicio externo al imprimir. Devuelve null si aun no tiene CAE.
+ */
+export const obtenerQrFiscalFn = async (id: string): Promise<string | null> => {
+  try {
+    const { data } = await api.get<Blob>(`/comprobantes/${id}/qr`, {
+      responseType: 'blob',
+    });
+    return await new Promise<string | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(data);
+    });
+  } catch {
+    // Sin CAE (404) o backend caido: se imprime con el placeholder "pendiente"
+    return null;
+  }
+};
+
 export const anularFiscalFn = async (payload: { id: string; motivo?: string }) =>
   unwrap<IComprobanteAux>(await api.patch(`/facturacion/${payload.id}/anular`, { motivo: payload.motivo }));
 
@@ -367,32 +393,17 @@ export const eliminarListaPrecioAuxFn = async (id: string) =>
   unwrap<void>(await api.delete(`/listas-precio/${id}`));
 
 export const getConfiguracionPosFn = async (sucursalId: string) =>
-  {
-    console.log('[ConfigPOSDebug][front-api] GET configuracion sucursal', sucursalId);
-    const response = await api.get(`/configuracion/${sucursalId}`);
-    console.log('[ConfigPOSDebug][front-api] GET response', response.data);
-    return unwrap<IConfiguracionPosSucursal>(response);
-  };
+  unwrap<IConfiguracionPosSucursal>(await api.get(`/configuracion/${sucursalId}`));
 
-export const crearConfiguracionPosFn = async (payload: ConfiguracionPosPayload) =>
-  {
-    console.log('[ConfigPOSDebug][front-api] POST payload', payload);
-    const response = await api.post('/configuracion', payload);
-    console.log('[ConfigPOSDebug][front-api] POST response', response.data);
-    return unwrap<IConfiguracionPosSucursal>(response);
-  };
+// Upsert: crea si no existe, actualiza si ya existe — siempre usar este, nunca el POST directo
+export const upsertConfiguracionPosFn = async (payload: ConfiguracionPosPayload) => {
+  const { sucursal_id, ...data } = payload;
+  return unwrap<IConfiguracionPosSucursal>(await api.put(`/configuracion/${sucursal_id}`, data));
+};
 
-export const actualizarConfiguracionPosFn = async (payload: ConfiguracionPosPayload) =>
-  {
-    const { sucursal_id, ...data } = payload;
-    console.log('[ConfigPOSDebug][front-api] PATCH sucursal', sucursal_id);
-    console.log('[ConfigPOSDebug][front-api] PATCH payload', data);
-    const response = await api.patch(`/configuracion/${sucursal_id}`, data);
-    console.log('[ConfigPOSDebug][front-api] PATCH response', response.data);
-    return unwrap<IConfiguracionPosSucursal>(
-      response,
-    );
-  };
+// Aliases mantenidos para compatibilidad con usePosAux.ts que ya los importa
+export const crearConfiguracionPosFn = upsertConfiguracionPosFn;
+export const actualizarConfiguracionPosFn = upsertConfiguracionPosFn;
 
 export const getConfiguracionEmailFn = async (sucursalId: string) =>
   unwrap<IConfiguracionEmailSucursal>(await api.get(`/configuracion/email/${sucursalId}`));

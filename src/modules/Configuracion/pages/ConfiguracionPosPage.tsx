@@ -74,7 +74,9 @@ const ConfiguracionPosPage = () => {
   const [cloudApiSecret, setCloudApiSecret] = useState('');
   const [cloudFolder, setCloudFolder] = useState('productos');
 
-  const canShowForm = !!sucursalActiva?.id && !configQuery.isLoading && !configQuery.isFetching;
+  // Muestra el form en cuanto hay datos (o hay error = sin config existente).
+  // No bloquear por isFetching: si ya hay data cargada, el refetch en bg no debe ocultar el form.
+  const canShowForm = !!sucursalActiva?.id && !configQuery.isLoading;
   const isThermalPreview = watchedFormato === 'TICKET_80MM' || watchedFormato === 'TICKET_58MM';
   const previewStoreName = watchedNombre?.trim() || watchedRazonSocial?.trim() || sucursalActiva?.nombre || 'Mi tienda';
   const previewMessage = isThermalPreview ? watchedMensajeTicket : watchedMensajeBoleta;
@@ -85,48 +87,56 @@ const ConfiguracionPosPage = () => {
 
   const isSaving = mutations.crearConfiguracionPos.isPending || mutations.actualizarConfiguracionPos.isPending;
 
-  // Sincronizar form con datos del servidor
+  // Sincronizar form con datos del servidor SOLO cuando llegan por primera vez o cambia la sucursal.
+  // Si el usuario tiene cambios sin guardar (isDirty), no pisar el form.
   useEffect(() => {
-    if (!sucursalActiva?.id || configQuery.isLoading || configQuery.isFetching) return;
+    if (!sucursalActiva?.id) return;
+    if (configQuery.isLoading) return;
+    if (form.formState.isDirty) return;
+
     if (configQuery.data) {
+      const d = configQuery.data;
       form.reset({
-        sucursal_id: configQuery.data.sucursal_id,
-        cotizacion_vigencia_horas: Number(configQuery.data.cotizacion_vigencia_horas ?? 24),
-        modo_pos: configQuery.data.modo_pos,
-        descuento_stock: configQuery.data.descuento_stock,
-        permitir_pago_mixto: configQuery.data.permitir_pago_mixto,
-        permitir_listas_precio: configQuery.data.permitir_listas_precio ?? false,
-        permitir_cotizaciones: configQuery.data.permitir_cotizaciones ?? false,
-        prefijo_ticket: configQuery.data.prefijo_ticket,
-        prefijo_cotizacion: configQuery.data.prefijo_cotizacion,
-        prefijo_remito: configQuery.data.prefijo_remito,
-        prefijo_nota_credito: configQuery.data.prefijo_nota_credito,
-        punto_venta_arca: configQuery.data.punto_venta_arca ?? '',
-        permitir_cuenta_corriente: configQuery.data.permitir_cuenta_corriente,
-        formato_impresion_comprobante: configQuery.data.formato_impresion_comprobante ?? 'TICKET_80MM',
-        imprimir_automaticamente: configQuery.data.imprimir_automaticamente ?? true,
-        diseno_comprobante: configQuery.data.diseno_comprobante ?? 'BASICO',
-        nombre_fantasia_ticket: textOrEmpty(configQuery.data.nombre_fantasia_ticket),
-        razon_social_ticket: textOrEmpty(configQuery.data.razon_social_ticket),
-        cuit_ticket: textOrEmpty(configQuery.data.cuit_ticket),
-        ingresos_brutos_ticket: textOrEmpty(configQuery.data.ingresos_brutos_ticket),
-        inicio_actividades_ticket: textOrEmpty(configQuery.data.inicio_actividades_ticket),
-        domicilio_ticket: textOrEmpty(configQuery.data.domicilio_ticket),
-        telefono_ticket: textOrEmpty(configQuery.data.telefono_ticket),
-        email_ticket: textOrEmpty(configQuery.data.email_ticket),
-        web_ticket: textOrEmpty(configQuery.data.web_ticket),
-        mensaje_ticket: textOrEmpty(configQuery.data.mensaje_ticket),
-        mensaje_boleta: textOrEmpty(configQuery.data.mensaje_boleta),
-        mostrar_detalle_productos: configQuery.data.mostrar_detalle_productos ?? true,
-        mostrar_descuentos: configQuery.data.mostrar_descuentos ?? true,
-        mostrar_recargos: configQuery.data.mostrar_recargos ?? true,
-        mostrar_observaciones: configQuery.data.mostrar_observaciones ?? true,
-        mostrar_datos_fiscales: configQuery.data.mostrar_datos_fiscales ?? true,
+        sucursal_id: d.sucursal_id,
+        cotizacion_vigencia_horas: Number(d.cotizacion_vigencia_horas ?? 24),
+        modo_pos: d.modo_pos,
+        descuento_stock: d.descuento_stock,
+        permitir_pago_mixto: d.permitir_pago_mixto,
+        permitir_listas_precio: d.permitir_listas_precio ?? false,
+        permitir_cotizaciones: d.permitir_cotizaciones ?? false,
+        prefijo_ticket: d.prefijo_ticket,
+        prefijo_cotizacion: d.prefijo_cotizacion,
+        prefijo_remito: d.prefijo_remito,
+        prefijo_nota_credito: d.prefijo_nota_credito,
+        punto_venta_arca: d.punto_venta_arca ?? '',
+        permitir_cuenta_corriente: d.permitir_cuenta_corriente,
+        formato_impresion_comprobante: d.formato_impresion_comprobante ?? 'TICKET_80MM',
+        imprimir_automaticamente: d.imprimir_automaticamente ?? true,
+        diseno_comprobante: d.diseno_comprobante ?? 'BASICO',
+        nombre_fantasia_ticket: textOrEmpty(d.nombre_fantasia_ticket),
+        razon_social_ticket: textOrEmpty(d.razon_social_ticket),
+        cuit_ticket: textOrEmpty(d.cuit_ticket),
+        ingresos_brutos_ticket: textOrEmpty(d.ingresos_brutos_ticket),
+        inicio_actividades_ticket: textOrEmpty(d.inicio_actividades_ticket),
+        domicilio_ticket: textOrEmpty(d.domicilio_ticket),
+        telefono_ticket: textOrEmpty(d.telefono_ticket),
+        email_ticket: textOrEmpty(d.email_ticket),
+        web_ticket: textOrEmpty(d.web_ticket),
+        mensaje_ticket: textOrEmpty(d.mensaje_ticket),
+        mensaje_boleta: textOrEmpty(d.mensaje_boleta),
+        mostrar_detalle_productos: d.mostrar_detalle_productos ?? true,
+        mostrar_descuentos: d.mostrar_descuentos ?? true,
+        mostrar_recargos: d.mostrar_recargos ?? true,
+        mostrar_observaciones: d.mostrar_observaciones ?? true,
+        mostrar_datos_fiscales: d.mostrar_datos_fiscales ?? true,
       });
     } else if (configQuery.isError) {
       form.reset(defaultValues(sucursalActiva.id));
     }
-  }, [configQuery.data, configQuery.error, configQuery.isError, configQuery.isFetching, configQuery.isLoading, form, sucursalActiva?.id]);
+  // Solo depende de la identidad estable de configQuery.data y del id de sucursal.
+  // isFetching y isLoading no son dependencias: un refetch en background no debe pisar el form.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configQuery.data, configQuery.isError, sucursalActiva?.id]);
 
   // Sincronizar estado Cloudinary
   useEffect(() => {
@@ -169,8 +179,12 @@ const ConfiguracionPosPage = () => {
       prefijo_remito: values.prefijo_remito.trim().toUpperCase(),
       prefijo_nota_credito: values.prefijo_nota_credito.trim().toUpperCase(),
     };
-    if (configQuery.data) { mutations.actualizarConfiguracionPos.mutate(payload); return; }
-    mutations.crearConfiguracionPos.mutate(payload);
+    const onSuccess = () => form.reset(payload);
+    if (configQuery.data) {
+      mutations.actualizarConfiguracionPos.mutate(payload, { onSuccess });
+      return;
+    }
+    mutations.crearConfiguracionPos.mutate(payload, { onSuccess });
   };
 
   return (

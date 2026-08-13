@@ -86,7 +86,9 @@ export const useEstadoPos = () => {
     permisos.includes('reportes.ventas');
 
   //Ventas pendientes ────────────────────────────────────────────────────
-  const pendientesQuery = useVentasPendientesCobro(posAccess.puedeVerPendientesCobro);
+  // Solo carga pendientes si el usuario opera como cajero — si eligió rol "vendedor" no las ve
+  const habilitarPendientes = posAccess.puedeVerPendientesCobro && esSoloCajero;
+  const pendientesQuery = useVentasPendientesCobro(habilitarPendientes);
   const ventasPendientes = pendientesQuery.data ?? [];
 
   const ventasPendientesFiltradas = useMemo(() => {
@@ -103,10 +105,9 @@ export const useEstadoPos = () => {
   }, [pendingSearch, ventasPendientes]);
 
   const totalPendiente = ventasPendientesFiltradas.reduce((sum, v) => sum + toNumber(v.total), 0);
-  const selectedPendiente =
-    ventasPendientesFiltradas.find(v => v.id === selectedPendienteId) ??
-    ventasPendientesFiltradas[0] ??
-    null;
+  const selectedPendiente = selectedPendienteId
+    ? (ventasPendientesFiltradas.find(v => v.id === selectedPendienteId) ?? null)
+    : null;
 
   // Helper cuenta corriente ──────────────────────────────────────────────
   const puedeUsarCuentaCorriente = (clienteId?: string | null) => {

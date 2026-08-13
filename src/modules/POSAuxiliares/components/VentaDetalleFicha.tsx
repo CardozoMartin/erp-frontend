@@ -1,3 +1,4 @@
+import { Printer } from 'lucide-react';
 import type { IComprobanteAux, IVentaGeneralAux } from '../types/pos-aux.type';
 import { dateTime, money, shortId, toNumber } from '../utils/format';
 import { EstadoBadge } from './VentasDetalles/EstadoBadge';
@@ -9,6 +10,8 @@ const tipoLabel: Record<string, string> = {
 
 type Props = {
   venta: IVentaGeneralAux;
+  /** Reimprime una nota de credito ya emitida */
+  onImprimirNota?: (nota: IComprobanteAux) => void;
 };
 
 const calcularDevueltosPorItem = (notasCredito: IComprobanteAux[]): Map<string, number> => {
@@ -25,7 +28,7 @@ const calcularDevueltosPorItem = (notasCredito: IComprobanteAux[]): Map<string, 
   return mapa;
 };
 
-const VentaDetalleFicha = ({ venta }: Props) => {
+const VentaDetalleFicha = ({ venta, onImprimirNota }: Props) => {
   const comprobante = venta.comprobante;
   const devueltosPorItem = calcularDevueltosPorItem(venta.notasCredito);
   const pagosTotal = venta.pagos.reduce(
@@ -93,9 +96,21 @@ const VentaDetalleFicha = ({ venta }: Props) => {
                   Notas de crédito
                 </div>
                 {venta.notasCredito.map((nc) => (
-                  <div key={nc.id} className="flex items-center justify-between rounded border border-[#f1c7c7] bg-[#fff5f5] px-3 py-1.5 text-[12px]">
+                  <div key={nc.id} className="flex items-center justify-between gap-2 rounded border border-[#f1c7c7] bg-[#fff5f5] px-3 py-1.5 text-[12px]">
                     <span className="font-semibold text-[#b42318]">{nc.numero}</span>
-                    <span className="font-bold text-[#b42318]">-{money(nc.subtotal)}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-[#b42318]">-{money(nc.subtotal)}</span>
+                      {onImprimirNota && (
+                        <button
+                          type="button"
+                          onClick={() => onImprimirNota(nc)}
+                          title={`Imprimir ${nc.numero}`}
+                          className="rounded border border-[#f1c7c7] bg-white p-1 text-[#b42318] hover:bg-[#fdecec]"
+                        >
+                          <Printer size={13} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
                 <TotalLine

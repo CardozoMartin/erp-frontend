@@ -18,6 +18,8 @@ type PrintOptions = {
     porcentaje?: number | string | null;
   } | null;
   ivaEstimado?: number | string | null;
+  /** PNG del QR fiscal como data URI, generado por el backend (ver obtenerQrFiscal) */
+  qrDataUri?: string | null;
 };
 
 const escapeHtml = (value: unknown) =>
@@ -93,6 +95,14 @@ const fiscalCodeFromType = (tipo?: string | null) => {
   return '';
 };
 
+// Comprobantes que se autorizan ante ARCA. Una VENTA, un TICKET interno, una
+// COTIZACION o un REMITO no llevan CAE ni QR: no es que esten "pendientes".
+const esComprobanteFiscal = (tipo?: string | null) =>
+  tipo === 'FACTURA_A' ||
+  tipo === 'FACTURA_B' ||
+  tipo === 'FACTURA_C' ||
+  tipo === 'NOTA_CREDITO';
+
 const fiscalLetterFromType = (tipo?: string | null) => {
   if (tipo === 'FACTURA_A') return 'A';
   if (tipo === 'FACTURA_B' || tipo === 'TICKET') return 'B';
@@ -120,43 +130,6 @@ const formatVoucherNumber = (puntoVenta?: unknown, numero?: unknown) => {
   const seq = seqSource ? seqSource.slice(-8).padStart(8, '0') : '';
   if (pv && seq) return `${pv}-${seq}`;
   return String(numero ?? '').trim();
-};
-
-const buildArcaQrUrl = ({
-  comprobante,
-  config,
-  puntoVenta,
-  codigoFiscal,
-}: {
-  comprobante: IComprobanteAux;
-  config: Partial<IConfiguracionPosSucursal>;
-  puntoVenta: string;
-  codigoFiscal: string;
-}) => {
-  const cuit = onlyDigits(config.cuit_ticket);
-  const cae = onlyDigits(comprobante.cae);
-  if (!cuit || !cae || !puntoVenta || !codigoFiscal) return '';
-
-  const payload = {
-    ver: 1,
-    fecha: new Date(comprobante.created_at).toISOString().slice(0, 10),
-    cuit: Number(cuit),
-    ptoVta: Number(onlyDigits(puntoVenta)),
-    tipoCmp: Number(codigoFiscal),
-    nroCmp: Number(onlyDigits(comprobante.numero_secuencial ?? comprobante.numero) || 0),
-    importe: Number(toNumber(comprobante.total).toFixed(2)),
-    moneda: 'PES',
-    ctz: 1,
-    tipoDocRec: 99,
-    nroDocRec: 0,
-    tipoCodAut: 'E',
-    codAut: Number(cae),
-  };
-  const encoded = btoa(JSON.stringify(payload))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-  return `https://www.afip.gob.ar/fe/qr/?p=${encoded}`;
 };
 
 // ─────────────────────────────────────────────
@@ -198,7 +171,7 @@ const getStyles = (formato: string, diseno: string) => {
       .design-wave .body-content { padding: 0 3mm; }
       .brand div, .meta div, .fiscal div { line-height: 1.35; }
       .doc-title { text-align: center; margin: 8px 0; font-weight: 700; text-transform: uppercase; }
-      .meta, .fiscal, .message, .observaciones { border-bottom: 1px dashed #111; padding: 7px 0; }
+      .meta, .fiscal, .message { border-bottom: 1px dashed #111; padding: 7px 0; }
       .dispatch { border-bottom: 1px dashed #111; padding: 7px 0; }
       .dispatch-title { margin: 0 0 6px; font-weight: 700; text-transform: uppercase; }
       .status-grid { margin: 6px 0; }
@@ -223,419 +196,370 @@ const getStyles = (formato: string, diseno: string) => {
     `;
   }
 
-  // ── A4 / BOLETA — diseño renovado ─────────────────────────────────────────
+  // ── A4 limpio — inspirado en comprobante comercial argentino ────────────────
   return `
-    @page { size: A4; margin: 10mm 12mm; }
-    * { box-sizing: border-box; }
+    @page { size: A4; margin: 14mm 16mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      margin: 0;
       background: #fff;
-      color: #111827;
+      color: #222;
       font-family: Arial, Helvetica, sans-serif;
-      font-size: 11px;
+      font-size: 10px;
+      line-height: 1.45;
     }
-    .sheet { width: 100%; max-width: 186mm; min-height: 277mm; margin: 0 auto; }
-    .body-content { padding: 0; }
+    .sheet {
+      width: 100%;
+      max-width: 178mm;
+      min-height: 262mm;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .body-content { flex: 1; }
 
-    /* ── Encabezado: 3 columnas con letra fiscal ── */
-    .brand {
+    /* ── ENCABEZADO ─────────────────────────────────────── */
+    .header-wrap {
       display: grid;
-      grid-template-columns: 1fr 22mm 1fr;
-      border: 1.5px solid #111827;
-      min-height: 42mm;
+      grid-template-columns: 1fr 30mm 55mm;
+      border: 1px solid #222;
+      min-height: 36mm;
     }
-    .issuer-box, .voucher-box { padding: 10px 12px; }
-    .issuer-box h1 {
-      margin: 0 0 7px;
-      font-size: 21px;
+
+    /* columna izquierda: nombre + datos emisor */
+    .issuer-col {
+      padding: 10px 12px;
+      border-right: 1px solid #222;
+    }
+    .store-name {
+      font-size: 22px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      line-height: 1.1;
+      margin-bottom: 2px;
+    }
+    .store-subtitle {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #555;
+      margin-bottom: 7px;
+      letter-spacing: 0.5px;
+    }
+    .issuer-line {
+      font-size: 9px;
+      color: #333;
+      margin-bottom: 1px;
+    }
+
+    /* columna central: letra fiscal */
+    .letter-col {
+      border-right: 1px solid #222;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 4px;
+    }
+    .fiscal-letter {
+      font-size: 44px;
+      font-weight: 900;
+      line-height: 1;
+      color: #222;
+    }
+    .fiscal-cod-label {
+      font-size: 7px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #666;
+      text-align: center;
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    /* columna derecha: tipo + número + fecha */
+    .voucher-col {
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .doc-type {
+      font-size: 16px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.3px;
     }
-    .issuer-box p { line-height: 1.55; font-size: 10px; }
-
-    /* letra fiscal central */
-    .invoice-letter {
-      border-left: 1.5px solid #111827;
-      border-right: 1.5px solid #111827;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-    }
-    .invoice-letter strong {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      height: 20mm;
-      border-bottom: 1.5px solid #111827;
-      font-size: 36px;
+    .doc-num {
+      font-size: 12px;
       font-weight: 700;
-      line-height: 1;
+      margin-top: 3px;
     }
-    .invoice-letter span {
-      font-size: 8px;
-      font-weight: 700;
-      text-align: center;
-      text-transform: uppercase;
-      padding: 5px 3px;
-      line-height: 1.5;
-    }
-
-    /* columna derecha del encabezado */
-    .voucher-box {
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-start;
-    }
-    .voucher-box .doc-type {
-      font-size: 19px;
-      font-weight: 700;
-      text-transform: uppercase;
-      text-align: right;
-      margin-bottom: 5px;
-    }
-    .voucher-box .doc-num {
-      font-size: 13px;
-      font-weight: 700;
-      text-align: right;
-      margin-bottom: 7px;
-      padding-bottom: 7px;
-      border-bottom: 1px solid #d1d5db;
-    }
-    .voucher-box p { text-align: right; line-height: 1.6; font-size: 10px; }
-    .voucher-box .doc-original {
-      margin-top: 6px;
+    .doc-meta {
       font-size: 9px;
-      color: #6b7280;
-      text-align: right;
+      color: #333;
+      margin-top: 2px;
+    }
+    .doc-copy {
+      font-size: 8px;
+      color: #999;
+      text-transform: uppercase;
+      margin-top: auto;
     }
 
-    /* ── Barra fiscal del emisor ── */
+    /* barra fiscal del emisor bajo el header */
     .fiscal-bar {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      border: 1px solid #111827;
+      display: flex;
+      border: 1px solid #222;
       border-top: 0;
-      border-bottom: 1.5px solid #111827;
+      font-size: 9px;
     }
-    .fiscal-bar > div {
-      padding: 5px 8px;
-      border-right: 1px solid #ccc;
-      font-size: 10px;
-      line-height: 1.5;
-    }
-    .fiscal-bar > div:last-child { border-right: 0; }
-    .fiscal-bar strong {
-      display: block;
-      font-size: 8px;
-      text-transform: uppercase;
-      color: #6b7280;
-      margin-bottom: 1px;
-    }
+    .fiscal-bar .fb { padding: 4px 10px; border-right: 1px solid #ccc; }
+    .fiscal-bar .fb:last-child { border-right: 0; }
+    .fiscal-bar .fb-label { font-size: 7px; font-weight: 700; text-transform: uppercase; color: #888; display: block; }
+    .fiscal-bar .fb-val { font-weight: 700; color: #222; }
 
-    /* ── Datos del receptor ── */
-    .receptor {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      border: 1px solid #d1d5db;
-      margin: 10px 0 0;
+    /* ── DATOS DEL CLIENTE ───────────────────────────────── */
+    .cliente-block {
+      margin-top: 8px;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 5px;
+      font-size: 9.5px;
     }
-    .receptor-title {
-      grid-column: 1 / -1;
-      background: #f3f4f6;
-      padding: 4px 10px;
-      font-size: 8.5px;
-      font-weight: 700;
-      text-transform: uppercase;
-      color: #4b5563;
-      border-bottom: 1px solid #d1d5db;
-    }
-    .receptor > div {
-      padding: 6px 10px;
-      border-right: 1px solid #d1d5db;
-      border-bottom: 1px solid #d1d5db;
-      line-height: 1.6;
-      font-size: 10px;
-    }
-    .receptor > div:nth-child(2n+2) { border-right: 0; }
-    .receptor strong {
-      display: block;
-      font-size: 8px;
-      text-transform: uppercase;
-      color: #6b7280;
-      margin-bottom: 1px;
-    }
+    .cliente-row { display: flex; flex-wrap: wrap; gap: 0 28px; margin-bottom: 2px; }
+    .cliente-row span { color: #555; }
+    .cliente-row b { color: #222; font-weight: 700; }
 
-    /* ── Detalles de operación (vendedor, cajero, lista) ── */
-    .operation-details {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
+    /* barra vendedor/cajero/lista */
+    .op-bar {
+      display: flex;
+      flex-wrap: wrap;
       gap: 0;
-      border: 1px solid #d1d5db;
-      border-top: 0;
-      margin-bottom: 2px;
+      border-bottom: 1px solid #eee;
+      margin-bottom: 0;
+      font-size: 9px;
     }
-    .operation-details > div {
-      padding: 5px 10px;
-      border-right: 1px solid #d1d5db;
-      font-size: 10px;
-      line-height: 1.5;
-    }
-    .operation-details > div:last-child { border-right: 0; }
-    .operation-details strong {
-      display: block;
-      font-size: 8px;
-      text-transform: uppercase;
-      color: #6b7280;
-      margin-bottom: 1px;
-    }
+    .op-bar .ob { padding: 3px 12px 3px 0; margin-right: 12px; color: #555; }
+    .op-bar .ob b { color: #222; font-weight: 700; }
 
-    /* ── Tabla de productos ── */
-    table { width: 100%; border-collapse: collapse; margin-top: 12px; page-break-inside: auto; }
-    tr { page-break-inside: avoid; page-break-after: auto; }
+    /* ── TABLA ───────────────────────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      page-break-inside: auto;
+    }
+    thead { display: table-header-group; }
+    tr { page-break-inside: avoid; }
     th {
-      background: #f3f4f6;
-      border: 1px solid #d1d5db;
-      padding: 6px 7px;
-      text-align: left;
-      text-transform: uppercase;
+      border-bottom: 1.5px solid #222;
+      border-top: 1.5px solid #222;
+      padding: 5px 6px;
       font-size: 8.5px;
-      color: #4b5563;
       font-weight: 700;
+      text-transform: uppercase;
+      color: #222;
+      text-align: left;
+      background: #fff;
     }
-    td { border-bottom: 1px solid #e5e7eb; padding: 8px 7px; vertical-align: top; font-size: 10.5px; }
-    tbody tr:nth-child(even) td { background: #fafafa; }
-    .item-name { font-weight: 700; }
-    .item-code { font-size: 9px; color: #9ca3af; margin-top: 1px; }
+    th.right { text-align: right; }
+    td {
+      border-bottom: 1px solid #e8e8e8;
+      padding: 6px 6px;
+      vertical-align: top;
+      font-size: 9.5px;
+      color: #222;
+    }
+    tbody tr:last-child td { border-bottom: 1.5px solid #222; }
+    .item-desc { font-weight: 600; }
+    .item-code { font-size: 8px; color: #aaa; }
     .right { text-align: right; }
+    .center { text-align: center; }
 
-    /* ── Sección totales + tax box ── */
-    .totals-section {
+    /* ── TOTALES ─────────────────────────────────────────── */
+    .bottom-section {
       display: grid;
-      grid-template-columns: 1fr 72mm;
-      gap: 16px;
-      margin-top: 14px;
+      grid-template-columns: 1fr 58mm;
+      gap: 0;
+      margin-top: 10px;
       align-items: start;
     }
-    .tax-box {
-      border: 1px solid #111827;
-      font-size: 10.5px;
+    .bottom-left {
+      padding-right: 14px;
+      font-size: 9px;
+      color: #444;
     }
-    .tax-box .tax-head {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      background: #f3f4f6;
-      border-bottom: 1px solid #111827;
-    }
-    .tax-box .tax-head span {
-      padding: 5px 8px;
-      font-size: 8px;
-      font-weight: 700;
-      text-transform: uppercase;
-      color: #4b5563;
-      border-right: 1px solid #ccc;
-    }
-    .tax-box .tax-head span:last-child { border-right: 0; }
-    .tax-box .tax-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-    }
-    .tax-box .tax-row span {
-      padding: 7px 8px;
-      border-right: 1px solid #e5e7eb;
-      font-size: 10.5px;
-    }
-    .tax-box .tax-row span:last-child {
-      border-right: 0;
-      text-align: right;
-      font-weight: 700;
-    }
+    .bottom-left .bl-row { margin-bottom: 3px; }
+    .bottom-left .bl-row b { color: #222; }
     .importe-letras {
-      margin-top: 7px;
-      font-size: 9.5px;
-      color: #6b7280;
-      line-height: 1.4;
+      margin-top: 8px;
+      font-size: 8.5px;
+      color: #555;
+      font-style: italic;
+      border-top: 1px solid #e0e0e0;
+      padding-top: 6px;
+      line-height: 1.5;
     }
-    .totals-right { }
-    .total-row { display: flex; justify-content: space-between; gap: 16px; padding: 5px 0; border-bottom: 1px solid #f3f4f6; font-size: 11px; }
-    .total-row:last-child { border-bottom: 0; }
-    .grand {
+
+    .totals-col { border-left: 1px solid #e0e0e0; padding-left: 12px; }
+    .t-row {
       display: flex;
       justify-content: space-between;
-      margin-top: 7px;
-      padding-top: 9px;
-      border-top: 2px solid #111827;
-      font-size: 18px;
-      font-weight: 700;
+      padding: 4px 0;
+      font-size: 9.5px;
+      border-bottom: 1px solid #f2f2f2;
+      color: #444;
+    }
+    .t-row:last-child { border-bottom: 0; }
+    .t-row b { color: #222; }
+    .t-row.descuento b { color: #c0392b; }
+    .t-total {
+      display: flex;
+      justify-content: space-between;
+      padding: 7px 0 5px;
+      border-top: 1.5px solid #222;
+      margin-top: 4px;
+      font-size: 14px;
+      font-weight: 900;
+      color: #222;
     }
 
-    /* ── Remito ── */
-    .remito-doc .doc-title { margin-bottom: 6px; border-bottom: 0; padding-bottom: 0; }
-    .remito-subtitle { margin: -4px 0 12px; color: #6b7280; font-size: 11px; }
-    .party-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
-    .party-box { border: 1px solid #d1d5db; padding: 10px 12px; min-height: 70px; }
-    .party-box h2 { margin: 0 0 7px; color: #6b7280; font-size: 10px; text-transform: uppercase; }
-    .party-box div { line-height: 1.5; font-size: 10.5px; }
-    .delivery-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0 14px; }
-    .delivery-summary div { border: 1px solid #d1d5db; background: #fafafa; padding: 8px 10px; }
-    .delivery-summary span { display: block; color: #6b7280; font-size: 8.5px; font-weight: 700; text-transform: uppercase; }
-    .delivery-summary strong { display: block; margin-top: 3px; font-size: 16px; }
-    .remito-table th:nth-child(1) { width: 37%; }
-    .remito-table th:nth-child(2),
-    .remito-table th:nth-child(3),
-    .remito-table th:nth-child(4),
-    .remito-table th:nth-child(5) { width: 12%; }
-    .pending-note { color: #92400e; font-weight: 700; }
-    .terms { margin-top: 16px; border-top: 1px solid #e5e7eb; padding-top: 10px; color: #6b7280; font-size: 10.5px; line-height: 1.5; }
-    .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 28px; }
-    .signature-box { min-height: 52px; border-top: 1px solid #111827; padding-top: 7px; color: #6b7280; font-size: 10.5px; text-align: center; }
+    /* ── MENSAJE ─────────────────────────────────────────── */
+    .msg-block {
+      margin-top: 10px;
+      font-size: 9px;
+      color: #555;
+      text-align: center;
+      white-space: pre-wrap;
+      line-height: 1.5;
+      border-top: 1px dashed #ddd;
+      padding-top: 7px;
+    }
 
-    /* ── CAE / ARCA ── */
-    .auth-grid {
+    /* ── CAE / QR ARCA ───────────────────────────────────── */
+    .cae-section {
+      margin-top: 12px;
+      border-top: 1px solid #222;
+      padding-top: 8px;
       display: grid;
-      grid-template-columns: 1fr 38mm;
+      grid-template-columns: 1fr auto;
       gap: 14px;
       align-items: center;
-      margin-top: 16px;
-      padding-top: 12px;
-      border-top: 1.5px solid #111827;
     }
-    .auth-lines {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 7px 14px;
+    .cae-fields { display: flex; flex-wrap: wrap; gap: 6px 20px; }
+    .cae-field .cf-label {
+      font-size: 7px; font-weight: 700; text-transform: uppercase;
+      color: #999; display: block; margin-bottom: 1px;
     }
-    .auth-lines div {
-      border-bottom: 1px solid #d1d5db;
-      padding-bottom: 5px;
-    }
-    .auth-lines div span {
-      display: block;
-      font-size: 8px;
-      text-transform: uppercase;
-      color: #6b7280;
-      margin-bottom: 2px;
-    }
-    .auth-lines div strong { font-size: 11px; }
-    .qr { width: 34mm; height: 34mm; object-fit: contain; display: block; margin-left: auto; }
+    .cae-field .cf-val { font-size: 9.5px; font-weight: 700; color: #222; }
+    .cae-field .cf-val.pending { color: #aaa; font-weight: 400; font-style: italic; font-size: 8.5px; }
+    .qr { width: 28mm; height: 28mm; display: block; object-fit: contain; }
+    .qr-label { font-size: 7px; color: #ccc; text-align: center; margin-top: 2px; }
     .qr-placeholder {
-      width: 34mm;
-      height: 34mm;
-      margin-left: auto;
-      border: 1px dashed #9ca3af;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #9ca3af;
-      font-size: 9px;
-      text-align: center;
-      padding: 4px;
+      width: 28mm; height: 28mm;
+      border: 1px dashed #ddd;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 7.5px; color: #ccc; text-align: center;
     }
 
-    /* ── Observaciones / mensaje ── */
-    .message, .observaciones {
-      margin-top: 16px;
-      border: 1px solid #e5e7eb;
-      border-left: 3px solid ${accent};
-      padding: 9px 12px;
-      white-space: pre-wrap;
-      font-size: 10.5px;
+    /* ── REMITO ──────────────────────────────────────────── */
+    .dispatch-block {
+      margin-top: 12px;
+      border: 1px solid #ccc;
+      padding: 10px 12px;
+    }
+    .dispatch-block h3 {
+      font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+      color: #555; margin-bottom: 8px; border-bottom: 1px solid #e0e0e0; padding-bottom: 4px;
+    }
+    .dispatch-summary {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 6px; margin-bottom: 10px;
+    }
+    .ds-box { border: 1px solid #e0e0e0; background: #fafafa; padding: 6px 8px; }
+    .ds-box span { display: block; font-size: 7px; font-weight: 700; text-transform: uppercase; color: #999; }
+    .ds-box strong { display: block; font-size: 14px; font-weight: 700; margin-top: 2px; }
+    .pending-qty { color: #b45309; font-weight: 700; }
+
+    .signature-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+    .sig-box {
+      min-height: 40px; border-top: 1px solid #222;
+      padding-top: 5px; font-size: 8.5px; color: #999; text-align: center;
     }
 
-    /* ── Despacho ── */
-    .dispatch { margin-top: 16px; border: 1px solid #e5e7eb; padding: 12px; }
-    .dispatch-title { margin: 0 0 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
-    .status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
-    .status-card { border: 1px solid #e5e7eb; background: #fafafa; padding: 8px; }
-    .status-card span { display: block; color: #6b7280; font-size: 8.5px; font-weight: 700; text-transform: uppercase; }
-    .status-card strong { display: block; margin-top: 3px; font-size: 15px; }
-
-    /* ── Pie ── */
-    .footer {
-      margin-top: 18px;
-      padding-top: 10px;
-      border-top: 1px solid #e5e7eb;
-      text-align: center;
-      color: #9ca3af;
-      font-size: 9.5px;
-    }
-
-    /* ── Cotización / sin tipo fiscal ── */
-    .doc-title {
-      margin: 14px 0 10px;
-      padding-bottom: 7px;
-      border-bottom: 1px solid #d1d5db;
-      font-size: 19px;
-      font-weight: 700;
-      text-transform: uppercase;
+    /* ── PIE ─────────────────────────────────────────────── */
+    .page-footer {
+      margin-top: auto; padding-top: 8px;
+      border-top: 1px solid #e8e8e8;
+      text-align: center; font-size: 8px; color: #ccc;
     }
 
     @media print {
       .sheet { padding: 0; }
-      th, thead tr,
-      .fiscal-bar, .receptor-title,
-      tbody tr:nth-child(even) td,
-      .status-card, .delivery-summary div,
-      .auth-lines div, .tax-box .tax-head {
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
+      th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
   `;
 };
 
 // ─────────────────────────────────────────────
-//  HTML — bloque brand A4 (reemplaza el anterior)
+//  HTML — encabezado A4 estándar fiscal AFIP
 // ─────────────────────────────────────────────
-const buildBrandA4 = ({
+const condicionIva = (letra: string) => {
+  if (letra === 'A') return 'Responsable Inscripto';
+  if (letra === 'C') return 'Monotributista';
+  if (letra === 'B') return 'Responsable Inscripto';
+  return 'Responsable Inscripto';
+};
+
+const buildHeaderA4 = ({
   storeName,
   config,
   titulo,
-  isRemito,
   letraFiscal,
   codigoFiscal,
   numeroFiscal,
   comprobante,
   puntoVenta,
+  esFiscal,
 }: {
   storeName: string;
   config: Partial<IConfiguracionPosSucursal>;
   titulo: string;
-  isRemito: boolean;
   letraFiscal: string;
   codigoFiscal: string;
   numeroFiscal: string;
   comprobante: IComprobanteAux;
   puntoVenta: string;
+  esFiscal: boolean;
 }) => `
-  <section class="brand">
-    <div class="issuer-box">
-      <h1>${escapeHtml(storeName)}</h1>
-      ${config.razon_social_ticket ? `<p><strong>Razón social:</strong> ${escapeHtml(config.razon_social_ticket)}</p>` : ''}
-      ${config.domicilio_ticket ? `<p><strong>Domicilio:</strong> ${escapeHtml(config.domicilio_ticket)}</p>` : ''}
-      ${config.telefono_ticket ? `<p><strong>Tel:</strong> ${escapeHtml(config.telefono_ticket)}</p>` : ''}
-      ${config.email_ticket ? `<p><strong>Email:</strong> ${escapeHtml(config.email_ticket)}</p>` : ''}
-      ${config.web_ticket ? `<p><strong>Web:</strong> ${escapeHtml(config.web_ticket)}</p>` : ''}
+  <div class="header-wrap">
+    <div class="issuer-col">
+      <div class="store-name">${escapeHtml(storeName)}</div>
+      ${config.razon_social_ticket ? `<div class="store-subtitle">${escapeHtml(config.razon_social_ticket)}</div>` : ''}
+      ${config.domicilio_ticket ? `<div class="issuer-line">${escapeHtml(config.domicilio_ticket)}</div>` : ''}
+      ${config.telefono_ticket ? `<div class="issuer-line">Tel: ${escapeHtml(config.telefono_ticket)}</div>` : ''}
+      ${config.email_ticket ? `<div class="issuer-line">${escapeHtml(config.email_ticket)}</div>` : ''}
+      ${config.web_ticket ? `<div class="issuer-line">${escapeHtml(config.web_ticket)}</div>` : ''}
     </div>
-    <div class="invoice-letter">
-      <strong>${escapeHtml(letraFiscal)}</strong>
-      <span>Código<br>${escapeHtml(codigoFiscal || '-')}</span>
+    <div class="letter-col">
+      <div class="fiscal-letter">${escapeHtml(esFiscal ? letraFiscal : 'X')}</div>
+      ${esFiscal
+        ? `<div class="fiscal-cod-label">Cod.${escapeHtml(codigoFiscal || '000')}</div>`
+        : '<div class="fiscal-cod-label">Documento<br>no fiscal</div>'}
     </div>
-    <div class="voucher-box">
-      <div class="doc-type">${escapeHtml(isRemito ? 'Remito' : titulo)}</div>
-      <div class="doc-num">N° ${escapeHtml(numeroFiscal || comprobante.numero)}</div>
-      <p><strong>Fecha de emisión:</strong> ${escapeHtml(new Date(comprobante.created_at).toLocaleDateString('es-AR'))}</p>
-      ${puntoVenta ? `<p><strong>Punto de venta:</strong> ${escapeHtml(puntoVenta)}</p>` : ''}
-      <p class="doc-original">ORIGINAL — Documento generado por sistema</p>
+    <div class="voucher-col">
+      <div class="doc-type">${escapeHtml(titulo)}</div>
+      <div class="doc-num">Numero: ${escapeHtml(numeroFiscal || comprobante.numero)}</div>
+      <div class="doc-meta">Fecha: ${escapeHtml(new Date(comprobante.created_at).toLocaleDateString('es-AR'))}</div>
+      ${puntoVenta ? `<div class="doc-meta">Punto de venta: ${escapeHtml(puntoVenta)}</div>` : ''}
+      <div class="doc-copy">Original</div>
     </div>
-  </section>
+  </div>
   <div class="fiscal-bar">
-    ${config.cuit_ticket ? `<div><strong>CUIT</strong>${escapeHtml(config.cuit_ticket)}</div>` : ''}
-    ${config.ingresos_brutos_ticket ? `<div><strong>Ing. Brutos</strong>${escapeHtml(config.ingresos_brutos_ticket)}</div>` : ''}
-    ${config.inicio_actividades_ticket ? `<div><strong>Inicio actividades</strong>${escapeHtml(config.inicio_actividades_ticket)}</div>` : ''}
-    <div><strong>Condición IVA</strong>${escapeHtml(letraFiscal === 'A' ? 'Responsable Inscripto' : letraFiscal === 'C' ? 'Monotributista' : 'Responsable Inscripto')}</div>
+    ${config.cuit_ticket ? `<div class="fb"><span class="fb-label">C.U.I.T.</span><span class="fb-val">${escapeHtml(config.cuit_ticket)}</span></div>` : ''}
+    ${config.ingresos_brutos_ticket ? `<div class="fb"><span class="fb-label">Ing. Brutos</span><span class="fb-val">${escapeHtml(config.ingresos_brutos_ticket)}</span></div>` : ''}
+    ${config.inicio_actividades_ticket ? `<div class="fb"><span class="fb-label">Inicio de Act.</span><span class="fb-val">${escapeHtml(config.inicio_actividades_ticket)}</span></div>` : ''}
+    ${esFiscal ? `<div class="fb"><span class="fb-label">IVA</span><span class="fb-val">${escapeHtml(condicionIva(letraFiscal))}</span></div>` : ''}
   </div>
 `;
 
@@ -662,7 +586,6 @@ export const imprimirComprobante = (
   const showFiscal = config.mostrar_datos_fiscales !== false;
   const showDiscounts = config.mostrar_descuentos !== false;
   const showRecargos = config.mostrar_recargos !== false;
-  const showObservaciones = config.mostrar_observaciones !== false;
   const despacho = opts.despacho ?? null;
   const listaPrecio = opts.listaPrecio ?? null;
   const ivaPorcentaje = toNumber(listaPrecio?.porcentaje_iva);
@@ -675,8 +598,6 @@ export const imprimirComprobante = (
         ? toNumber(comprobante.subtotal) -
           toNumber(comprobante.subtotal) / (1 + ivaPorcentaje / 100)
         : 0;
-  const baseImponible =
-    ivaCalculado > 0 ? toNumber(comprobante.subtotal) - ivaCalculado : 0;
   const isRemito = comprobante.tipo === 'REMITO' || titulo.toUpperCase() === 'REMITO';
   const remitoItems = items.filter((item) => toNumber(item.cantidad) > 0);
   const remitoCantidadPorDescripcion = new Map(
@@ -697,9 +618,6 @@ export const imprimirComprobante = (
     (sum, item) => sum + toNumber(item.cantidad),
     0,
   );
-  const documentoOrigen =
-    despacho?.comprobante?.numero ?? comprobante.comprobante_origen_id ?? '';
-  const fechaEntrega = despacho?.fecha_despacho ?? comprobante.created_at;
   const puntoVenta = String(
     comprobante.punto_venta ?? config.punto_venta_arca ?? '',
   ).trim();
@@ -713,357 +631,242 @@ export const imprimirComprobante = (
   );
   const cae = String(comprobante.cae ?? '').trim();
   const caeVencimiento = formatDate(comprobante.cae_vencimiento);
-  const qrUrl = buildArcaQrUrl({ comprobante, config, puntoVenta, codigoFiscal });
+  // Solo los comprobantes que se envian a ARCA llevan el bloque CAE/QR. En una
+  // venta interna o un ticket, "Pendiente ARCA" se lee como un error y no lo es:
+  // esos documentos nunca se autorizan. La NC interna tampoco (no tiene CAE).
+  const esFiscal = esComprobanteFiscal(comprobante.tipo);
+  // El PNG lo genera el backend y llega ya resuelto como data URI: la impresion
+  // no debe depender de un servicio externo ni de tener internet.
+  const qrSrc = opts.qrDataUri ?? '';
 
-  const html = `
-    <!doctype html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <title>${escapeHtml(titulo)} ${escapeHtml(comprobante.numero)}</title>
-        <style>${getStyles(formato, diseno)}</style>
-      </head>
-      <body>
-        <main class="sheet design-${escapeHtml(diseno.toLowerCase())} ${isRemito ? 'remito-doc' : ''}">
-          ${
-            thermal
-              ? `
-            <section class="brand">
-              <div>
-                <h1>${escapeHtml(storeName)}</h1>
-                ${line('Razon social', config.razon_social_ticket)}
-                ${line('Domicilio', config.domicilio_ticket)}
-                ${line('Tel', config.telefono_ticket)}
-                ${line('Email', config.email_ticket)}
-                ${line('Web', config.web_ticket)}
-              </div>
-            </section>
-          `
-              : buildBrandA4({
-                  storeName,
-                  config,
-                  titulo,
-                  isRemito,
-                  letraFiscal,
-                  codigoFiscal,
-                  numeroFiscal,
-                  comprobante,
-                  puntoVenta,
-                })
-          }
-
-          <div class="body-content">
-
-          ${
-            showFiscal && thermal
-              ? `
-            <section class="fiscal">
-              ${line('CUIT', config.cuit_ticket)}
-              ${line('IIBB', config.ingresos_brutos_ticket)}
-              ${line('Inicio act.', config.inicio_actividades_ticket)}
-              ${line('Pto. venta', puntoVenta)}
-              ${line('Cod. fiscal', codigoFiscal)}
-            </section>
-          `
-              : ''
-          }
-
-          ${
-            isRemito
-              ? `
-            <div class="doc-title">Remito de despacho</div>
-            <div class="remito-subtitle">Documento de control de entrega de mercadería. No reemplaza factura o comprobante fiscal.</div>
-            <section class="party-grid">
-              <div class="party-box">
-                <h2>Entrega</h2>
-                ${line('Remito', comprobante.numero)}
-                ${line('Fecha de entrega', new Date(fechaEntrega).toLocaleString('es-AR'))}
-                ${line('Comprobante origen', documentoOrigen)}
-                ${line('Estado despacho', despacho?.estado ?? comprobante.estado)}
-              </div>
-              <div class="party-box">
-                <h2>Destinatario</h2>
-                ${line('Cliente', comprobante.cliente_id || despacho?.comprobante?.cliente_id || 'Consumidor final')}
-                ${line('Condicion', 'Entrega de mercaderia')}
-              </div>
-            </section>
-          `
-              : `
-            <div class="receptor">
-              <div class="receptor-title">Datos del receptor</div>
-              <div><strong>Cliente</strong>${escapeHtml(comprobante.cliente_nombre || comprobante.cliente_id || 'Consumidor final')}</div>
-              <div><strong>CUIT / DNI</strong>${escapeHtml(comprobante.cliente_cuit || comprobante.cliente_dni || 'Consumidor final')}</div>
-              <div><strong>Domicilio</strong>${escapeHtml(comprobante.cliente_domicilio || '-')}</div>
-              <div><strong>Condición IVA receptor</strong>${escapeHtml(comprobante.cliente_condicion_iva || 'Consumidor Final')}</div>
-            </div>
-          `
-          }
-
-          ${
-            !isRemito && (opts.vendedor || opts.cajero || listaPrecio)
-              ? `
-            <div class="operation-details">
-              ${opts.vendedor ? `<div><strong>Vendedor</strong>${escapeHtml(opts.vendedor)}</div>` : ''}
-              ${opts.cajero ? `<div><strong>Cajero</strong>${escapeHtml(opts.cajero)}</div>` : ''}
-              ${listaPrecio ? `<div><strong>Lista de precio</strong>${escapeHtml(listaPrecioLabel(listaPrecio))}</div>` : ''}
-            </div>
-          `
-              : ''
-          }
-
-          ${
-            isRemito
-              ? `
-            <section class="delivery-summary">
-              <div><span>Solicitado</span><strong>${escapeHtml(formatQty(resumenDespacho.solicitado || entregadoEnRemito))}</strong></div>
-              <div><span>Este remito</span><strong>${escapeHtml(formatQty(entregadoEnRemito))}</strong></div>
-              <div><span>Entregado total</span><strong>${escapeHtml(formatQty(resumenDespacho.entregado || entregadoEnRemito))}</strong></div>
-              <div><span>Pendiente</span><strong>${escapeHtml(formatQty(resumenDespacho.pendiente))}</strong></div>
-            </section>
-            <section>
-              <table class="remito-table">
-                <thead>
-                  <tr>
-                    <th>Producto</th>
-                    <th class="right">Solicitado</th>
-                    <th class="right">Este remito</th>
-                    <th class="right">Entregado</th>
-                    <th class="right">Pendiente</th>
-                    <th>Motivo / estado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${
-                    despacho?.items?.length
-                      ? despacho.items
-                          .map((item) => {
-                            const key = String(item.descripcion).trim().toLowerCase();
-                            const cantidadRemito = remitoCantidadPorDescripcion.get(key) ?? 0;
-                            const pendiente = toNumber(item.cantidad_pendiente);
-                            return `
-                            <tr>
-                              <td><div class="item-name">${escapeHtml(item.descripcion)}</div></td>
-                              <td class="right">${escapeHtml(formatQty(item.cantidad_solicitada))}</td>
-                              <td class="right"><strong>${escapeHtml(formatQty(cantidadRemito))}</strong></td>
-                              <td class="right">${escapeHtml(formatQty(item.cantidad_despachada))}</td>
-                              <td class="right ${pendiente > 0 ? 'pending-note' : ''}">${escapeHtml(formatQty(item.cantidad_pendiente))}</td>
-                              <td>${escapeHtml(motivoPendienteLabel(item.motivo_pendiente) || (pendiente > 0 ? 'Pendiente' : 'Entregado'))}</td>
-                            </tr>
-                          `;
-                          })
-                          .join('')
-                      : remitoItems.length
-                        ? remitoItems
-                            .map(
-                              (item) => `
-                              <tr>
-                                <td><div class="item-name">${escapeHtml(item.descripcion)}</div></td>
-                                <td class="right">-</td>
-                                <td class="right"><strong>${escapeHtml(formatQty(item.cantidad))}</strong></td>
-                                <td class="right">${escapeHtml(formatQty(item.cantidad))}</td>
-                                <td class="right">0</td>
-                                <td>Entregado</td>
-                              </tr>
-                            `
-                            )
-                            .join('')
-                        : `<tr><td colspan="6">Sin productos entregados en este remito.</td></tr>`
-                  }
-                </tbody>
-              </table>
-            </section>
-          `
-              : showDetail
-                ? `
-            <table>
-              <thead>
-                <tr>
-                  <th>Producto / Descripción</th>
-                  <th class="right" style="width:8%">Cant.</th>
-                  <th class="right" style="width:15%">P.U. Neto</th>
-                  <th class="right" style="width:12%">Imp. Nac.</th>
-                  <th class="right" style="width:15%">Importe Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${items
-                  .map(
-                    (item) => `
-                      <tr>
-                        <td>
-                          <div class="item-name">${escapeHtml(item.descripcion)}</div>
-                          ${item.codigo ? `<div class="item-code">Cód. ${escapeHtml(item.codigo)}</div>` : ''}
-                        </td>
-                        <td class="right">${escapeHtml(formatQty(item.cantidad))}</td>
-                        <td class="right">${money(toNumber(item.precio_unitario) / (1 + (ivaPorcentaje || 21) / 100))}</td>
-                        <td class="right">${money(toNumber(item.precio_unitario) - toNumber(item.precio_unitario) / (1 + (ivaPorcentaje || 21) / 100))}</td>
-                        <td class="right">${money(item.subtotal)}</td>
-                      </tr>
-                    `
-                  )
-                  .join('')}
-              </tbody>
-            </table>
-          `
-                : ''
-          }
-
-          ${
-            !isRemito
-              ? `
-            <div class="totals-section">
-              <div>
-                <div class="tax-box">
-                  <div class="tax-head">
-                    <span>Neto gravado</span>
-                    <span>IVA / Impuestos</span>
-                    <span>Total</span>
-                  </div>
-                  <div class="tax-row">
-                    <span>${money(baseImponible || comprobante.subtotal)}</span>
-                    <span>${money(ivaCalculado)}</span>
-                    <span>${money(comprobante.total)}</span>
-                  </div>
-                </div>
-                ${comprobante.total_letras ? `<p class="importe-letras">Son Pesos: <strong>${escapeHtml(comprobante.total_letras)}</strong></p>` : ''}
-              </div>
-              <div class="totals-right">
-                <div class="total-row"><span>Subtotal</span><strong>${money(comprobante.subtotal)}</strong></div>
-                ${showDiscounts ? `<div class="total-row"><span>Descuentos</span><strong>${money(comprobante.descuento_total)}</strong></div>` : ''}
-                ${showRecargos ? `<div class="total-row"><span>Recargos</span><strong>${money(comprobante.recargo_total)}</strong></div>` : ''}
-                ${ivaCalculado > 0 ? `<div class="total-row"><span>${escapeHtml(modoIvaLabel(listaPrecio?.modo_iva, listaPrecio?.porcentaje_iva) || 'IVA')}</span><strong>${money(ivaCalculado)}</strong></div>` : ''}
-                <div class="grand"><span>TOTAL</span><span>${money(comprobante.total)}</span></div>
-              </div>
-            </div>
-          `
-              : ''
-          }
-
-          ${
-            despacho && !isRemito
-              ? `
-            <section class="dispatch">
-              <div class="dispatch-title">Estado del despacho</div>
-              <div><strong>Estado:</strong> ${escapeHtml(despacho.estado)}</div>
-              <div class="status-grid">
-                <div class="status-card"><span>Solicitado</span><strong>${escapeHtml(resumenDespacho.solicitado)}</strong></div>
-                <div class="status-card"><span>Entregado total</span><strong>${escapeHtml(resumenDespacho.entregado)}</strong></div>
-                <div class="status-card"><span>Pendiente</span><strong>${escapeHtml(resumenDespacho.pendiente)}</strong></div>
-              </div>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Producto</th>
-                    <th class="right">Solicitado</th>
-                    <th class="right">Entregado</th>
-                    <th class="right">Pendiente</th>
-                    <th>Motivo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${despacho.items
-                    .map(
-                      (item) => `
-                        <tr>
-                          <td>${escapeHtml(item.descripcion)}</td>
-                          <td class="right">${escapeHtml(item.cantidad_solicitada)}</td>
-                          <td class="right">${escapeHtml(item.cantidad_despachada)}</td>
-                          <td class="right">${escapeHtml(item.cantidad_pendiente)}</td>
-                          <td>${escapeHtml(motivoPendienteLabel(item.motivo_pendiente))}</td>
-                        </tr>
-                      `
-                    )
-                    .join('')}
-                </tbody>
-              </table>
-            </section>
-          `
-              : ''
-          }
-
-          ${
-            showObservaciones && comprobante.observaciones
-              ? `<section class="observaciones"><strong>Observaciones:</strong> ${escapeHtml(comprobante.observaciones)}</section>`
-              : ''
-          }
-
-          ${
-            !isRemito && !thermal
-              ? `
-            <section class="auth-grid">
-              <div class="auth-lines">
-                <div>
-                  <span>CAE N°</span>
-                  <strong>${escapeHtml(cae || 'Pendiente de autorización ARCA')}</strong>
-                </div>
-                <div>
-                  <span>Fecha de vto. CAE</span>
-                  <strong>${escapeHtml(caeVencimiento || 'Pendiente')}</strong>
-                </div>
-                <div>
-                  <span>Código fiscal</span>
-                  <strong>${escapeHtml(codigoFiscal || fiscalCodeFromType(comprobante.tipo) || '-')}</strong>
-                </div>
-                <div>
-                  <span>Punto de venta</span>
-                  <strong>${escapeHtml(puntoVenta || '-')}</strong>
-                </div>
-              </div>
-              <div>
-                ${
-                  qrUrl
-                    ? `<img class="qr" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrUrl)}" alt="QR ARCA" />`
-                    : '<div class="qr-placeholder">QR ARCA<br>pendiente</div>'
-                }
-              </div>
-            </section>
-          `
-              : ''
-          }
-
-          ${
-            !isRemito && thermal && (cae || caeVencimiento || qrUrl)
-              ? `
-            <section class="fiscal-auth">
-              ${line('CAE', cae)}
-              ${line('Vto. CAE', caeVencimiento)}
-              ${line('ARCA QR', qrUrl ? 'Disponible' : '')}
-            </section>
-          `
-              : ''
-          }
-
-          ${message ? `<section class="message"><strong>Mensaje:</strong><br />${escapeHtml(message)}</section>` : ''}
-
-          ${
-            isRemito
-              ? `
-            <section class="terms">
-              Al firmar este remito, el receptor deja constancia de la mercadería entregada en las cantidades indicadas.
-              Los productos pendientes quedan registrados para retiro o entrega posterior.
-            </section>
-            <section class="signature-grid">
-              <div class="signature-box">Firma y aclaración de quien entrega</div>
-              <div class="signature-box">Firma y aclaración de quien recibe</div>
-            </section>
-          `
-              : ''
-          }
-
-          <section class="footer">
-            ${isRemito ? 'Remito emitido como constancia de entrega de mercadería.' : 'Comprobante emitido por sistema POS'}
-          </section>
-          </div>
-        </main>
-        <script>
-          window.addEventListener('load', () => {
-            window.focus();
-            window.print();
-          });
-        </script>
-      </body>
-    </html>
+  // ── bloque térmico ──────────────────────────────────────────────────────────
+  const thermalHtml = `
+    <section class="brand">
+      <div>
+        <h1>${escapeHtml(storeName)}</h1>
+        ${line('Razon social', config.razon_social_ticket)}
+        ${line('Domicilio', config.domicilio_ticket)}
+        ${line('Tel', config.telefono_ticket)}
+        ${line('Email', config.email_ticket)}
+        ${line('Web', config.web_ticket)}
+      </div>
+    </section>
+    <div class="body-content">
+      ${showFiscal ? `
+        <section class="fiscal">
+          ${line('CUIT', config.cuit_ticket)}
+          ${line('IIBB', config.ingresos_brutos_ticket)}
+          ${line('Inicio act.', config.inicio_actividades_ticket)}
+          ${line('Pto. venta', puntoVenta)}
+          ${line('Cod. fiscal', codigoFiscal)}
+        </section>` : ''}
+      <div class="doc-title">${escapeHtml(titulo)} — N° ${escapeHtml(numeroFiscal || comprobante.numero)}</div>
+      <section class="meta">
+        ${line('Fecha', formatDateTime(comprobante.created_at))}
+        ${line('Cliente', comprobante.cliente_nombre || 'Consumidor final')}
+        ${opts.vendedor ? line('Vendedor', opts.vendedor) : ''}
+        ${opts.cajero ? line('Cajero', opts.cajero) : ''}
+        ${listaPrecio ? line('Lista precio', listaPrecioLabel(listaPrecio)) : ''}
+      </section>
+      ${showDetail && items.length ? `
+        <table>
+          <thead><tr>
+            <th>Descripcion</th>
+            <th class="right">Cant</th>
+            <th class="right">Importe</th>
+          </tr></thead>
+          <tbody>
+            ${items.map((item) => `
+              <tr>
+                <td><div class="item-name">${escapeHtml(item.descripcion)}</div></td>
+                <td class="right">${escapeHtml(formatQty(item.cantidad))}</td>
+                <td class="right">${money(item.subtotal)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>` : ''}
+      <div class="totals">
+        <div class="total-row"><span>Subtotal</span><span>${money(comprobante.subtotal)}</span></div>
+        ${showDiscounts && toNumber(comprobante.descuento_total) > 0 ? `<div class="total-row"><span>Descuento</span><span>-${money(comprobante.descuento_total)}</span></div>` : ''}
+        ${showRecargos && toNumber(comprobante.recargo_total) > 0 ? `<div class="total-row"><span>Recargo</span><span>${money(comprobante.recargo_total)}</span></div>` : ''}
+        ${ivaCalculado > 0 ? `<div class="total-row"><span>${escapeHtml(modoIvaLabel(listaPrecio?.modo_iva, listaPrecio?.porcentaje_iva) || 'IVA')}</span><span>${money(ivaCalculado)}</span></div>` : ''}
+        <div class="grand"><span>TOTAL</span><span>${money(comprobante.total)}</span></div>
+      </div>
+      ${cae || caeVencimiento ? `
+        <section class="fiscal-auth">
+          ${line('CAE', cae)}
+          ${line('Vto. CAE', caeVencimiento)}
+        </section>` : ''}
+      ${qrSrc ? `
+        <section class="arca-footer">
+          <img class="qr" src="${qrSrc}" alt="QR ARCA" />
+          <div>Comprobante autorizado por ARCA</div>
+        </section>` : ''}
+      ${message ? `<section class="message">${escapeHtml(message)}</section>` : ''}
+      <div class="footer">Comprobante emitido por sistema POS</div>
+    </div>
   `;
+
+  // ── bloque A4 ───────────────────────────────────────────────────────────────
+  const remitoRows = (() => {
+    if (!isRemito) return '';
+    if (despacho?.items?.length) {
+      return despacho.items.map((item) => {
+        const key = String(item.descripcion).trim().toLowerCase();
+        const cantRemito = remitoCantidadPorDescripcion.get(key) ?? 0;
+        const pend = toNumber(item.cantidad_pendiente);
+        return `<tr>
+          <td><div class="item-desc">${escapeHtml(item.descripcion)}</div></td>
+          <td class="right">${escapeHtml(formatQty(item.cantidad_solicitada))}</td>
+          <td class="right"><b>${escapeHtml(formatQty(cantRemito))}</b></td>
+          <td class="right">${escapeHtml(formatQty(item.cantidad_despachada))}</td>
+          <td class="right ${pend > 0 ? 'pending-qty' : ''}">${escapeHtml(formatQty(item.cantidad_pendiente))}</td>
+          <td>${escapeHtml(motivoPendienteLabel(item.motivo_pendiente) || (pend > 0 ? 'Pendiente' : 'Entregado'))}</td>
+        </tr>`;
+      }).join('');
+    }
+    return remitoItems.map((item) => `<tr>
+      <td><div class="item-desc">${escapeHtml(item.descripcion)}</div></td>
+      <td class="right">—</td>
+      <td class="right"><b>${escapeHtml(formatQty(item.cantidad))}</b></td>
+      <td class="right">${escapeHtml(formatQty(item.cantidad))}</td>
+      <td class="right">0</td>
+      <td>Entregado</td>
+    </tr>`).join('') || '<tr><td colspan="6">Sin artículos.</td></tr>';
+  })();
+
+  const a4Html = `
+    ${buildHeaderA4({ storeName, config, titulo, letraFiscal, codigoFiscal, numeroFiscal, comprobante, puntoVenta, esFiscal })}
+
+    <div class="body-content">
+
+      ${isRemito ? `
+        <div class="dispatch-block" style="margin-top:10px">
+          <h3>Remito de despacho</h3>
+          <div class="dispatch-summary">
+            <div class="ds-box"><span>Solicitado</span><strong>${escapeHtml(formatQty(resumenDespacho.solicitado || entregadoEnRemito))}</strong></div>
+            <div class="ds-box"><span>Este remito</span><strong>${escapeHtml(formatQty(entregadoEnRemito))}</strong></div>
+            <div class="ds-box"><span>Entregado</span><strong>${escapeHtml(formatQty(resumenDespacho.entregado || entregadoEnRemito))}</strong></div>
+            <div class="ds-box"><span>Pendiente</span><strong class="${resumenDespacho.pendiente > 0 ? 'pending-qty' : ''}">${escapeHtml(formatQty(resumenDespacho.pendiente))}</strong></div>
+          </div>
+          <table>
+            <thead><tr>
+              <th style="width:36%">Artículo</th>
+              <th class="right" style="width:12%">Solicitado</th>
+              <th class="right" style="width:12%">Este remito</th>
+              <th class="right" style="width:12%">Entregado</th>
+              <th class="right" style="width:12%">Pendiente</th>
+              <th style="width:16%">Estado</th>
+            </tr></thead>
+            <tbody>${remitoRows}</tbody>
+          </table>
+          <p style="margin-top:12px;font-size:8.5px;color:#888;border-top:1px solid #e8e8e8;padding-top:7px;">
+            Al firmar este remito el receptor da conformidad a la mercadería recibida. Los artículos pendientes quedan registrados para retiro o entrega posterior.
+          </p>
+          <div class="signature-row">
+            <div class="sig-box">Firma y aclaración — quien entrega</div>
+            <div class="sig-box">Firma y aclaración — quien recibe</div>
+          </div>
+        </div>` : `
+
+        <div class="cliente-block">
+          <div class="cliente-row">
+            <span>CLIENTE: <b>${escapeHtml(comprobante.cliente_nombre || 'Consumidor Final')}</b></span>
+            ${comprobante.cliente_cuit || comprobante.cliente_dni ? `<span>C.U.I.T.: <b>${escapeHtml(comprobante.cliente_cuit || comprobante.cliente_dni || '')}</b></span>` : ''}
+          </div>
+          ${comprobante.cliente_domicilio ? `<div class="cliente-row"><span>DOMICILIO: <b>${escapeHtml(comprobante.cliente_domicilio)}</b></span></div>` : ''}
+          ${comprobante.cliente_condicion_iva ? `<div class="cliente-row"><span>COND. IVA: <b>${escapeHtml(comprobante.cliente_condicion_iva)}</b></span></div>` : ''}
+        </div>
+
+        ${opts.vendedor || opts.cajero || listaPrecio ? `
+          <div class="op-bar">
+            ${opts.vendedor ? `<div class="ob">VENDEDOR: <b>${escapeHtml(opts.vendedor)}</b></div>` : ''}
+            ${opts.cajero ? `<div class="ob">CAJERO: <b>${escapeHtml(opts.cajero)}</b></div>` : ''}
+            ${listaPrecio ? `<div class="ob">LISTA: <b>${escapeHtml(listaPrecioLabel(listaPrecio))}</b></div>` : ''}
+          </div>` : ''}
+
+        ${showDetail && items.length ? `
+          <table>
+            <thead><tr>
+              <th style="width:44%">Descripción</th>
+              <th class="right" style="width:10%">Cantidad</th>
+              <th class="right" style="width:18%">Precio</th>
+              <th class="right" style="width:14%">Desc.</th>
+              <th class="right" style="width:14%">Total</th>
+            </tr></thead>
+            <tbody>
+              ${items.map((item) => `
+                <tr>
+                  <td><div class="item-desc">${escapeHtml(item.descripcion)}</div></td>
+                  <td class="right">${escapeHtml(formatQty(item.cantidad))}</td>
+                  <td class="right">${money(item.precio_unitario)}</td>
+                  <td class="right">${toNumber(item.descuento_porcentaje) > 0 ? escapeHtml(String(item.descuento_porcentaje)) + '%' : '—'}</td>
+                  <td class="right">${money(item.subtotal)}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>` : ''}
+
+        <div class="bottom-section">
+          <div class="bottom-left">
+            ${opts.vendedor ? `<div class="bl-row">VENDEDOR: <b>${escapeHtml(opts.vendedor)}</b></div>` : ''}
+            ${listaPrecio ? `<div class="bl-row">LISTA: <b>${escapeHtml(listaPrecioLabel(listaPrecio))}</b></div>` : ''}
+            ${comprobante.total_letras ? `<div class="importe-letras">IMPORTE EN PESOS: ${escapeHtml(comprobante.total_letras).toUpperCase()}</div>` : ''}
+          </div>
+          <div class="totals-col">
+            <div class="t-row"><span>Subtotal</span><b>${money(comprobante.subtotal)}</b></div>
+            ${showDiscounts && toNumber(comprobante.descuento_total) > 0 ? `<div class="t-row descuento"><span>Bonificación</span><b>- ${money(comprobante.descuento_total)}</b></div>` : ''}
+            ${ivaCalculado > 0 ? `<div class="t-row"><span>${escapeHtml(modoIvaLabel(listaPrecio?.modo_iva, listaPrecio?.porcentaje_iva) || 'IVA')}</span><b>${money(ivaCalculado)}</b></div>` : ''}
+            ${showRecargos && toNumber(comprobante.recargo_total) > 0 ? `<div class="t-row"><span>Recargos</span><b>${money(comprobante.recargo_total)}</b></div>` : ''}
+            <div class="t-total"><span>TOTAL</span><span>${money(comprobante.total)}</span></div>
+          </div>
+        </div>
+
+        ${message ? `<div class="msg-block">${escapeHtml(message)}</div>` : ''}
+
+        ${showFiscal && esFiscal ? `
+          <div class="cae-section">
+            <div class="cae-fields">
+              <div class="cae-field">
+                <span class="cf-label">CAE N.°</span>
+                <span class="cf-val ${cae ? '' : 'pending'}">${escapeHtml(cae || 'Pendiente ARCA')}</span>
+              </div>
+              <div class="cae-field">
+                <span class="cf-label">Vto. CAE</span>
+                <span class="cf-val ${caeVencimiento ? '' : 'pending'}">${escapeHtml(caeVencimiento || 'Pendiente')}</span>
+              </div>
+            </div>
+            <div>
+              ${qrSrc
+                ? `<img class="qr" src="${qrSrc}" alt="QR ARCA" /><div class="qr-label">Verificar en ARCA</div>`
+                : '<div class="qr-placeholder">QR ARCA<br>pendiente</div>'}
+            </div>
+          </div>` : ''}
+      `}
+
+    </div>
+
+    <div class="page-footer">
+      ${isRemito
+        ? `Remito N.° ${escapeHtml(comprobante.numero)} — constancia de entrega de mercadería`
+        : `${escapeHtml(titulo)} N.° ${escapeHtml(numeroFiscal || comprobante.numero)} — ${escapeHtml(new Date(comprobante.created_at).toLocaleDateString('es-AR'))}`}
+    </div>
+  `;
+
+  const html = `<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>${escapeHtml(titulo)} ${escapeHtml(comprobante.numero)}</title>
+    <style>${getStyles(formato, diseno)}</style>
+  </head>
+  <body>
+    <main class="sheet">
+      ${thermal ? thermalHtml : a4Html}
+    </main>
+    <script>
+      window.addEventListener('load', () => { window.focus(); window.print(); });
+    </script>
+  </body>
+</html>`;
 
   const printWindow = opts.printWindow ?? window.open('', '_blank', 'width=900,height=700');
   if (!printWindow) return;

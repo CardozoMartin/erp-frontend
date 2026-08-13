@@ -1,7 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAllProductCategoriesActivesFn, postCreateProductCategoryFn, putUpdateProductCategoryFn, toggleProductCategoryStatusFn } from '../api/product.category.api';
-import type { IErrorResponse } from '../../../type/api.response.type';
-import type { AxiosError } from 'axios';
 import type { IProductoCategory } from '../types/producto.category.type';
 import { toast } from 'sonner';
 
@@ -15,8 +13,7 @@ export const usePostCategoryProduct = () => {
       queryClient.invalidateQueries({ queryKey: ['productCategoriesActives'] });
       toast.success('Categoría creada correctamente');
     },
-    onError: (error: AxiosError<IErrorResponse>) => {
-      console.error('Error al crear el producto:', error);
+    onError: () => {
       toast.error('Error al crear la categoría');
     },
   });
@@ -31,8 +28,7 @@ export const usePutProductCategory = (id: number) => {
       queryClient.invalidateQueries({ queryKey: ['productCategoriesActives'] });
       toast.success('Categoría actualizada correctamente');
     },
-    onError: (error: AxiosError<IErrorResponse>) => {
-      console.error('Error al actualizar el producto:', error);
+    onError: () => {
       toast.error('Error al actualizar la categoría');
     },
   });
@@ -56,8 +52,7 @@ export const useToggleProductCategoryStatus = (id: number) => {
       queryClient.invalidateQueries({ queryKey: ['productCategoriesActives'] });
       toast.success('Estado de categoría actualizado correctamente');
     },
-    onError: (error: AxiosError<IErrorResponse>) => {
-      console.error('Error al actualizar el estado de la categoría:', error);
+    onError: () => {
       toast.error('Error al actualizar el estado de la categoría');
     }
   });

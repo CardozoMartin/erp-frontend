@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import '../../../index.css';
 import { useCrearProducto } from '../hooks/useProductos';
 import ModalCategory from './CategoryProducts/ModalCategory';
@@ -23,7 +23,7 @@ import { OfertasSection } from './ProductFormSections/OfertasSection';
 import { StockSection } from './ProductFormSections/StockSection';
 import { VariantesSection } from './ProductFormSections/VariantesSection';
 import { AtributosGeneralesSection } from './ProductFormSections/AtributosGeneralesSection';
-import { UNIDADES } from './constants';
+import { ALICUOTAS_IVA, UNIDADES } from './constants';
 import { useGetAllProductCategoriesActives } from '../hooks/useProductCategory';
 import { useGetSucursales } from '../../Sucursal/hooks/useSucursal';
 import type { IProducto, IStock, IImagenLocal } from '../types/productos.type';
@@ -38,6 +38,7 @@ const defaultProductValues = {
   precio_costo: '',
   precio_venta: '',
   unidad_venta: 'UNIDAD',
+  alicuota_iva: '21',
   activo: true,
   activo_pos: true,
   activo_web: false,
@@ -70,9 +71,6 @@ const defaultProductValues = {
 
 export default function ProductForm() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const noActive = location.state?.noActive || false;
-  console.log('No active param:', noActive);
   const [showModalCategory, setShowModalCategory] = useState(false);
   const [imagenesLocales, setImagenesLocales] = useState<IImagenLocal[]>([]);
   const [showNoBranchModal, setShowNoBranchModal] = useState(false);
@@ -185,7 +183,6 @@ export default function ProductForm() {
 
   // Handlers --------------------------------------
   const handleSubmit = (formData: IProducto) => {
-    console.log('Datos del formulario antes de enviar:', formData);
     const data: IProducto & { imagenesLocales?: IImagenLocal[] } = {
       ...formData,
       precio_costo: formData.precio_costo ? Number(formData.precio_costo) : 0,
@@ -430,6 +427,16 @@ export default function ProductForm() {
                 })}
                 error={errors.unidad_venta?.message as string}
                 options={UNIDADES}
+              />
+
+              {/* Alicuota de IVA — se usa al facturar A/B; la C no discrimina */}
+              <InputFormField
+                label="Alícuota de IVA"
+                name="alicuota_iva"
+                type="select"
+                registration={register('alicuota_iva')}
+                error={errors.alicuota_iva?.message as string}
+                options={ALICUOTAS_IVA}
               />
 
               {/* Toggle */}

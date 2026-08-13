@@ -1,9 +1,11 @@
-import { CreditCard, Loader2, QrCode, ReceiptText, Send, Trash2 } from 'lucide-react';
-import type { ICartItem, IComprobantePos, IMedioPago, PosAccessSubset } from '../../types/pos.type';
+import { CreditCard, Loader2, QrCode, ReceiptText, Trash2 } from 'lucide-react';
+import type { ICartItem, IClientePos, IComprobantePos, IListaPrecioPos, IMedioPago, PosAccessSubset } from '../../types/pos.type';
 import type { PaymentDraft } from '../../utils/pos.utils';
 import { formatCurrency, toNumber } from '../../utils/pos.utils';
 import type { ICaja } from '../../../Cajas/types/caja.type';
 import { PagosMixtos } from '../cajero/PagosMixtos';
+import { BotonesMedioPago } from '../shared/BotonesMedioPago';
+import { ResumenEnvioACaja } from '../shared/ResumenEnvioACaja';
 
 interface Props {
   cartItems: ICartItem[];
@@ -21,11 +23,16 @@ interface Props {
   mercadoPagoDisponible: boolean;
   puedeUsarCuentaCorriente: (clienteId?: string | null) => boolean;
   selectedClienteId: string;
+  selectedCliente: IClientePos | null;
+  selectedLista?: IListaPrecioPos;
+  subtotal: number;
+  medioPagoSugeridoId: string;
   isBusy: boolean;
   ventaCompletaIsPending: boolean;
   crearVentaQrIsPending: boolean;
   crearOrdenQrIsPending: boolean;
   crearCuentaCorrienteIsPending: boolean;
+  crearPendienteIsPending: boolean;
   // Acciones
   onLimpiar: () => void;
   onCotizar: () => void;
@@ -33,9 +40,12 @@ interface Props {
   onCargarCuentaCorriente: () => void;
   onFinalizar: () => void;
   onCobrarQrCarrito: () => void;
+  onSeleccionarMedioPagoSugerido: (id: string) => void;
+  onSeleccionarMedioPago: (id: string) => void;
   onAddPaymentDraft: () => void;
   onUpdatePaymentDraft: (id: string, patch: Partial<PaymentDraft>) => void;
   onRemovePaymentDraft: (id: string) => void;
+  esSoloCajero: boolean;
   // Pendientes de cobro (flujo separado)
   ventasPendientes: IComprobantePos[];
   cobrarPendienteIsPending: boolean;
@@ -58,20 +68,28 @@ export const CarritoAcciones = ({
   mercadoPagoDisponible,
   puedeUsarCuentaCorriente,
   selectedClienteId,
+  selectedCliente,
+  selectedLista,
+  subtotal,
+  medioPagoSugeridoId,
   isBusy,
   ventaCompletaIsPending,
   crearVentaQrIsPending,
   crearOrdenQrIsPending,
   crearCuentaCorrienteIsPending,
+  crearPendienteIsPending,
   onLimpiar,
   onCotizar,
   onEnviarACaja,
   onCargarCuentaCorriente,
   onFinalizar,
   onCobrarQrCarrito,
+  onSeleccionarMedioPagoSugerido,
+  onSeleccionarMedioPago,
   onAddPaymentDraft,
   onUpdatePaymentDraft,
   onRemovePaymentDraft,
+  esSoloCajero,
   ventasPendientes,
   cobrarPendienteIsPending,
   onCobrarPendiente,
@@ -82,110 +100,160 @@ export const CarritoAcciones = ({
       : mediosPago.find(m => m.id === selectedPaymentId) ?? mediosPago[0];
 
   return (
-    <div className="px-4 py-4">
-      {/* Pagos mixtos */}
-      {muestraControlesCobro && permitePagoMixto ? (
-        <div className="mb-4 rounded border border-[#c4c6cd] bg-white">
-          <div className="flex items-center justify-between border-b border-[#c4c6cd] px-3 py-2">
-            <span className="text-[12px] font-bold uppercase tracking-wide text-[#44474c]">Pagos</span>
+    <div className="px-4 py-4 space-y-4">
+
+      {/* Flujo separado (vendedor solo): panel de resumen con medio sugerido */}
+      {usaFlujoSeparado && !esSoloCajero && posAccess.puedeCrearVentaPendiente ? (
+        <>
+          <ResumenEnvioACaja
+            cartItems={cartItems}
+            subtotal={subtotal}
+            cliente={selectedCliente}
+            selectedLista={selectedLista}
+            mediosPago={mediosPago}
+            medioPagoSugeridoId={medioPagoSugeridoId}
+            puedeUsarCuentaCorriente={puedeUsarCuentaCorriente(selectedClienteId)}
+            usaDespacho={usaDespacho}
+            isBusy={isBusy}
+            isPending={crearPendienteIsPending}
+            puedeCrearVentaPendiente={posAccess.puedeCrearVentaPendiente}
+            onSeleccionarMedioPago={onSeleccionarMedioPagoSugerido}
+            onEnviar={onEnviarACaja}
+          />
+
+          {permiteCotizaciones && (
             <button
               type="button"
-              onClick={onAddPaymentDraft}
-              className="rounded border border-[#c4c6cd] bg-white px-2 py-1 text-[12px] font-semibold text-[#041627] hover:bg-[#f4f5f6]"
+              onClick={onCotizar}
+              disabled={isBusy || !cartItems.length || !posAccess.puedeVender}
+              className="flex w-full items-center justify-center gap-2 rounded border border-[#c4c6cd] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#041627] hover:bg-[#f4f5f6] disabled:opacity-60"
             >
-              Agregar pago
+              <ReceiptText size={15} />
+              Cotizar
             </button>
-          </div>
-          <div className="p-3">
-            <PagosMixtos
-              paymentDrafts={paymentDrafts}
-              mediosPago={mediosPago}
-              selectedPayment={selectedPayment}
-              clienteId={selectedClienteId}
-              puedeUsarCuentaCorriente={puedeUsarCuentaCorriente}
-              onAgregar={onAddPaymentDraft}
-              onActualizar={onUpdatePaymentDraft}
-              onQuitar={onRemovePaymentDraft}
-            />
-          </div>
-        </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onLimpiar}
+            className="flex w-full items-center justify-center gap-1.5 rounded border border-[#c4c6cd] bg-white px-4 py-2.5 text-[13px] font-medium text-[#44474c] hover:bg-[#f4f5f6]"
+          >
+            <Trash2 size={14} />
+            Limpiar carrito
+          </button>
+        </>
       ) : null}
 
-      {/* Botones de acción */}
-      <div className="grid gap-3 sm:grid-cols-5">
-        <button
-          type="button"
-          onClick={onLimpiar}
-          className="flex items-center justify-center gap-1 rounded border border-[#c4c6cd] bg-white px-4 py-3 text-[14px] font-medium text-[#041627] hover:bg-[#f4f5f6]"
-        >
-          <Trash2 size={15} />
-          Limpiar
-        </button>
+      {/* Flujo directo (vende y cobra): botones grandes de medio de pago */}
+      {permiteCobroDirecto ? (
+        <>
+          {/* Pagos mixtos */}
+          {muestraControlesCobro && permitePagoMixto ? (
+            <div className="rounded border border-[#c4c6cd] bg-white">
+              <div className="flex items-center justify-between border-b border-[#c4c6cd] px-3 py-2">
+                <span className="text-[12px] font-bold uppercase tracking-wide text-[#44474c]">Pagos</span>
+                <button
+                  type="button"
+                  onClick={onAddPaymentDraft}
+                  className="rounded border border-[#c4c6cd] bg-white px-2 py-1 text-[12px] font-semibold text-[#041627] hover:bg-[#f4f5f6]"
+                >
+                  Agregar pago
+                </button>
+              </div>
+              <div className="p-3">
+                <PagosMixtos
+                  paymentDrafts={paymentDrafts}
+                  mediosPago={mediosPago}
+                  selectedPayment={selectedPayment}
+                  clienteId={selectedClienteId}
+                  puedeUsarCuentaCorriente={puedeUsarCuentaCorriente}
+                  onAgregar={onAddPaymentDraft}
+                  onActualizar={onUpdatePaymentDraft}
+                  onQuitar={onRemovePaymentDraft}
+                />
+              </div>
+            </div>
+          ) : null}
 
-        {permiteCotizaciones ? (
-          <button
-            type="button"
-            onClick={onCotizar}
-            disabled={isBusy || !cartItems.length || !posAccess.puedeVender}
-            className="flex items-center justify-center gap-2 rounded border border-[#c4c6cd] bg-white px-4 py-3 text-[14px] font-semibold text-[#041627] hover:bg-[#f4f5f6] disabled:opacity-60"
-          >
-            <ReceiptText size={16} />
-            Cotizar
-          </button>
-        ) : null}
+          {/* Botones de medio de pago (reemplaza el select) */}
+          {muestraControlesCobro && !permitePagoMixto ? (
+            <div>
+              <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-[#44474c]">
+                Medio de pago
+              </div>
+              <BotonesMedioPago
+                mediosPago={mediosPago}
+                selectedPaymentId={selectedPaymentId}
+                puedeUsarCuentaCorriente={puedeUsarCuentaCorriente(selectedClienteId)}
+                onSeleccionar={onSeleccionarMedioPago}
+                disabled={isBusy}
+              />
+            </div>
+          ) : null}
 
-        {usaFlujoSeparado ? (
-          <button
-            type="button"
-            onClick={onEnviarACaja}
-            disabled={isBusy || !cartItems.length || !posAccess.puedeCrearVentaPendiente}
-            className="flex items-center justify-center gap-2 rounded bg-[#075E54] px-4 py-3 text-[14px] font-semibold text-white hover:bg-[#0b6d62] disabled:opacity-60"
-          >
-            <Send size={16} />
-            {usaDespacho ? 'Enviar a cobro' : 'Enviar a caja'}
-          </button>
-        ) : null}
+          {/* Botones de acción: limpiar, cotizar, cobrar */}
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={onLimpiar}
+              className="flex items-center justify-center gap-1.5 rounded border border-[#c4c6cd] bg-white px-4 py-3 text-[13px] font-medium text-[#041627] hover:bg-[#f4f5f6]"
+            >
+              <Trash2 size={14} />
+              Limpiar
+            </button>
 
-        {usaFlujoSeparado && puedeUsarCuentaCorriente(selectedClienteId) ? (
-          <button
-            type="button"
-            onClick={onCargarCuentaCorriente}
-            disabled={isBusy || !cartItems.length || !posAccess.puedeCrearVentaPendiente}
-            className="flex items-center justify-center gap-2 rounded bg-[#0f766e] px-4 py-3 text-[14px] font-semibold text-white hover:bg-[#115e59] disabled:opacity-60"
-          >
-            {crearCuentaCorrienteIsPending ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
-            Cuenta corriente
-          </button>
-        ) : null}
+            {permiteCotizaciones ? (
+              <button
+                type="button"
+                onClick={onCotizar}
+                disabled={isBusy || !cartItems.length || !posAccess.puedeVender}
+                className="flex items-center justify-center gap-2 rounded border border-[#c4c6cd] bg-white px-4 py-3 text-[13px] font-semibold text-[#041627] hover:bg-[#f4f5f6] disabled:opacity-60"
+              >
+                <ReceiptText size={15} />
+                Cotizar
+              </button>
+            ) : null}
 
-        {permiteCobroDirecto ? (
-          <button
-            type="button"
-            onClick={onFinalizar}
-            disabled={isBusy || !cartItems.length || !cajaAbierta || !posAccess.puedeVenderYCobrar}
-            className="flex items-center justify-center gap-2 rounded bg-[#075E54] px-4 py-3 text-[14px] font-semibold text-white hover:bg-[#0b6d62] disabled:opacity-60"
-          >
-            {ventaCompletaIsPending ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
-            {usaDespacho ? 'Cobrar y despachar' : 'Cobrar'}
-          </button>
-        ) : null}
+            {puedeUsarCuentaCorriente(selectedClienteId) ? (
+              <button
+                type="button"
+                onClick={onCargarCuentaCorriente}
+                disabled={isBusy || !cartItems.length || !cajaAbierta}
+                className="flex items-center justify-center gap-2 rounded bg-[#0f766e] px-4 py-3 text-[13px] font-semibold text-white hover:bg-[#115e59] disabled:opacity-60"
+              >
+                {crearCuentaCorrienteIsPending ? <Loader2 size={15} className="animate-spin" /> : <CreditCard size={15} />}
+                Cta. corriente
+              </button>
+            ) : null}
 
-        {permiteCobroDirecto && mercadoPagoDisponible ? (
-          <button
-            type="button"
-            onClick={onCobrarQrCarrito}
-            disabled={isBusy || !cartItems.length || !cajaAbierta || !posAccess.puedeVenderYCobrar}
-            className="flex items-center justify-center gap-2 rounded bg-[#0f766e] px-4 py-3 text-[14px] font-semibold text-white hover:bg-[#115e59] disabled:opacity-60"
-          >
-            {crearVentaQrIsPending || crearOrdenQrIsPending ? <Loader2 size={16} className="animate-spin" /> : <QrCode size={16} />}
-            Cobrar QR
-          </button>
-        ) : null}
-      </div>
+            <button
+              type="button"
+              onClick={onFinalizar}
+              disabled={isBusy || !cartItems.length || !cajaAbierta || !posAccess.puedeVenderYCobrar}
+              className="flex items-center justify-center gap-2 rounded bg-[#075E54] px-4 py-3 text-[14px] font-semibold text-white hover:bg-[#0b6d62] disabled:opacity-60 sm:col-span-2"
+            >
+              {ventaCompletaIsPending ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
+              Cobrar
+            </button>
 
-      {/* Pendientes de cobro (solo flujo separado con cajero) */}
-      {usaFlujoSeparado && posAccess.puedeCobrarPendiente ? (
-        <div className="mt-4 rounded border border-[#c4c6cd] bg-white">
+            {mercadoPagoDisponible ? (
+              <button
+                type="button"
+                onClick={onCobrarQrCarrito}
+                disabled={isBusy || !cartItems.length || !cajaAbierta || !posAccess.puedeVenderYCobrar}
+                className="flex items-center justify-center gap-2 rounded bg-[#009EE3] px-4 py-3 text-[13px] font-semibold text-white hover:bg-[#0086c2] disabled:opacity-60 sm:col-span-2"
+              >
+                {crearVentaQrIsPending || crearOrdenQrIsPending ? <Loader2 size={15} className="animate-spin" /> : <QrCode size={15} />}
+                Cobrar QR
+              </button>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+
+      {/* Pendientes de cobro (solo cajero en flujo separado) */}
+      {usaFlujoSeparado && esSoloCajero && posAccess.puedeCobrarPendiente ? (
+        <div className="rounded border border-[#c4c6cd] bg-white">
           <div className="flex items-center justify-between border-b border-[#c4c6cd] px-4 py-2">
             <span className="text-[12px] font-bold uppercase tracking-wide text-[#44474c]">Pendientes de cobro</span>
             <ReceiptText size={15} className="text-[#075E54]" />

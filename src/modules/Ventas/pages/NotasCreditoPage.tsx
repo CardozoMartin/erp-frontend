@@ -8,11 +8,13 @@ import { useMediosPagoActivos } from '../../PuntoDeVenta/hooks/usePos';
 import type { IComprobanteAux } from '../../POSAuxiliares/types/pos-aux.type';
 import {
   useCajaAbiertaAux,
+  useConfiguracionPos,
   useFacturacionAux,
   useNotasCreditoAux,
   usePosAuxMutation,
   useVentasPosAux,
 } from '../../POSAuxiliares/hooks/usePosAux';
+import { obtenerQrFiscalFn } from '../../POSAuxiliares/api/posAux.api';
 import { dateTime, money, shortId, toNumber } from '../../POSAuxiliares/utils/format';
 import { imprimirComprobante } from '../../POSAuxiliares/utils/printComprobante';
 import { hasAnyPermission, POS_PERMISSIONS } from '../../POSAuxiliares/utils/posPermissions';
@@ -42,6 +44,7 @@ const NotasCreditoPage = () => {
   const ventasQuery = useVentasPosAux(puedeVerNotas);
   const facturacionQuery = useFacturacionAux(puedeVerNotas);
   const cajaQuery = useCajaAbiertaAux(puedeCrearNota);
+  const configQuery = useConfiguracionPos();
   const mediosPagoQuery = useMediosPagoActivos();
   const mutations = usePosAuxMutation();
   const [origenId, setOrigenId] = useState('');
@@ -145,6 +148,16 @@ const NotasCreditoPage = () => {
     setMedioPagoId(efectivo.id);
   }, [medioPagoId, mediosPago]);
 
+  // Una NC con CAE lleva QR fiscal igual que la factura; la interna no tiene CAE
+  const imprimirNota = async (nota: IComprobanteAux) => {
+    const qrDataUri = nota.cae ? await obtenerQrFiscalFn(nota.id) : null;
+    imprimirComprobante(nota, {
+      titulo: 'Nota de credito',
+      config: configQuery.data,
+      qrDataUri,
+    });
+  };
+
   const seleccionarOrigen = (comprobante: IComprobanteAux) => {
     setOrigenId(comprobante.id);
     setDraft(
@@ -220,7 +233,7 @@ const NotasCreditoPage = () => {
       render: (nota) => (
         <button
           type="button"
-          onClick={() => imprimirComprobante(nota, 'Nota de credito')}
+          onClick={() => void imprimirNota(nota)}
           className="inline-flex items-center gap-2 rounded border border-[#c4c6cd] bg-white px-3 py-2 text-[12px] font-semibold text-[#041627] hover:bg-[#f4f5f6]"
         >
           <Printer size={14} />
@@ -486,7 +499,7 @@ const NotasCreditoPage = () => {
               {
                 label: 'Imprimir',
                 icon: <Printer size={14} />,
-                onClick: () => imprimirComprobante(nota, 'Nota de credito'),
+                onClick: () => void imprimirNota(nota),
               },
               {
                 label: 'Ver venta origen',

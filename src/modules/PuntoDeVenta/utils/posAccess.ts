@@ -28,10 +28,18 @@ export type PosAccessRules = {
   muestraControlesCobro: boolean;
   requiereCajaParaVender: boolean;
   requiereCajaParaCobrar: boolean;
+  descripcionModo: string;
   mensajeBloqueo?: string;
 };
 
 const has = (permisos: string[], permiso: string) => permisos.includes(permiso);
+
+const DESCRIPCION_MODO: Record<ModoPosSucursal, string> = {
+  SIMPLE: 'Solo una caja por sucursal. El mismo operador vende y cobra.',
+  MULTICAJA: 'Múltiples cajeros independientes, cada uno con su propia caja.',
+  CAJA_CENTRALIZADA: 'Vendedores crean ventas pendientes. Los cajeros cobran en la caja central.',
+  CON_DESPACHO: 'Vendedores crean ventas, cajeros cobran y una zona de despacho entrega el pedido.',
+};
 
 export const getPosAccessRules = ({
   permisos,
@@ -52,7 +60,10 @@ export const getPosAccessRules = ({
   const puedeCancelarVenta = has(permisos, 'ventas.cancelar');
   const puedeVenderYCobrar = puedeVender && puedeCobrar;
 
+  // En flujo simple/multicaja: el vendedor DEBE poder cobrar también (no se permiten roles separados)
+  // En flujo separado: vendedor solo vende, cajero solo cobra — tener ambos permisos está bien
   const bloqueadoPorModo = requiereOperadorCompleto && !puedeVenderYCobrar;
+
   const puedeCrearVentaPendiente = usaFlujoSeparado && puedeVender;
   const puedeVerPendientesCobro = usaFlujoSeparado && puedeCobrar;
   const puedeCobrarPendiente = puedeVerPendientesCobro && cajaAbierta;
@@ -62,8 +73,15 @@ export const getPosAccessRules = ({
 
   let mensajeBloqueo: string | undefined;
   if (bloqueadoPorModo) {
-    mensajeBloqueo =
-      'Este modo POS requiere un usuario vendedor-cajero. Un vendedor solo o cajero solo no puede operar venta simple o multicaja.';
+    if (esFlujoSimple) {
+      mensajeBloqueo = puedeVender
+        ? 'Modo SIMPLE: necesitás permiso de cobro (caja.cobrar) para operar. El vendedor también cobra en este modo.'
+        : 'Modo SIMPLE: necesitás permiso de ventas (ventas.crear) y cobro (caja.cobrar) para operar.';
+    } else if (esMulticaja) {
+      mensajeBloqueo = puedeVender
+        ? 'Modo MULTICAJA: necesitás permiso de cobro (caja.cobrar) para operar tu caja. Cada cajero cobra sus propias ventas.'
+        : 'Modo MULTICAJA: necesitás permiso de ventas (ventas.crear) y cobro (caja.cobrar) para operar.';
+    }
   } else if (!puedeOperarPos) {
     mensajeBloqueo = 'Este usuario no tiene permisos para operar el punto de venta.';
   }
@@ -90,6 +108,7 @@ export const getPosAccessRules = ({
     muestraControlesCobro,
     requiereCajaParaVender: permiteCobroDirecto,
     requiereCajaParaCobrar: true,
+    descripcionModo: DESCRIPCION_MODO[modoPos],
     mensajeBloqueo,
   };
 };

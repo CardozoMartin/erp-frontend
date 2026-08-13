@@ -1,6 +1,7 @@
 // types/auth.types.ts
 export interface LoginResponse {
   token: string
+  refreshToken?: string
 
   empleado: {
     id: string

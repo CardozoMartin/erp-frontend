@@ -13,6 +13,7 @@ import {
 import { ColumnasSelector } from '../productos/ColumnasSelector';
 import { PaginadorTabla } from '../productos/PaginadorTabla';
 import ModalImageUpload from './ModalImageUpload';
+import { ModalOfertaRapida } from './ModalOfertaRapida';
 import ProductRow from './ProductRow';
 
 const LIMITE = 10;
@@ -25,6 +26,7 @@ const obtenerNombreCategoria = (producto: IProducto) => {
 const TableProducts = ({ search = '' }: { search?: string }) => {
   const [paginaActual, setPaginaActual] = useState(1);
   const [productoImagen, setProductoImagen] = useState<IProducto | null>(null);
+  const [productoOferta, setProductoOferta] = useState<IProducto | null>(null);
 
   const sucursalActiva = useAuthStore((state) => state.sucursalActiva);
   const permisos = useAuthStore((state) => state.permisos);
@@ -105,6 +107,7 @@ const TableProducts = ({ search = '' }: { search?: string }) => {
                     key={producto.id}
                     product={producto}
                     onChangeImage={(p) => setProductoImagen(p as IProducto)}
+                    onOffer={() => setProductoOferta(producto)}
                     visibleColumns={columnasMostradas.map((c) => c.key)}
                   />
                 ))
@@ -139,6 +142,16 @@ const TableProducts = ({ search = '' }: { search?: string }) => {
           existingImages={productoImagen.imagenes ?? []}
           onClose={() => setProductoImagen(null)}
           onSuccess={() => setProductoImagen(null)}
+        />
+      )}
+
+      {productoOferta?.id && (
+        <ModalOfertaRapida
+          productoId={productoOferta.id}
+          productoNombre={productoOferta.nombre}
+          precioVenta={Number(productoOferta.precio_venta ?? productoOferta.precio_base ?? 0)}
+          ofertasExistentes={productoOferta.ofertas}
+          onClose={() => setProductoOferta(null)}
         />
       )}
     </>

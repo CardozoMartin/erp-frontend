@@ -25,6 +25,7 @@ interface Empleado {
 
 interface AuthState {
   token: string | null
+  refreshToken: string | null
   empleado: Empleado | null
   permisos: string[]
   rutas: Ruta[]
@@ -37,10 +38,11 @@ interface AuthState {
   cerrarSesion: () => void
   tienePermiso: (permiso: string) => boolean
   setSucursalActiva: (sucursal: Sucursal) => void
+  setToken: (token: string, refreshToken?: string) => void
   cambiarSucursalActiva: (
     token: string,
     sucursal: Pick<Sucursal, 'id' | 'nombre'>,
-    sessionData?: Pick<LoginResponse, 'permisos' | 'rutas' | 'rutaInicio'>,
+    sessionData?: Pick<LoginResponse, 'permisos' | 'rutas' | 'rutaInicio'> & { refreshToken?: string },
   ) => void
 }
 
@@ -54,6 +56,7 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       token: null,
+      refreshToken: null,
       empleado: null,
       permisos: [],
       rutas: [],
@@ -63,6 +66,7 @@ export const useAuthStore = create<AuthState>()(
 
       setSession: (data) => set({
         token: data.token,
+        refreshToken: data.refreshToken ?? null,
         empleado: data.empleado,
         permisos: data.permisos,
         rutas: data.rutas,
@@ -73,6 +77,7 @@ export const useAuthStore = create<AuthState>()(
 
       cerrarSesion: () => set({
         token: null,
+        refreshToken: null,
         empleado: null,
         permisos: [],
         rutas: [],
@@ -84,6 +89,13 @@ export const useAuthStore = create<AuthState>()(
       tienePermiso: (permiso) => get().permisos.includes(permiso),
 
       setSucursalActiva: (sucursal) => set({ sucursalActiva: sucursal }),
+
+      setToken: (token, refreshToken) =>
+        set((state) => ({
+          token,
+          refreshToken: refreshToken ?? state.refreshToken,
+        })),
+
       cambiarSucursalActiva: (token, sucursal, sessionData) =>
         set((state) => {
           const sucursalEnSesion =
@@ -94,6 +106,7 @@ export const useAuthStore = create<AuthState>()(
 
           return {
             token,
+            refreshToken: sessionData?.refreshToken ?? state.refreshToken,
             permisos: sessionData?.permisos ?? state.permisos,
             rutas: sessionData?.rutas ?? state.rutas,
             rutaInicio: sessionData?.rutaInicio ?? state.rutaInicio,
@@ -105,7 +118,7 @@ export const useAuthStore = create<AuthState>()(
         }),
     }),
     {
-      name: 'auth-session', // clave en localStorage
+      name: 'auth-session',
       merge: (persistedState, currentState) => {
         const state = {
           ...currentState,
@@ -117,8 +130,8 @@ export const useAuthStore = create<AuthState>()(
         return state;
       },
       partialize: (state) => ({
-        // Solo persistir esto, no las funciones
         token: state.token,
+        refreshToken: state.refreshToken,
         empleado: state.empleado,
         permisos: state.permisos,
         rutas: state.rutas,

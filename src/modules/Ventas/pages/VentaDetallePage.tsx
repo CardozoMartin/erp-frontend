@@ -10,7 +10,8 @@ import { useCajaAbierta, useCobrarVentaPendiente, useMediosPagoActivos } from '.
 import type { IMedioPago, TipoPagoPos } from '../../PuntoDeVenta/types/pos.type';
 import VentaDetalleFicha from '../../POSAuxiliares/components/VentaDetalleFicha';
 import { useAuditoriaAux, useConfiguracionPos, useDespachosAux, usePosAuxMutation, useServiciosSucursal, useVentasGeneralAux } from '../../POSAuxiliares/hooks/usePosAux';
-import type { IAuditoriaEventoAux, IDespachoAux, IVentaGeneralAux } from '../../POSAuxiliares/types/pos-aux.type';
+import type { IAuditoriaEventoAux, IComprobanteAux, IDespachoAux, IVentaGeneralAux } from '../../POSAuxiliares/types/pos-aux.type';
+import { obtenerQrFiscalFn } from '../../POSAuxiliares/api/posAux.api';
 import { money, toNumber } from '../../POSAuxiliares/utils/format';
 import { hasAnyPermission, POS_PERMISSIONS } from '../../POSAuxiliares/utils/posPermissions';
 import { imprimirComprobante } from '../../POSAuxiliares/utils/printComprobante';
@@ -171,6 +172,20 @@ const VentaDetallePage = () => {
     permisos.includes(POS_PERMISSIONS.ventasCancelarPagada) &&
     ['COBRADA', 'EMITIDA', 'ENTREGADO', 'ENTREGADO_PARCIAL'].includes(venta.comprobante.estado) &&
     venta.comprobante.estado !== 'DEVUELTA';
+  // Si la venta ya se facturo, la nota de credito debe emitirse contra la FACTURA:
+  // es la que AFIP conoce. Sobre la venta interna saldria sin CAE y la factura
+  // quedaria viva ante ARCA.
+  const facturaVigente = useMemo(
+    () =>
+      venta?.fiscales?.find(
+        (comprobante) =>
+          comprobante.tipo?.startsWith('FACTURA') &&
+          !['ANULADO', 'ANULADA'].includes(comprobante.estado),
+      ) ?? null,
+    [venta],
+  );
+  const origenNotaCredito = facturaVigente ?? venta?.comprobante ?? null;
+
   const puedeMarcarPagada =
     !!venta &&
     !esCotizacion &&
@@ -199,19 +214,27 @@ const VentaDetallePage = () => {
 
   const abrirNotaCredito = () => {
     if (!venta) return;
+    // Una nota puede colgar de la venta o de su factura. Se normaliza todo al item
+    // de la VENTA, que es como se indexa la grilla de devolucion.
+    const itemDeVentaPorItemFacturado = new Map(
+      (facturaVigente?.items ?? []).map((item) => [item.id, item.comprobante_item_origen_id ?? item.id]),
+    );
     const devueltosPorItem = new Map<string, number>();
     for (const nc of venta.notasCredito) {
       for (const ncItem of nc.items ?? []) {
         if (!ncItem.comprobante_item_origen_id) continue;
+        const itemVenta =
+          itemDeVentaPorItemFacturado.get(ncItem.comprobante_item_origen_id) ??
+          ncItem.comprobante_item_origen_id;
         devueltosPorItem.set(
-          ncItem.comprobante_item_origen_id,
-          (devueltosPorItem.get(ncItem.comprobante_item_origen_id) ?? 0) + toNumber(ncItem.cantidad),
+          itemVenta,
+          (devueltosPorItem.get(itemVenta) ?? 0) + toNumber(ncItem.cantidad),
         );
       }
     }
     setNcItems(
       Object.fromEntries(
-        venta.comprobante.items.map((item) => {
+        (venta.comprobante.items ?? []).map((item) => {
           const disponible = Math.max(0, toNumber(item.cantidad) - (devueltosPorItem.get(item.id) ?? 0));
           return [item.id, String(disponible)];
         }),
@@ -225,9 +248,21 @@ const VentaDetallePage = () => {
   };
 
   const emitirNotaCredito = () => {
-    if (!venta) return;
-    const itemsFiltrados = venta.comprobante.items
-      .map((item) => ({ comprobante_item_id: item.id, cantidad: Number(ncItems[item.id] ?? 0) }))
+    if (!venta || !origenNotaCredito) return;
+    // Los ncItems se indexan por item de la VENTA. Si la nota va contra la factura,
+    // hay que traducirlos a los items de esa factura (comprobante_item_origen_id
+    // apunta al item de la venta que le dio origen).
+    const idsPorItemDeVenta = new Map(
+      (origenNotaCredito.items ?? []).map((item) => [
+        item.comprobante_item_origen_id ?? item.id,
+        item.id,
+      ]),
+    );
+    const itemsFiltrados = (venta.comprobante.items ?? [])
+      .map((item) => ({
+        comprobante_item_id: idsPorItemDeVenta.get(item.id) ?? item.id,
+        cantidad: Number(ncItems[item.id] ?? 0),
+      }))
       .filter((item) => item.cantidad > 0);
     if (!itemsFiltrados.length) {
       toast.warning('Seleccioná al menos un producto para devolver');
@@ -239,7 +274,7 @@ const VentaDetallePage = () => {
     }
     mutations.crearNotaCredito.mutate(
       {
-        comprobante_origen_id: venta.comprobante.id,
+        comprobante_origen_id: origenNotaCredito.id,
         items: itemsFiltrados,
         destino: ncDestino,
         reingresar_stock: ncReingresarStock,
@@ -248,44 +283,44 @@ const VentaDetallePage = () => {
         referencia: ncDestino === 'REEMBOLSO' && ncReferencia.trim() ? ncReferencia.trim() : undefined,
       },
       {
-        onSuccess: () => {
+        // La nota recien emitida se imprime sola: es el comprobante que el cliente
+        // se lleva, y desde el detalle de la venta no habia forma de recuperarla.
+        onSuccess: (nota) => {
           setNcOpen(false);
           ventasQuery.refetch();
           historialQuery.refetch();
+          void imprimirConQr(nota, 'Nota de credito');
         },
       },
     );
   };
 
-  const imprimir = () => {
+  // El QR fiscal solo existe si el comprobante tiene CAE; lo genera el backend
+  const imprimirConQr = async (comprobante: IComprobanteAux, titulo?: string) => {
     if (!venta) return;
-    imprimirComprobante(venta.comprobante, {
-      titulo: venta.comprobante.tipo,
+    const qrDataUri = comprobante.cae ? await obtenerQrFiscalFn(comprobante.id) : null;
+    imprimirComprobante(comprobante, {
+      titulo: titulo ?? comprobante.tipo,
       config: configQuery.data,
       despacho,
       vendedor: venta.vendedor?.nombreCompleto,
       cajero: venta.cajero?.nombreCompleto,
       listaPrecio: venta.listaPrecio,
       ivaEstimado: venta.margen.iva_estimado,
+      qrDataUri,
     });
+  };
+
+  const imprimir = () => {
+    if (!venta) return;
+    void imprimirConQr(venta.comprobante);
   };
 
   const emitirFiscal = () => {
     if (!venta || !puedeFacturar) return;
     mutations.emitirComprobanteVenta.mutate(
       { ventaId: venta.comprobante.id, tipo: tipoFiscal },
-      {
-        onSuccess: (comprobante) =>
-          imprimirComprobante(comprobante, {
-            titulo: comprobante.tipo,
-            config: configQuery.data,
-            despacho,
-            vendedor: venta.vendedor?.nombreCompleto,
-            cajero: venta.cajero?.nombreCompleto,
-            listaPrecio: venta.listaPrecio,
-            ivaEstimado: venta.margen.iva_estimado,
-          }),
-      },
+      { onSuccess: (comprobante) => void imprimirConQr(comprobante) },
     );
   };
 
@@ -664,6 +699,15 @@ const VentaDetallePage = () => {
                     <div className="text-[12px] text-[#44474c]">
                       Seleccioná los productos a devolver y el destino del importe.
                     </div>
+                    {facturaVigente ? (
+                      <div className="mt-1 text-[12px] font-semibold text-[#075E54]">
+                        Se emitirá contra la factura {facturaVigente.numero} y se pedirá CAE a ARCA.
+                      </div>
+                    ) : (
+                      <div className="mt-1 text-[12px] text-[#8a5a00]">
+                        La venta no tiene factura: la nota será interna, sin CAE.
+                      </div>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -686,7 +730,7 @@ const VentaDetallePage = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {venta.comprobante.items.map((item) => (
+                      {(venta.comprobante.items ?? []).map((item) => (
                         <tr key={item.id} className="border-t border-[#e5e7eb]">
                           <td className="px-3 py-2 font-semibold text-[#041627]">{item.descripcion}</td>
                           <td className="px-3 py-2 text-right text-[#44474c]">{toNumber(item.cantidad)}</td>
@@ -789,7 +833,10 @@ const VentaDetallePage = () => {
                 </div>
               </div>
             ) : null}
-            <VentaDetalleFicha venta={venta} />
+            <VentaDetalleFicha
+              venta={venta}
+              onImprimirNota={(nota) => void imprimirConQr(nota, 'Nota de credito')}
+            />
             <FichaHistoryPanel<IAuditoriaEventoAux>
               variant="section"
               className="mt-4 bg-white"

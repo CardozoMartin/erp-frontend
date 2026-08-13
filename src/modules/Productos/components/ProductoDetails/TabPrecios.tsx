@@ -1,11 +1,17 @@
-import { Tag, Calendar, Award, BadgePercent, TrendingDown } from 'lucide-react';
+import { Tag, Calendar, Award, BadgePercent, TrendingDown, Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { formatPrice } from '../../Pages/Productdetailview';
 import { OfertasSection } from '../ProductFormSections/OfertasSection';
+import { ModalOfertaRapida } from '../Products/ModalOfertaRapida';
 import { useFormContext } from 'react-hook-form';
+import { useEliminarOferta } from '../../hooks/useProductos';
+import Swal from 'sweetalert2';
 
 const TabPrecios = ({ product, isEditing }: any) => {
   const formContext = useFormContext();
   const watchedTieneVariantes = formContext ? formContext.watch('tiene_variantes') : product?.tiene_variantes;
+  const [modalOfertaAbierto, setModalOfertaAbierto] = useState(false);
+  const { mutate: eliminarOferta } = useEliminarOferta();
 
   if (watchedTieneVariantes) {
     return (
@@ -36,6 +42,7 @@ const TabPrecios = ({ product, isEditing }: any) => {
   const ofertas = product?.ofertas ?? [];
 
   return (
+    <>
     <div className="flex flex-col gap-6 pt-3">
       
       {/* Grid: Base Price & Campaigns */}
@@ -63,54 +70,106 @@ const TabPrecios = ({ product, isEditing }: any) => {
 
         {/* Right Side: Discounts & Offers Timeline */}
         <div className="md:col-span-2 bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-          <p className="text-sm font-extrabold text-[#041627] uppercase tracking-wider mb-4 flex items-center gap-1.5 border-b border-slate-100 pb-2">
-            <Award size={15} className="text-[#075E54]" />
-            Campañas y Ofertas Especiales
-          </p>
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-4">
+            <p className="text-sm font-extrabold text-[#041627] uppercase tracking-wider flex items-center gap-1.5">
+              <Award size={15} className="text-[#075E54]" />
+              Campañas y Ofertas Especiales
+            </p>
+            {product?.id && (
+              <button
+                type="button"
+                onClick={() => setModalOfertaAbierto(true)}
+                className="flex items-center gap-1 rounded border border-[#075E54] px-2.5 py-1 text-[12px] font-medium text-[#075E54] hover:bg-[#f3fbf9]"
+              >
+                <Plus size={13} />
+                Nueva oferta
+              </button>
+            )}
+          </div>
 
           <div className="flex flex-col gap-4">
             {ofertas.map((o: any, idx: number) => {
-              // Calcular porcentaje si aplica
-              const precioOferta = Number(o.precio_oferta ?? o.precio ?? 0);
+              const precioOferta = Number(o.precio_oferta ?? 0);
               const precioBase = Number(product.precio_base ?? 0);
-              const tienePorcentaje = o.porcentaje_descuento > 0 || (precioBase > 0 && precioOferta < precioBase);
-              const pct = o.porcentaje_descuento || (precioBase > 0 ? Math.round((1 - (precioOferta / precioBase)) * 100) : 0);
+              const pct = precioBase > 0 && precioOferta < precioBase
+                ? Math.round((1 - precioOferta / precioBase) * 100)
+                : 0;
+              const ahora = new Date();
+              const inicio = new Date(o.fecha_inicio);
+              const fin = new Date(o.fecha_fin);
+              const vigente = o.activo && inicio <= ahora && fin >= ahora;
+
+              const manejarEliminar = () => {
+                if (!o.id) return;
+                Swal.fire({
+                  title: '¿Eliminar oferta?',
+                  text: 'Esta acción no se puede deshacer.',
+                  icon: 'warning',
+                  showCancelButton: true,
+                  confirmButtonColor: '#d33',
+                  cancelButtonColor: '#3085d6',
+                  confirmButtonText: 'Eliminar',
+                  cancelButtonText: 'Cancelar',
+                }).then((result) => {
+                  if (result.isConfirmed) eliminarOferta(o.id);
+                });
+              };
 
               return (
                 <div
-                  key={idx}
+                  key={o.id ?? idx}
                   className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-[#DCF8C6]/10 hover:bg-[#DCF8C6]/20 transition-all rounded-lg border border-[#DCF8C6] shadow-sm relative overflow-hidden group"
                 >
-                  {/* Decorative side ticket border */}
                   <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#075E54] group-hover:w-1.5 transition-all" />
-                  
-                  <div className="flex items-start gap-3 pl-2">
+
+                  <div className="flex items-start gap-3 pl-2 flex-1">
                     <div className="p-2 bg-white rounded-md border border-[#DCF8C6] text-[#075E54] shrink-0 mt-0.5">
                       <TrendingDown size={18} />
                     </div>
                     <div>
                       <p className="text-sm font-bold text-[#041627] flex items-center gap-2">
-                        {o.nombre ?? `Oferta Especial ${idx + 1}`}
-                        {tienePorcentaje && pct > 0 && (
+                        {`Oferta ${idx + 1}`}
+                        {pct > 0 && (
                           <span className="text-[9px] font-black text-[#075E54] bg-[#DCF8C6] px-1.5 py-0.5 rounded tracking-wide uppercase">
                             -{pct}% OFF
                           </span>
                         )}
+                        {vigente ? (
+                          <span className="text-[9px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded uppercase">
+                            Vigente
+                          </span>
+                        ) : !o.activo ? (
+                          <span className="text-[9px] font-bold bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded uppercase">
+                            Inactiva
+                          </span>
+                        ) : null}
                       </p>
                       <p className="text-[11px] text-gray-500 font-semibold mt-1 flex items-center gap-1">
                         <Calendar size={11} className="text-gray-400" />
-                        Vigencia: {o.fecha_inicio} → {o.fecha_fin}
+                        {o.fecha_inicio} → {o.fecha_fin}
                       </p>
                     </div>
                   </div>
 
-                  <div className="text-right mt-3 sm:mt-0 pl-11 sm:pl-0 shrink-0">
-                    <span className="text-xs font-semibold text-gray-400 line-through">
-                      {formatPrice(product.precio_base)}
-                    </span>
-                    <p className="text-lg font-black text-[#075E54] tracking-tight leading-none mt-0.5">
-                      {formatPrice(precioOferta)}
-                    </p>
+                  <div className="flex items-center gap-3 mt-3 sm:mt-0 pl-11 sm:pl-0 shrink-0">
+                    <div className="text-right">
+                      <span className="text-xs font-semibold text-gray-400 line-through">
+                        {formatPrice(precioBase)}
+                      </span>
+                      <p className="text-lg font-black text-[#075E54] tracking-tight leading-none mt-0.5">
+                        {formatPrice(precioOferta)}
+                      </p>
+                    </div>
+                    {o.id && (
+                      <button
+                        type="button"
+                        onClick={manejarEliminar}
+                        className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500"
+                        title="Eliminar oferta"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -129,6 +188,17 @@ const TabPrecios = ({ product, isEditing }: any) => {
       </div>
 
     </div>
+
+    {modalOfertaAbierto && product?.id && (
+      <ModalOfertaRapida
+        productoId={product.id}
+        productoNombre={product.nombre}
+        precioVenta={Number(product.precio_venta ?? product.precio_base ?? 0)}
+        ofertasExistentes={product.ofertas}
+        onClose={() => setModalOfertaAbierto(false)}
+      />
+    )}
+    </>
   );
 }
 

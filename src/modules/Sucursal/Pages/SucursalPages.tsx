@@ -16,7 +16,6 @@ const SucursalPages = () => {
     LIMIT,
   );
   const sucursales = sucursalesResponse?.data ?? [];
-  console.log(sucursales);
   const total = sucursalesResponse?.meta?.total || sucursales.length;
   const totalPages =
     sucursalesResponse?.meta?.totalPages ||

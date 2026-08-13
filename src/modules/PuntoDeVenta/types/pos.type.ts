@@ -91,11 +91,19 @@ export interface IComprobantePos {
   empleado_cajero_id?: string | null;
   tomada_por_cajero_id?: string | null;
   tomada_por?: { id: string; nombreCompleto: string } | null;
+  vendedor?: { id: string; nombreCompleto: string } | null;
+  lista_precio_id?: string | null;
+  lista_precio_nombre?: string | null;
+  medio_pago_sugerido_id?: string | null;
+  medio_pago_sugerido_nombre?: string | null;
   subtotal: number | string;
   descuento_total: number | string;
   recargo_total: number | string;
   total: number | string;
   observaciones?: string | null;
+  /** Autorizacion de ARCA: solo la traen los comprobantes fiscales, no el ticket */
+  cae?: string | null;
+  cae_vencimiento?: string | null;
   created_at: string;
   items: IComprobanteItemPos[];
 }
@@ -171,6 +179,7 @@ export interface IVentaPosPayload {
   cliente_id?: string | null;
   empleado_vendedor_id?: string | null;
   lista_precio_id?: string | null;
+  medio_pago_sugerido_id?: string | null;
   observaciones?: string | null;
   items: {
     producto_id?: string | null;
@@ -228,6 +237,7 @@ export interface PropsPosCajeroView {
   onCobrarQr: (venta: IComprobantePos) => void;
   onCancelar: (venta: IComprobantePos) => void;
   onLimpiarPagos: () => void;
+  onSeleccionarMedioPago: (id: string) => void;
   onAddPaymentDraft: () => void;
   onUpdatePaymentDraft: (id: string, patch: Partial<PaymentDraft>) => void;
   onRemovePaymentDraft: (id: string) => void;
@@ -258,6 +268,9 @@ export interface PropsPosVendedorView {
   limiteCuentaSeleccionada: number;
   disponibleCuentaSeleccionada: number;
   permiteCuentaCorriente: boolean;
+  esSoloCajero: boolean;
+  selectedCliente: IClientePos | null;
+  medioPagoSugeridoId: string;
   ventasPendientes: IComprobantePos[];
   pendientesLoading: boolean;
   search: string;
@@ -268,7 +281,9 @@ export interface PropsPosVendedorView {
   crearVentaQrIsPending: boolean;
   crearOrdenQrIsPending: boolean;
   crearCuentaCorrienteIsPending: boolean;
+  crearPendienteIsPending: boolean;
   cobrarPendienteIsPending: boolean;
+  onSeleccionarMedioPagoSugerido: (id: string) => void;
   onSearchChange: (value: string) => void;
   onAddProduct: (product: IProducto) => void;
   onChangeQuantity: (productId: string | undefined, delta: number) => void;
@@ -280,6 +295,7 @@ export interface PropsPosVendedorView {
   onFinalizar: () => void;
   onCobrarQrCarrito: () => void;
   onCobrarPendiente: (venta: IComprobantePos) => void;
+  onSeleccionarMedioPago: (id: string) => void;
   onAddPaymentDraft: () => void;
   onUpdatePaymentDraft: (id: string, patch: Partial<PaymentDraft>) => void;
   onRemovePaymentDraft: (id: string) => void;

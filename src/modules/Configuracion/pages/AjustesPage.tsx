@@ -1,7 +1,9 @@
 import {
   ArrowRight,
   Clock,
+  Database,
   ImageIcon,
+  Receipt,
   Mail,
   QrCode,
   Settings,
@@ -62,6 +64,22 @@ const ajustes: AjusteItem[] = [
     icon: <Clock size={21} />,
     requiredAny: ['reportes.ver'],
     badge: 'Control',
+  },
+  {
+    title: 'Backup Google Drive',
+    description: 'Respaldo automatico diario de la base de datos en tu Google Drive personal. Gratis y sin limite de uso.',
+    link: '/configuracion-backup',
+    icon: <Database size={21} />,
+    requiredAny: ['admin.servicios', 'mp.crear', 'config.pos'],
+    badge: 'Seguridad',
+  },
+  {
+    title: 'Facturacion ARCA',
+    description: 'Certificado y punto de venta para emitir facturas electronicas con CAE ante ARCA (ex AFIP).',
+    link: '/configuracion-arca',
+    icon: <Receipt size={21} />,
+    requiredAny: ['admin.servicios', 'config.pos'],
+    badge: 'Fiscal',
   },
 ];
 

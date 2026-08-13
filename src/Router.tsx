@@ -4,6 +4,7 @@ import { BrowserRouter, useRoutes } from 'react-router-dom'
 import { RutaProtegida } from './components/common/RutaProtegida'
 
 import { cajasRoutes } from './modules/Cajas/routes'
+import { dashboardRoutes } from './modules/Dashboard/routes'
 import { clientesRoutes } from './modules/Clientes/routes'
 import { empleadosRoutes } from './modules/Empleados/routes'
 import { productosRoutes } from './modules/Productos/routes'
@@ -27,6 +28,7 @@ const appRoutes: RouteObject[] = [
     element: <RutaProtegida />,   // ← sin permiso = solo verifica token
     children: [
       { index: true, element: <div>Home</div> },
+      ...dashboardRoutes,
       ...puntoDeVentaRoutes,
       ...pedidosEnvioRoutes,
       ...posAuxiliaresRoutes,

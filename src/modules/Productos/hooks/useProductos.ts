@@ -12,6 +12,12 @@ import {
   type IAdjustProductStockPayload,
   type ProductoSavePayload,
 } from '../api/productoApi';
+import {
+  crearOfertaFn,
+  actualizarOfertaFn,
+  eliminarOfertaFn,
+  type ICrearOfertaPayload,
+} from '../api/oferta.api';
 import type { IImagenLocal } from '../types/productos.type';
 
 export const PRODUCTOS_KEYS = {
@@ -85,7 +91,53 @@ export const useAjustarStockProducto = () => {
   });
 };
 
-// 5.- Subir imagen standalone para un producto o variante
+// 5.- Crear oferta para un producto
+export const useCrearOferta = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: ICrearOfertaPayload) => crearOfertaFn(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: PRODUCTOS_KEYS.todos });
+      toast.success('Oferta creada correctamente');
+    },
+    onError: (error: AxiosError<IErrorResponse>) => {
+      toast.error(extraerMensajeError(error, 'Error al crear la oferta'));
+    },
+  });
+};
+
+// 6.- Actualizar oferta existente
+export const useActualizarOferta = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Partial<ICrearOfertaPayload> }) =>
+      actualizarOfertaFn(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: PRODUCTOS_KEYS.todos });
+      toast.success('Oferta actualizada');
+    },
+    onError: (error: AxiosError<IErrorResponse>) => {
+      toast.error(extraerMensajeError(error, 'Error al actualizar la oferta'));
+    },
+  });
+};
+
+// 7.- Eliminar oferta
+export const useEliminarOferta = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => eliminarOfertaFn(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: PRODUCTOS_KEYS.todos });
+      toast.success('Oferta eliminada');
+    },
+    onError: (error: AxiosError<IErrorResponse>) => {
+      toast.error(extraerMensajeError(error, 'Error al eliminar la oferta'));
+    },
+  });
+};
+
+// 8.- Subir imagen standalone para un producto o variante
 export const useSubirImagenProducto = () => {
   const queryClient = useQueryClient();
   return useMutation({

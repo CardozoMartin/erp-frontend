@@ -101,6 +101,7 @@ export const useAbrirCaja = () => {
     mutationFn: abrirCajaFn,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pos', 'caja-abierta'] });
+      queryClient.invalidateQueries({ queryKey: ['pos', 'ventas-pendientes'] });
       toast.success('Caja abierta correctamente');
     },
     onError: (error: AxiosError<IErrorResponse>) => toast.error(getErrorMessage(error)),

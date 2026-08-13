@@ -6,7 +6,7 @@ import type {
   IVentaPosPayload,
   TipoPagoPos,
 } from '../types/pos.type';
-import type { IProducto, IStock } from '../../Productos/types/productos.type';
+import type { IOferta, IProducto, IStock } from '../../Productos/types/productos.type';
 
 // ─── Tipos locales ────────────────────────────────────────────────────────────
 
@@ -41,8 +41,39 @@ export const toNumber = (value: unknown, fallback = 0) => {
 
 // ─── Producto helpers ─────────────────────────────────────────────────────────
 
-export const getProductPrice = (product: IProducto) =>
-  toNumber(product.precio_venta ?? product.precio_base);
+export const getOfertaVigente = (ofertas?: IOferta[], varianteId?: string | null): IOferta | null => {
+  if (!ofertas?.length) return null;
+  const ahora = new Date();
+
+  // Prioridad: oferta de variante específica > oferta general del producto
+  const candidatas = ofertas.filter(o => {
+    if (!o.activo) return false;
+    const inicio = new Date(o.fecha_inicio);
+    const fin = new Date(o.fecha_fin);
+    const enRango = inicio <= ahora && fin >= ahora;
+    const coincideVariante = varianteId ? o.variante_id === varianteId : !o.variante_id;
+    return enRango && coincideVariante;
+  });
+
+  if (!candidatas.length && varianteId) {
+    // Fallback: buscar oferta a nivel producto (sin variante)
+    const generales = ofertas.filter(o => {
+      if (!o.activo || o.variante_id) return false;
+      const inicio = new Date(o.fecha_inicio);
+      const fin = new Date(o.fecha_fin);
+      return inicio <= ahora && fin >= ahora;
+    });
+    return generales.sort((a, b) => a.precio_oferta - b.precio_oferta)[0] ?? null;
+  }
+
+  return candidatas.sort((a, b) => a.precio_oferta - b.precio_oferta)[0] ?? null;
+};
+
+export const getProductPrice = (product: IProducto, varianteId?: string | null) => {
+  const oferta = getOfertaVigente(product.ofertas, varianteId);
+  if (oferta) return toNumber(oferta.precio_oferta);
+  return toNumber(product.precio_venta ?? product.precio_base);
+};
 
 export const applyPriceList = (price: number, list?: IListaPrecioPos) => {
   if (!list) return price;

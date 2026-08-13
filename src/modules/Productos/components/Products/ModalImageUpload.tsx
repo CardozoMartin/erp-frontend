@@ -105,8 +105,8 @@ export default function ModalImageUpload({
 
       onSuccess?.();
       onClose();
-    } catch (error) {
-      console.error('Error uploading images', error);
+    } catch {
+      // error de subida manejado por cloudinary.service
     }
   };
 

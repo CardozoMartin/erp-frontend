@@ -28,6 +28,7 @@ import {
   Users,
   Truck,
   AlertTriangle,
+  FileUp,
 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -70,6 +71,13 @@ type UserAction = {
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
 const navItems: NavItem[] = [
+  {
+    id: 'dashboard',
+    label: 'Dashboard',
+    icon: <BarChart2 size={15} />,
+    link: '/dashboard',
+    requiredAny: ['reportes.ver', 'reportes.ventas'],
+  },
   {
     id: 'punto-venta',
     label: 'Punto venta',
@@ -116,6 +124,13 @@ const navItems: NavItem[] = [
         label: 'Nuevo producto',
         icon: <Plus size={15} />,
         link: '/productos/nuevo',
+        highlight: true,
+        requiredAny: ['productos.crear'],
+      },
+      {
+        label: 'Importar desde Excel',
+        icon: <FileUp size={15} />,
+        link: '/productos/importar',
         highlight: true,
         requiredAny: ['productos.crear'],
       },
@@ -296,6 +311,7 @@ export default function Navbar() {
         permisos: data.permisos,
         rutas: data.rutas,
         rutaInicio: data.rutaInicio,
+        refreshToken: data.refreshToken,
       });
       queryClient.invalidateQueries();
     },
@@ -366,9 +382,9 @@ export default function Navbar() {
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          await logoutFn();
+          await logoutFn(useAuthStore.getState().refreshToken);
         } catch {
-          // Si el token ya expiro igual cerramos la sesion local.
+          // Si el token ya expiró igual cerramos la sesión local.
         }
         cerrarSesion();
         Swal.fire('Sesión cerrada', 'Has cerrado sesión exitosamente.', 'success');

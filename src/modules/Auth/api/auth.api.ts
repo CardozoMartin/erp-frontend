@@ -14,6 +14,7 @@ export const postLoginFn = async (data: {
 export const seleccionarSucursalFn = async (sucursalId: string) => {
   const res = await api.post<{
     token: string;
+    refreshToken: string;
     sucursal: { id: string; nombre: string };
     permisos: string[];
     rutas: LoginResponse['rutas'];
@@ -22,6 +23,6 @@ export const seleccionarSucursalFn = async (sucursalId: string) => {
   return res.data;
 };
 
-export const logoutFn = async () => {
-  await api.post('/auth/logout');
+export const logoutFn = async (refreshToken?: string | null) => {
+  await api.post('/auth/logout', { refreshToken: refreshToken ?? undefined });
 };

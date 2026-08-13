@@ -36,7 +36,6 @@ const ModalCategory = ({ isActive, onClose }: ModalCategoryProps) => {
     Number(category?.id ?? 0)
   );
   const { data: categoriesData } = useGetAllProductCategoriesActives(1, 100);
-  console.log(categoriesData);
   const productCategories = Array.isArray(categoriesData)
     ? categoriesData
     : categoriesData?.data && Array.isArray(categoriesData.data)

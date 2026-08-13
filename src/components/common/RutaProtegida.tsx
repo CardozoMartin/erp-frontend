@@ -2,6 +2,7 @@ import { matchPath, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
 import { getRutaInicioPermitida } from '../../utils/authNavigation';
 import Navbar from './Navbar';
+import { ModalPermisosDenegados } from './ModalPermisosDenegados';
 
 interface Props {
   permiso?: string;
@@ -38,9 +39,15 @@ export function RutaProtegida({ permiso, conLayout = true }: Props) {
       <>
         <Navbar />
         <Outlet />
+        <ModalPermisosDenegados />
       </>
     );
   }
 
-  return <Outlet />;
+  return (
+    <>
+      <Outlet />
+      <ModalPermisosDenegados />
+    </>
+  );
 }

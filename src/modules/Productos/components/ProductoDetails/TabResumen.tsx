@@ -2,11 +2,12 @@ import { useFormContext } from 'react-hook-form';
 import { formatPrice } from '../../Pages/Productdetailview';
 import { Toggle } from '../FormComponents';
 import { useGetAllProductCategoriesActives } from '../../hooks/useProductCategory';
-import { UNIDADES } from '../constants';
+import { ALICUOTAS_IVA, UNIDADES } from '../constants';
 import { AtributosGeneralesSection } from '../ProductFormSections/AtributosGeneralesSection';
 import {
   Tag,
   Ruler,
+  Percent,
   DollarSign,
   Clock,
   Scale,
@@ -106,6 +107,30 @@ const TabResumen = ({ product, isEditing }: any) => {
               ) : (
                 <span className="text-sm font-bold text-[#041627]">
                   {product?.unidad_venta ?? 'UNIDAD'}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Alicuota de IVA — se usa al facturar A/B; la Factura C no discrimina */}
+          <div className="flex items-center justify-between min-h-[40px] py-1 border-b border-slate-50">
+            <span className="text-[13px] text-gray-500 font-semibold flex items-center gap-2">
+              <Percent size={14} className="text-gray-400" />
+              Alícuota de IVA
+            </span>
+            <div className="w-2/3 flex justify-end">
+              {isEditing ? (
+                <select
+                  {...register('alicuota_iva')}
+                  className="w-full max-w-[280px] h-9 border border-gray-300 rounded px-2.5 text-sm bg-white focus:ring-2 focus:ring-[#075E54]/20 focus:border-[#075E54] outline-none text-[#041627] font-semibold"
+                >
+                  {ALICUOTAS_IVA.map((a) => (
+                    <option key={a.value} value={a.value}>{a.label}</option>
+                  ))}
+                </select>
+              ) : (
+                <span className="text-sm font-bold text-[#041627]">
+                  {Number(product?.alicuota_iva ?? 21)}%
                 </span>
               )}
             </div>

@@ -50,16 +50,17 @@ export interface IStock {
   updated_at: string;
 }
 
-//Oferta de descuento
+//Oferta de descuento — precio fijo especial durante un periodo
 export interface IOferta {
   id: string;
   producto_id: string;
   variante_id?: string | null;
-  precio_oferta?: number | null;
-  porcentaje_descuento?: number;
+  precio_oferta: number;
   fecha_inicio: string;
   fecha_fin: string;
   activo: boolean;
+  cantidad_maxima?: number | null;
+  cantidad_vendida?: number;
   created_at: string;
   updated_at: string;
 }
@@ -103,6 +104,8 @@ export interface IProducto {
   precio_costo?: number;
   precio_venta?: number;
   margen_ganancia?: number;
+  /** Alicuota de IVA: 21 general, 10.5 alimentos, 0 exento. El form la maneja como string */
+  alicuota_iva?: number | string;
   unidad_venta: 'UNIDAD' | 'KILOGRAMO' | 'LITRO' | 'METRO';
   activo: boolean;
   activo_pos: boolean;

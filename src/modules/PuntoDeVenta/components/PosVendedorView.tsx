@@ -29,6 +29,11 @@ export default function PosVendedorView({
   limiteCuentaSeleccionada,
   disponibleCuentaSeleccionada,
   permiteCuentaCorriente,
+  esSoloCajero,
+  selectedCliente,
+  medioPagoSugeridoId,
+  onSeleccionarMedioPagoSugerido,
+  crearPendienteIsPending,
   ventasPendientes,
   search,
   subtotal,
@@ -50,6 +55,7 @@ export default function PosVendedorView({
   onFinalizar,
   onCobrarQrCarrito,
   onCobrarPendiente,
+  onSeleccionarMedioPago,
   onAddPaymentDraft,
   onUpdatePaymentDraft,
   onRemovePaymentDraft,
@@ -121,6 +127,9 @@ export default function PosVendedorView({
           mercadoPagoDisponible={mercadoPagoDisponible}
           puedeUsarCuentaCorriente={puedeUsarCuentaCorriente}
           selectedClienteId={selectedClienteId}
+          selectedLista={selectedLista}
+          subtotal={subtotal}
+          onSeleccionarMedioPago={onSeleccionarMedioPago}
           isBusy={isBusy}
           ventaCompletaIsPending={ventaCompletaIsPending}
           crearVentaQrIsPending={crearVentaQrIsPending}
@@ -135,6 +144,11 @@ export default function PosVendedorView({
           onAddPaymentDraft={onAddPaymentDraft}
           onUpdatePaymentDraft={onUpdatePaymentDraft}
           onRemovePaymentDraft={onRemovePaymentDraft}
+          esSoloCajero={esSoloCajero}
+          selectedCliente={selectedCliente}
+          medioPagoSugeridoId={medioPagoSugeridoId}
+          onSeleccionarMedioPagoSugerido={onSeleccionarMedioPagoSugerido}
+          crearPendienteIsPending={crearPendienteIsPending}
           ventasPendientes={ventasPendientes}
           cobrarPendienteIsPending={cobrarPendienteIsPending}
           onCobrarPendiente={onCobrarPendiente}

@@ -18,12 +18,21 @@ export interface IComprobanteAux {
   caja_id?: string | null;
   created_at: string;
   fecha_vencimiento?: string | null;
+  // Datos del cliente resueltos para impresion. El backend todavia no los envia
+  // (el comprobante solo persiste cliente_id): la plantilla omite lo que no llegue.
+  cliente_nombre?: string | null;
+  cliente_cuit?: string | null;
+  cliente_dni?: string | null;
+  cliente_domicilio?: string | null;
+  cliente_condicion_iva?: string | null;
+  total_letras?: string | null;
   items?: {
     id: string;
     descripcion: string;
     cantidad: number | string;
     precio_unitario: number | string;
     subtotal: number | string;
+    descuento_porcentaje?: number | string;
     producto_id?: string | null;
     variante_id?: string | null;
     comprobante_item_origen_id?: string | null;

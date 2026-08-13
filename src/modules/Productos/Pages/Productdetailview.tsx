@@ -84,6 +84,8 @@ const getProductFormDefaults = (product: any) => ({
   precio_costo: product.precio_costo ?? 0,
   precio_venta: product.precio_venta ?? product.precio_base ?? 0,
   unidad_venta: product.unidad_venta,
+  // String: el <select> compara sus option value por string
+  alicuota_iva: String(product.alicuota_iva ?? 21),
   activo: product.activo,
   activo_pos: product.activo_pos,
   activo_web: product.activo_web,

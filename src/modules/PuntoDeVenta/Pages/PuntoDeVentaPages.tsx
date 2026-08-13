@@ -11,9 +11,11 @@ import PosHeader from '../components/PosHeader';
 import PosQrModal from '../components/PosQrModal';
 import PosCajeroView from '../components/PosCajeroView';
 import PosVendedorView from '../components/PosVendedorView';
+import { PosAbrirCaja } from '../components/PosAbrirCaja';
 
 const PuntoDeVentaPages = () => {
   const [search, setSearch] = useState('');
+  const [medioPagoSugeridoId, setMedioPagoSugeridoId] = useState('');
 
   // 1.- Estado global del POS: config, caja, permisos, clientes, listas
   const estado = useEstadoPos();
@@ -54,10 +56,23 @@ const PuntoDeVentaPages = () => {
       acciones.manejarLiberarPendiente(anteriorId);
     }
     estado.setSelectedPendienteId(nuevoId);
-    acciones.manejarTomarPendiente(nuevoId);
+    if (nuevoId) acciones.manejarTomarPendiente(nuevoId);
   };
 
-  // 6.- Productos filtrados por búsqueda
+  // 6.- Wrappers cajero: limpian la selección al completar cobro o cancelación
+  const manejarCobrarPendienteYVolver = (venta: Parameters<typeof acciones.manejarCobrarPendiente>[0]) => {
+    acciones.manejarCobrarPendiente(venta);
+    // La selección se limpia vía invalidación del query — el item desaparece de la lista
+    // pero forzamos el retorno inmediato a la lista para que el cajero no quede bloqueado
+    estado.setSelectedPendienteId('');
+  };
+
+  const manejarCancelarPendienteYVolver = (venta: Parameters<typeof acciones.manejarCancelarPendiente>[0]) => {
+    acciones.manejarCancelarPendiente(venta);
+    estado.setSelectedPendienteId('');
+  };
+
+  // 7.- Productos filtrados por búsqueda
   const productsQuery = useObtenerProductos(1, 200);
   const productos = useMemo(() => {
     const raw = productsQuery.data;
@@ -67,13 +82,11 @@ const PuntoDeVentaPages = () => {
 
   const productosFiltrados = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return productos;
+    if (!term) return [];
     return productos.filter(p => {
-      const ubicacion = getStockLocationForBranch(p, estado.sucursalActiva?.id).toLowerCase();
       return (
         p.nombre.toLowerCase().includes(term) ||
-        getProductCode(p).toLowerCase().includes(term) ||
-        ubicacion.includes(term)
+        getProductCode(p).toLowerCase().includes(term)
       );
     });
   }, [productos, search, estado.sucursalActiva?.id]);
@@ -126,6 +139,30 @@ const PuntoDeVentaPages = () => {
           </p>
         </div>
       </div>
+    );
+  }
+
+  // Bloqueo por caja: vendedor en modo simple/multicaja sin caja abierta
+  // o cajero en flujo separado que va a cobrar sin caja abierta
+  const necesitaAbrirCaja =
+    posAccess.puedeAbrirCaja &&
+    !estado.cajaAbierta &&
+    !estado.cajaQuery.isLoading &&
+    (posAccess.requiereCajaParaVender && !esSoloCajero ||
+      esSoloCajero && posAccess.requiereCajaParaCobrar);
+
+  if (necesitaAbrirCaja) {
+    return (
+      <PosAbrirCaja
+        empleadoNombre={estado.empleado?.nombreCompleto ?? 'Usuario'}
+        sucursalNombre={estado.sucursalActiva?.nombre ?? ''}
+        modoPos={posAccess.modoPos}
+        descripcionModo={posAccess.descripcionModo}
+        isPending={acciones.abrirCajaIsPending}
+        onAbrir={(montoInicial, descripcion) =>
+          acciones.manejarAbrirCaja(montoInicial, descripcion)
+        }
+      />
     );
   }
 
@@ -213,10 +250,11 @@ const PuntoDeVentaPages = () => {
                 puedeUsarCuentaCorriente={estado.puedeUsarCuentaCorriente}
                 onPendingSearchChange={estado.setPendingSearch}
                 onSelectPendiente={manejarSeleccionarPendiente}
-                onCobrar={acciones.manejarCobrarPendiente}
+                onCobrar={manejarCobrarPendienteYVolver}
                 onCobrarQr={acciones.manejarCobrarQrPendiente}
-                onCancelar={acciones.manejarCancelarPendiente}
+                onCancelar={manejarCancelarPendienteYVolver}
                 onLimpiarPagos={pago.resetearPagos}
+                onSeleccionarMedioPago={pago.setSelectedPaymentId}
                 onAddPaymentDraft={pago.agregarDraft}
                 onUpdatePaymentDraft={pago.actualizarDraft}
                 onRemovePaymentDraft={pago.quitarDraft}
@@ -247,6 +285,11 @@ const PuntoDeVentaPages = () => {
                 limiteCuentaSeleccionada={estado.limiteCuentaSeleccionada}
                 disponibleCuentaSeleccionada={estado.disponibleCuentaSeleccionada}
                 permiteCuentaCorriente={estado.permiteCuentaCorriente}
+                esSoloCajero={esSoloCajero}
+                selectedCliente={estado.selectedCliente}
+                medioPagoSugeridoId={medioPagoSugeridoId}
+                onSeleccionarMedioPagoSugerido={setMedioPagoSugeridoId}
+                crearPendienteIsPending={acciones.crearPendienteIsPending}
                 ventasPendientes={estado.ventasPendientesFiltradas}
                 pendientesLoading={estado.pendientesQuery.isLoading}
                 search={search}
@@ -267,11 +310,12 @@ const PuntoDeVentaPages = () => {
                 onRemoveProduct={id => quitarProducto(id ?? '')}
                 onClearCart={() => { limpiarCarrito(); pago.resetearPagos(); }}
                 onCotizar={() => acciones.manejarCrearCotizacion(estado.selectedClienteId, estado.selectedLista?.id)}
-                onEnviarACaja={() => acciones.manejarEnviarACaja(estado.selectedClienteId, estado.selectedLista?.id)}
+                onEnviarACaja={() => acciones.manejarEnviarACaja(estado.selectedClienteId, estado.selectedLista?.id, medioPagoSugeridoId)}
                 onCargarCuentaCorriente={() => acciones.manejarCargarCuentaCorriente(estado.selectedClienteId, subtotal, estado.selectedLista?.id)}
                 onFinalizar={() => acciones.manejarFinalizarVenta(subtotal, estado.selectedClienteId, estado.selectedLista?.id, posAccess.permiteCobroDirecto)}
                 onCobrarQrCarrito={() => acciones.manejarCobrarQrCarrito(estado.selectedClienteId, estado.selectedLista?.id)}
                 onCobrarPendiente={acciones.manejarCobrarPendiente}
+                onSeleccionarMedioPago={pago.setSelectedPaymentId}
                 onAddPaymentDraft={pago.agregarDraft}
                 onUpdatePaymentDraft={pago.actualizarDraft}
                 onRemovePaymentDraft={pago.quitarDraft}

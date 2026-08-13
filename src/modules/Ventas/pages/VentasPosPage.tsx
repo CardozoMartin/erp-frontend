@@ -21,6 +21,7 @@ import { useGetEmpleados } from '../../Empleados/hooks/useEmpleados';
 import { useConfiguracionPos, usePosAuxMutation, useVentasPosPaginadasAux } from '../../POSAuxiliares/hooks/usePosAux';
 import { dateTime, money } from '../../POSAuxiliares/utils/format';
 import { imprimirComprobante } from '../../POSAuxiliares/utils/printComprobante';
+import { obtenerQrFiscalFn } from '../../POSAuxiliares/api/posAux.api';
 import { hasAnyPermission, POS_PERMISSIONS } from '../../POSAuxiliares/utils/posPermissions';
 
 const todayInput = () => {
@@ -134,8 +135,10 @@ const VentasPosPage = () => {
     [selectedVentaId, ventas],
   );
 
-  const printVenta = (venta: IComprobanteAux) =>
-    imprimirComprobante(venta, { titulo: 'Venta POS', config: configQuery.data });
+  const printVenta = async (venta: IComprobanteAux) => {
+    const qrDataUri = venta.cae ? await obtenerQrFiscalFn(venta.id) : null;
+    imprimirComprobante(venta, { titulo: 'Venta POS', config: configQuery.data, qrDataUri });
+  };
 
   const emitir = (tipo: 'TICKET' | 'FACTURA_A' | 'FACTURA_B' | 'FACTURA_C') => {
     if (!puedeEmitirFiscal || !selectedVenta) return;

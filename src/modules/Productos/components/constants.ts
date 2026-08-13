@@ -15,6 +15,14 @@ export const UNIDADES = [
   { label: 'Mililitros (ml)', value: 'ML' },
 ];
 
+// Alicuotas de IVA vigentes en Argentina para venta de productos.
+// El 27% queda fuera: aplica a servicios regulados, no a mercaderia.
+export const ALICUOTAS_IVA = [
+  { label: '21% — General', value: '21' },
+  { label: '10,5% — Alimentos (carne, frutas, verduras, pan, leche)', value: '10.5' },
+  { label: '0% — Exento (medicamentos, libros)', value: '0' },
+];
+
 export const DEPOSITOS = [
   { label: 'Depósito Central (A1)', value: 'b0c74996-54aa-4966-9dc4-839e55938541' },
   { label: 'Sucursal Norte (B4)', value: '739a2fb3-f661-41ee-bb84-25ed321e07b8' },

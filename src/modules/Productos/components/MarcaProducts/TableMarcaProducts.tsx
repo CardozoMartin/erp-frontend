@@ -111,14 +111,14 @@ const TableMarcaProducts = () => {
             {
               label: 'Editar marca',
               icon: <Edit3 size={14} />,
-              onClick: () => console.log('Editar marca', marca.id),
+              onClick: () => {},
             },
             {
               label: 'Eliminar marca',
               icon: <Trash2 size={14} />,
               danger: true,
               dividerBefore: true,
-              onClick: () => console.log('Eliminar marca', marca.id),
+              onClick: () => {},
             },
           ]}
         />

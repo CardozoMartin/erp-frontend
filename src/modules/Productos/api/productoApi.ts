@@ -14,9 +14,11 @@ import {
 
 export type ProductoSavePayload = Omit<
   Partial<IProducto>,
-  'atributos' | 'categoria_id' | 'codigo_barras' | 'imagenes' | 'lotes' | 'ofertas' | 'stock' | 'variantes'
+  'alicuota_iva' | 'atributos' | 'categoria_id' | 'codigo_barras' | 'imagenes' | 'lotes' | 'ofertas' | 'stock' | 'variantes'
 > & {
   id?: string;
+  /** El form la maneja como string; normalizeProductoPayload la convierte a numero */
+  alicuota_iva?: number | string;
   atributos?: { tipo?: string; nombre?: string; valor?: string }[];
   categoria_id?: string | null;
   codigo_barras?: string | null;
@@ -57,6 +59,11 @@ export const normalizeProductoPayload = (productoData: ProductoSavePayload): Pro
           ? undefined
           : toNumber(productoData.precio_base)
         : toNumber(productoData.precio_venta),
+    // El <select> entrega string; el backend valida contra 21 | 10.5 | 0 numericos
+    alicuota_iva:
+      productoData.alicuota_iva === undefined
+        ? undefined
+        : toNumber(productoData.alicuota_iva),
     codigo_barras:
       productoData.codigo_barras === undefined
         ? undefined

@@ -4,6 +4,7 @@ import { usePollingEstadoQr } from './usePos';
 import { toast } from 'sonner';
 import { useAuthStore } from '../../../store/auth.store';
 import { imprimirComprobante } from '../../POSAuxiliares/utils/printComprobante';
+import { obtenerQrFiscalFn } from '../../POSAuxiliares/api/posAux.api';
 import {
   useAbrirCaja,
   useCancelarOrdenMercadoPagoQr,
@@ -134,13 +135,16 @@ export const useAccionesVenta = ({
     return true;
   };
 
-  const imprimirVenta = (response: IVentaCompletaResponse, printWindow?: Window | null) => {
+  const imprimirVenta = async (response: IVentaCompletaResponse, printWindow?: Window | null) => {
     if (!config?.imprimir_automaticamente) return;
     const comprobante = response.comprobanteFiscal ?? response.venta;
+    // El QR solo existe si el comprobante tiene CAE; el ticket interno no lleva
+    const qrDataUri = comprobante.cae ? await obtenerQrFiscalFn(comprobante.id) : null;
     imprimirComprobante(comprobante, {
       titulo: comprobante.tipo === 'VENTA' ? 'Venta POS' : comprobante.tipo,
       config,
       printWindow,
+      qrDataUri,
     });
   };
 
@@ -167,18 +171,21 @@ export const useAccionesVenta = ({
 
   // ─── Acciones públicas ────────────────────────────────────────────────────
 
-  // 2.- Abrir caja con monto inicial
-  const manejarAbrirCaja = () => {
+  // 2.- Abrir caja con monto inicial (acepta parámetro directo o usa el estado interno del header)
+  const manejarAbrirCaja = (montoDirecto?: number, descripcion?: string) => {
     if (!posAccess.puedeAbrirCaja) { toast.warning('No tenés permisos para abrir caja'); return; }
-    abrirCajaMutation.mutate(toNumber(montoInicial));
+    abrirCajaMutation.mutate({
+      monto_inicial: montoDirecto ?? toNumber(montoInicial),
+      descripcion,
+    });
   };
 
   // 3.- Enviar venta a caja (flujo con caja centralizada)
-  const manejarEnviarACaja = (clienteId: string, listaPrecioId?: string) => {
+  const manejarEnviarACaja = (clienteId: string, listaPrecioId?: string, medioPagoSugeridoId?: string) => {
     if (!validarVenta()) return;
     if (!posAccess.puedeCrearVentaPendiente) { toast.warning('Esta acción solo aplica para caja centralizada o despacho'); return; }
     crearPendienteMutation.mutate(
-      buildVentaPayload(cartItems, empleado?.id, clienteId, listaPrecioId),
+      { ...buildVentaPayload(cartItems, empleado?.id, clienteId, listaPrecioId), medio_pago_sugerido_id: medioPagoSugeridoId || null },
       { onSuccess: limpiarCarritoYPagos },
     );
   };
@@ -218,7 +225,7 @@ export const useAccionesVenta = ({
       emitirComprobante: emitirTicket,
       tipoFiscal,
     }, {
-      onSuccess: response => { imprimirVenta(response, printWindow); limpiarCarritoYPagos(); },
+      onSuccess: response => { void imprimirVenta(response, printWindow); limpiarCarritoYPagos(); },
       onError: () => printWindow?.close(),
     });
   };
@@ -276,7 +283,7 @@ export const useAccionesVenta = ({
       emitirComprobante: emitirTicket,
       tipoFiscal,
     }, {
-      onSuccess: response => imprimirVenta(response, printWindow),
+      onSuccess: response => void imprimirVenta(response, printWindow),
       onError: () => {
         // Si falla el cobro, liberar el bloqueo para que otro cajero pueda intentarlo
         liberarVentaMutation.mutate(venta.id);
@@ -305,6 +312,7 @@ export const useAccionesVenta = ({
     crearVentaQrIsPending: crearVentaQrMutation.isPending,
     crearOrdenQrIsPending: crearOrdenQrMutation.isPending,
     crearCuentaCorrienteIsPending: crearCuentaCorrienteMutation.isPending,
+    crearPendienteIsPending: crearPendienteMutation.isPending,
     cobrarPendienteIsPending: cobrarPendienteMutation.isPending,
     cancelarOrdenQrIsPending: cancelarOrdenQrMutation.isPending,
     // Acciones

@@ -9,6 +9,7 @@ import { useConfiguracionPos, useFacturacionAux, usePosAuxMutation } from '../..
 import type { IComprobanteAux } from '../../POSAuxiliares/types/pos-aux.type';
 import { dateTime, money, shortId } from '../../POSAuxiliares/utils/format';
 import { imprimirComprobante } from '../../POSAuxiliares/utils/printComprobante';
+import { obtenerQrFiscalFn } from '../../POSAuxiliares/api/posAux.api';
 import { hasAnyPermission, POS_PERMISSIONS } from '../../POSAuxiliares/utils/posPermissions';
 
 const FacturacionPage = () => {
@@ -24,8 +25,15 @@ const FacturacionPage = () => {
     () => comprobantes.find((comprobante) => comprobante.id === selectedId) ?? comprobantes[0] ?? null,
     [comprobantes, selectedId],
   );
-  const printComprobante = (comprobante: IComprobanteAux) =>
-    imprimirComprobante(comprobante, { titulo: comprobante.tipo, config: configQuery.data });
+  // El QR se pide antes de imprimir: si no llega, la plantilla muestra "pendiente"
+  const printComprobante = async (comprobante: IComprobanteAux) => {
+    const qrDataUri = comprobante.cae ? await obtenerQrFiscalFn(comprobante.id) : null;
+    imprimirComprobante(comprobante, {
+      titulo: comprobante.tipo,
+      config: configQuery.data,
+      qrDataUri,
+    });
+  };
   const columns: DataTableColumn<IComprobanteAux>[] = [
     {
       key: 'numero',

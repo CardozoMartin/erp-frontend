@@ -8,8 +8,20 @@ export type IAlertaStock = {
   sucursal_id: string | null;
   cantidad: number;
   cantidad_minima: number;
-  producto: { id: string; nombre: string; codigo_barras: string | null };
-  variante: { id: string; nombre: string } | null;
+  deposito: string | null;
+  pasillo: string | null;
+  estante: string | null;
+  sector: string | null;
+  codigo_ubicacion: string | null;
+  ubicacion_referencia: string | null;
+  producto: {
+    id: string;
+    nombre: string;
+    codigo_barras: string | null;
+    unidad_venta: string;
+    es_fraccionable: boolean;
+  };
+  variante: { id: string; sku: string } | null;
 };
 
 export type IStockOtraSucursal = {

@@ -25,10 +25,10 @@ export const getCajaAbiertaFn = async () => {
   return unwrap<ICajaPos | null>(response);
 };
 
-export const abrirCajaFn = async (montoInicial: number) => {
+export const abrirCajaFn = async (payload: { monto_inicial: number; descripcion?: string }) => {
   const response = await api.post<ICajaPos>('/caja/abrir', {
-    monto_inicial: montoInicial,
-    descripcion: 'Apertura desde punto de venta',
+    monto_inicial: payload.monto_inicial,
+    descripcion: payload.descripcion ?? 'Apertura desde punto de venta',
   });
   return unwrap<ICajaPos>(response);
 };

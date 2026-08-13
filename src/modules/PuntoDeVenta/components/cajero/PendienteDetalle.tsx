@@ -1,10 +1,11 @@
-import { ArrowRightLeft, CreditCard, Loader2, QrCode, XCircle } from 'lucide-react';
+import { ArrowRightLeft, CreditCard, Loader2, QrCode, Tag, User, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import type { IComprobantePos, IMedioPago } from '../../types/pos.type';
 import type { PaymentDraft } from '../../utils/pos.utils';
 import { formatCurrency, toNumber } from '../../utils/pos.utils';
 import type { ICaja } from '../../../Cajas/types/caja.type';
 import { PagosMixtos } from './PagosMixtos';
+import { BotonesMedioPago } from '../shared/BotonesMedioPago';
 import { useAsignarCajaPendiente } from '../../hooks/usePos';
 import { useCajasAbiertas } from '../../../Cajas/hooks/useCaja';
 
@@ -27,6 +28,7 @@ interface Props {
   onCobrarQr: (venta: IComprobantePos) => void;
   onCancelar: (venta: IComprobantePos) => void;
   onLimpiarPagos: () => void;
+  onSeleccionarMedioPago: (id: string) => void;
   onAddPaymentDraft: () => void;
   onUpdatePaymentDraft: (id: string, patch: Partial<PaymentDraft>) => void;
   onRemovePaymentDraft: (id: string) => void;
@@ -52,6 +54,7 @@ export const PendienteDetalle = ({
   onCobrarQr,
   onCancelar,
   onLimpiarPagos,
+  onSeleccionarMedioPago,
   onAddPaymentDraft,
   onUpdatePaymentDraft,
   onRemovePaymentDraft,
@@ -65,7 +68,7 @@ export const PendienteDetalle = ({
   return (
     <div className="flex flex-1 flex-col">
 
-      {/* Encabezado — número, vendedor y hora */}
+      {/* Encabezado — número, hora y estado */}
       <div className="border-b border-[#c4c6cd] px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -80,6 +83,22 @@ export const PendienteDetalle = ({
           <span className="mt-0.5 shrink-0 rounded border border-[#cfe2de] bg-[#f3fbf9] px-2.5 py-1 text-[11px] font-semibold text-[#075E54]">
             {venta.estado.replace('_', ' ')}
           </span>
+        </div>
+
+        {/* Vendedor y lista de precio */}
+        <div className="mt-2 flex flex-wrap gap-3">
+          {venta.vendedor && (
+            <div className="flex items-center gap-1.5 text-[12px] text-[#44474c]">
+              <User size={13} className="text-[#075E54]" />
+              <span>{venta.vendedor.nombreCompleto}</span>
+            </div>
+          )}
+          {venta.lista_precio_nombre && (
+            <div className="flex items-center gap-1.5 text-[12px] text-[#44474c]">
+              <Tag size={13} className="text-[#075E54]" />
+              <span>{venta.lista_precio_nombre}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -121,29 +140,41 @@ export const PendienteDetalle = ({
       </div>
 
       {/* Medio de pago */}
-      {muestraControlesCobro && !permitePagoMixto && (
+      {muestraControlesCobro && (
         <div className="border-b border-[#c4c6cd] px-4 py-3">
-          <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-[#44474c]">Medio de pago</div>
-          <div className="rounded border border-[#e5e7eb] bg-white px-3 py-2 text-[13px] text-[#041627]">
-            {selectedPaymentId === 'CUENTA_CORRIENTE'
-              ? 'Cuenta corriente'
-              : (selectedPayment?.nombre ?? '—')}
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-[#44474c]">
+              Medio de pago
+            </span>
+            {venta.medio_pago_sugerido_nombre && (
+              <span className="rounded bg-[#fef3c7] px-2 py-0.5 text-[10px] font-semibold text-[#92400e]">
+                Vendedor sugirió: {venta.medio_pago_sugerido_nombre}
+              </span>
+            )}
           </div>
-        </div>
-      )}
 
-      {/* Pagos mixtos */}
-      {muestraControlesCobro && permitePagoMixto && (
-        <PagosMixtos
-          paymentDrafts={paymentDrafts}
-          mediosPago={mediosPago}
-          selectedPayment={selectedPayment}
-          clienteId={venta.cliente_id}
-          puedeUsarCuentaCorriente={puedeUsarCuentaCorriente}
-          onAgregar={onAddPaymentDraft}
-          onActualizar={onUpdatePaymentDraft}
-          onQuitar={onRemovePaymentDraft}
-        />
+          {permitePagoMixto ? (
+            <PagosMixtos
+              paymentDrafts={paymentDrafts}
+              mediosPago={mediosPago}
+              selectedPayment={selectedPayment}
+              clienteId={venta.cliente_id}
+              puedeUsarCuentaCorriente={puedeUsarCuentaCorriente}
+              onAgregar={onAddPaymentDraft}
+              onActualizar={onUpdatePaymentDraft}
+              onQuitar={onRemovePaymentDraft}
+            />
+          ) : (
+            <BotonesMedioPago
+              mediosPago={mediosPago}
+              selectedPaymentId={selectedPaymentId}
+              puedeUsarCuentaCorriente={puedeUsarCuentaCorriente(venta.cliente_id)}
+              medioPagoSugeridoId={venta.medio_pago_sugerido_id}
+              onSeleccionar={onSeleccionarMedioPago}
+              disabled={isBusy}
+            />
+          )}
+        </div>
       )}
 
       {/* Selector de caja destino */}

@@ -4,6 +4,8 @@ import ConfiguracionPosPage from './pages/ConfiguracionPosPage';
 import ConfiguracionEmailPage from './pages/ConfiguracionEmailPage';
 import ConfiguracionCloudinaryPage from './pages/ConfiguracionCloudinaryPage';
 import ConfiguracionMercadoPagoPage from './pages/ConfiguracionMercadoPagoPage';
+import ConfiguracionBackupPage from './pages/ConfiguracionBackupPage';
+import ConfiguracionArcaPage from './pages/ConfiguracionArcaPage';
 
 export const configuracionRoutes: RouteObject[] = [
   {
@@ -25,5 +27,13 @@ export const configuracionRoutes: RouteObject[] = [
   {
     path: 'configuracion-mercadopago',
     element: <ConfiguracionMercadoPagoPage />,
+  },
+  {
+    path: 'configuracion-backup',
+    element: <ConfiguracionBackupPage />,
+  },
+  {
+    path: 'configuracion-arca',
+    element: <ConfiguracionArcaPage />,
   },
 ];

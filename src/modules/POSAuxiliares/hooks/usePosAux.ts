@@ -397,7 +397,6 @@ export const usePosAuxMutation = () => {
           ['pos-aux', 'configuracion-pos', data.sucursal_id],
           data,
         );
-        invalidate();
         toast.success('Configuracion guardada correctamente');
       },
       onError: (error: AxiosError<IErrorResponse>) => {
@@ -411,7 +410,6 @@ export const usePosAuxMutation = () => {
           ['pos-aux', 'configuracion-pos', data.sucursal_id],
           data,
         );
-        invalidate();
         toast.success('Configuracion actualizada correctamente');
       },
       onError: (error: AxiosError<IErrorResponse>) => {
