@@ -2,14 +2,14 @@ import { useMemo, useState } from 'react';
 import { Lock, ShoppingCart, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { useObtenerProductos } from '../../Productos/hooks/useProductos';
-import { getProductCode, getStockLocationForBranch, modoPosLabel, toNumber } from '../utils/pos.utils';
+import { getProductCode, modoPosLabel, toNumber } from '../utils/pos.utils';
 import { useCarritoStore } from '../store/carrito.store';
 import { useEstadoPos } from '../hooks/useEstadoPos';
 import { usePagoPos } from '../hooks/usePagoPos';
 import { useAccionesVenta } from '../hooks/useAccionesVenta';
-import PosHeader from '../components/PosHeader';
 import PosQrModal from '../components/PosQrModal';
 import PosCajeroView from '../components/PosCajeroView';
+import { PosCajeroBarra } from '../components/cajero/PosCajeroBarra';
 import PosVendedorView from '../components/PosVendedorView';
 import { PosAbrirCaja } from '../components/PosAbrirCaja';
 
@@ -56,7 +56,15 @@ const PuntoDeVentaPages = () => {
       acciones.manejarLiberarPendiente(anteriorId);
     }
     estado.setSelectedPendienteId(nuevoId);
-    if (nuevoId) acciones.manejarTomarPendiente(nuevoId);
+    if (!nuevoId) {
+      pago.resetearPagos();
+      return;
+    }
+    acciones.manejarTomarPendiente(nuevoId);
+    // Con pago mixto `construirPagos` exige que la suma de los drafts iguale el
+    // total; precargarlo evita que el cajero tenga que tipear el importe exacto.
+    const venta = estado.ventasPendientesFiltradas.find(v => v.id === nuevoId);
+    if (venta) pago.precargarPagoTotal(toNumber(venta.total));
   };
 
   // 6.- Wrappers cajero: limpian la selección al completar cobro o cancelación
@@ -80,9 +88,11 @@ const PuntoDeVentaPages = () => {
     return lista.filter(p => p.activo && p.activo_pos);
   }, [productsQuery.data]);
 
+  // Sin busqueda la grilla muestra el catalogo activo del POS: el vendedor
+  // toca el producto directamente en vez de tener que escribir para verlo.
   const productosFiltrados = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return [];
+    if (!term) return productos;
     return productos.filter(p => {
       return (
         p.nombre.toLowerCase().includes(term) ||
@@ -159,6 +169,8 @@ const PuntoDeVentaPages = () => {
         modoPos={posAccess.modoPos}
         descripcionModo={posAccess.descripcionModo}
         isPending={acciones.abrirCajaIsPending}
+        rolPosElegido={estado.rolPosElegido}
+        onCambiarRol={estado.rolPosElegido ? () => estado.setRolPosElegido(null) : undefined}
         onAbrir={(montoInicial, descripcion) =>
           acciones.manejarAbrirCaja(montoInicial, descripcion)
         }
@@ -176,42 +188,28 @@ const PuntoDeVentaPages = () => {
         />
       ) : null}
 
-      <div className="mx-auto flex max-w-400 flex-col gap-4">
-        <section className="rounded-lg border border-[#c4c6cd] bg-white shadow-sm">
+      <div className="mx-auto flex min-h-[calc(100vh-84px)] max-w-400 flex-col gap-4">
+        <section className="flex min-h-0 flex-1 flex-col gap-4">
 
-          <PosHeader
-            sucursalNombre={estado.sucursalActiva?.nombre ?? 'Sin sucursal'}
-            empleadoNombre={estado.empleado?.nombreCompleto ?? 'Usuario'}
-            cajaAbierta={estado.cajaAbierta}
-            listasPrecio={estado.listasPrecio}
-            listasPrecioLoading={estado.listasPrecioQuery.isLoading}
-            selectedListaId={estado.selectedListaId}
-            selectedLista={estado.selectedLista}
-            selectedClienteId={estado.selectedClienteId}
-            clientes={estado.clientes}
-            tipoFiscal={estado.tipoFiscal}
-            emitirTicket={estado.emitirTicket}
-            montoInicial={acciones.montoInicial}
-            posAccess={posAccess}
-            muestraControlesCobro={posAccess.muestraControlesCobro}
-            permiteCobroDirecto={posAccess.permiteCobroDirecto}
-            usaFlujoSeparado={posAccess.usaFlujoSeparado}
-            puedeVerDetallesConfigPos={estado.puedeVerDetallesConfigPos}
-            configFetching={estado.configQuery.isFetching}
-            abrirCajaIsPending={acciones.abrirCajaIsPending}
-            onClienteChange={estado.setSelectedClienteId}
-            onListaChange={estado.setSelectedListaId}
-            onTipoFiscalChange={estado.setTipoFiscal}
-            onEmitirTicketChange={estado.setEmitirTicket}
-            onMontoInicialChange={acciones.setMontoInicial}
-            onAbrirCaja={acciones.manejarAbrirCaja}
-            rolPosElegido={estado.rolPosElegido}
-            onCambiarRol={estado.rolPosElegido ? () => estado.setRolPosElegido(null) : undefined}
-          />
+          {/* El cajero cobra ventas ya armadas: no necesita cliente, lista de
+              precio ni tipo de comprobante, solo el estado de su caja. */}
+          {esSoloCajero ? (
+            <PosCajeroBarra
+              sucursalNombre={estado.sucursalActiva?.nombre ?? 'Sin sucursal'}
+              empleadoNombre={estado.empleado?.nombreCompleto ?? 'Usuario'}
+              cajaAbierta={estado.cajaAbierta}
+              usaFlujoSeparado={posAccess.usaFlujoSeparado}
+              puedeCobrar={posAccess.puedeCobrar}
+              puedeVerDetallesConfigPos={estado.puedeVerDetallesConfigPos}
+              configFetching={estado.configQuery.isFetching}
+              rolPosElegido={estado.rolPosElegido}
+              onCambiarRol={estado.rolPosElegido ? () => estado.setRolPosElegido(null) : undefined}
+            />
+          ) : null}
 
           {posAccess.bloqueadoPorModo || !posAccess.puedeOperarPos ? (
-            <div className="border-b border-[#c4c6cd] bg-white px-4 py-12">
-              <div className="mx-auto max-w-190 rounded border border-[#f1c7c7] bg-[#fff5f5] px-5 py-5 text-center">
+            <div className="rounded-xl border border-[#e5e7eb] bg-white px-4 py-12">
+              <div className="mx-auto max-w-190 rounded-xl border border-[#f1c7c7] bg-[#fff5f5] px-5 py-5 text-center">
                 <Lock size={28} className="mx-auto mb-3 text-[#b42318]" />
                 <h2 className="text-[18px] font-bold text-[#041627]">Punto de venta bloqueado</h2>
                 <p className="mt-2 text-[14px] text-[#44474c]">
@@ -319,6 +317,20 @@ const PuntoDeVentaPages = () => {
                 onAddPaymentDraft={pago.agregarDraft}
                 onUpdatePaymentDraft={pago.actualizarDraft}
                 onRemovePaymentDraft={pago.quitarDraft}
+                sucursalNombre={estado.sucursalActiva?.nombre ?? 'Sin sucursal'}
+                empleadoNombre={estado.empleado?.nombreCompleto ?? 'Usuario'}
+                clientes={estado.clientes}
+                listasPrecio={estado.listasPrecio}
+                listasPrecioLoading={estado.listasPrecioQuery.isLoading}
+                selectedListaId={estado.selectedListaId}
+                tipoFiscal={estado.tipoFiscal}
+                emitirTicket={estado.emitirTicket}
+                rolPosElegido={estado.rolPosElegido}
+                onCambiarRol={estado.rolPosElegido ? () => estado.setRolPosElegido(null) : undefined}
+                onClienteChange={estado.setSelectedClienteId}
+                onListaChange={estado.setSelectedListaId}
+                onTipoFiscalChange={estado.setTipoFiscal}
+                onEmitirTicketChange={estado.setEmitirTicket}
               />
             )
           ) : null}

@@ -15,6 +15,7 @@ import {
   FileText,
   Bookmark,
   CheckCircle2,
+  TrendingUp,
   XCircle
 } from 'lucide-react';
 import { usePermisos } from '../../../../store/usePermisos';
@@ -51,15 +52,16 @@ const TabResumen = ({ product, isEditing }: any) => {
 
   return (
     <div className="py-4">
-      {/* ── SECTIONS GRID (Odoo 2-Column Sheet) ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-6">
+      {/* ── Datos de catalogo y caracteristicas ── */}
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
 
-        {/* LEFT COLUMN: Datos de Facturación / Venta */}
-        <div className="flex flex-col gap-5">
-          <h3 className="text-xs font-bold text-[#075E54] uppercase tracking-wider border-b border-slate-100 pb-1 flex items-center gap-1.5">
-            <Bookmark size={12} />
+        {/* Datos de catalogo */}
+        <div className="overflow-hidden rounded-xl border border-[#e5e7eb] bg-white">
+          <h3 className="flex items-center gap-2 border-b border-[#e5e7eb] bg-[#f5f7fc] px-4 py-3 text-[12px] font-bold uppercase tracking-wider text-[#041627]">
+            <Bookmark size={14} className="text-[#075E54]" />
             Datos de Catálogo
           </h3>
+          <div className="flex flex-col gap-1 px-4 py-2">
 
           {/* Categoría */}
           <div className="flex items-center justify-between min-h-[40px] py-1 border-b border-slate-50">
@@ -136,77 +138,16 @@ const TabResumen = ({ product, isEditing }: any) => {
             </div>
           </div>
 
-          {puedeVerCosto && (
-            <div className="flex items-center justify-between min-h-[40px] py-1 border-b border-slate-50">
-              <span className="text-[13px] text-gray-500 font-semibold flex items-center gap-2">
-                <DollarSign size={14} className="text-gray-400" />
-                Precio de Costo
-              </span>
-              <div className="w-2/3 flex justify-end">
-                {isEditing ? (
-                  <div className="relative w-full max-w-[280px]">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-bold">$</span>
-                    <input
-                      type="number"
-                      step="any"
-                      placeholder="0.00"
-                      {...register('precio_costo', { valueAsNumber: true })}
-                      className="w-full h-9 border border-gray-300 rounded pl-7 pr-3 text-sm focus:ring-2 focus:ring-[#075E54]/20 focus:border-[#075E54] outline-none text-[#041627] font-semibold bg-white"
-                    />
-                  </div>
-                ) : (
-                  <span className="text-lg font-black text-[#44474c]">
-                    {formatPrice(product?.precio_costo)}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Precio Venta */}
-          <div className="flex items-center justify-between min-h-[40px] py-1 border-b border-slate-50">
-            <span className="text-[13px] text-gray-500 font-semibold flex items-center gap-2">
-              <DollarSign size={14} className="text-gray-400" />
-              Precio de Venta
-            </span>
-            <div className="w-2/3 flex justify-end">
-              {isEditing ? (
-                <div className="relative w-full max-w-[280px]">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-bold">$</span>
-                  <input
-                    type="number"
-                    step="any"
-                    placeholder="0.00"
-                    {...register('precio_venta', { valueAsNumber: true })}
-                    className="w-full h-9 border border-gray-300 rounded pl-7 pr-3 text-sm focus:ring-2 focus:ring-[#075E54]/20 focus:border-[#075E54] outline-none text-[#041627] font-semibold bg-white"
-                  />
-                </div>
-              ) : (
-                <span className="text-lg font-black text-[#075E54]">
-                  {formatPrice(product?.precio_venta ?? product?.precio_base)}
-                </span>
-              )}
-            </div>
           </div>
-          {puedeVerMargen && (
-            <div className="flex items-center justify-between min-h-[40px] py-1 border-b border-slate-50">
-              <span className="text-[13px] text-gray-500 font-semibold flex items-center gap-2">
-                <DollarSign size={14} className="text-gray-400" />
-                Margen de Ganancia
-              </span>
-              <span className={`text-lg font-black ${Number(margen) >= 0 ? 'text-[#075E54]' : 'text-red-600'}`}>
-                {Number(margen).toFixed(2)}%
-              </span>
-            </div>
-          )}
         </div>
 
-        {/* RIGHT COLUMN: Propiedades Logísticas / Avanzadas */}
-        <div className="flex flex-col gap-5">
-          <h3 className="text-xs font-bold text-[#075E54] uppercase tracking-wider border-b border-slate-100 pb-1 flex items-center gap-1.5">
-            <Scale size={12} />
+        {/* Caracteristicas del producto */}
+        <div className="overflow-hidden rounded-xl border border-[#e5e7eb] bg-white">
+          <h3 className="flex items-center gap-2 border-b border-[#e5e7eb] bg-[#f5f7fc] px-4 py-3 text-[12px] font-bold uppercase tracking-wider text-[#041627]">
+            <Scale size={14} className="text-[#075E54]" />
             Características del Producto
           </h3>
+          <div className="flex flex-col gap-1 px-4 py-2">
 
           {/* ¿Tiene Variantes? */}
           <div className="flex items-center justify-between min-h-[40px] py-1 border-b border-slate-50">
@@ -252,12 +193,88 @@ const TabResumen = ({ product, isEditing }: any) => {
               )}
             </div>
           </div>
+          </div>
         </div>
 
       </div>
 
+      {/* ── Precios y margenes ── */}
+      <div className="mt-5 overflow-hidden rounded-xl border border-[#e5e7eb] bg-white">
+        <h3 className="flex items-center gap-2 border-b border-[#e5e7eb] bg-[#f5f7fc] px-4 py-3 text-[12px] font-bold uppercase tracking-wider text-[#041627]">
+          <DollarSign size={14} className="text-[#075E54]" />
+          Precios y Márgenes
+        </h3>
+
+        <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
+          {puedeVerCosto && (
+            <div className="rounded-xl border border-[#e5e7eb] bg-white p-4">
+              <div className="mb-2 flex items-center gap-2 text-[12.5px] font-semibold text-[#64748b]">
+                <DollarSign size={14} className="text-[#94a3b8]" />
+                Precio de Costo
+              </div>
+              {isEditing ? (
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[14px] font-bold text-gray-400">$</span>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="0.00"
+                    {...register('precio_costo', { valueAsNumber: true })}
+                    className="h-11 w-full rounded-lg border border-gray-300 bg-white pl-7 pr-3 text-[15px] font-semibold text-[#041627] outline-none focus:border-[#075E54] focus:ring-2 focus:ring-[#075E54]/20"
+                  />
+                </div>
+              ) : (
+                <div className="text-[22px] font-bold text-[#041627]">
+                  {formatPrice(product?.precio_costo)}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Precio de venta: el dato que manda al vender, por eso destacado */}
+          <div className="rounded-xl border-2 border-[#075E54] bg-[#f3fbf9] p-4">
+            <div className="mb-2 flex items-center gap-2 text-[12.5px] font-semibold text-[#075E54]">
+              <DollarSign size={14} />
+              Precio de Venta
+            </div>
+            {isEditing ? (
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[14px] font-bold text-gray-400">$</span>
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="0.00"
+                  {...register('precio_venta', { valueAsNumber: true })}
+                  className="h-11 w-full rounded-lg border border-[#075E54] bg-white pl-7 pr-3 text-[15px] font-semibold text-[#041627] outline-none focus:ring-2 focus:ring-[#075E54]/20"
+                />
+              </div>
+            ) : (
+              <div className="text-[22px] font-bold text-[#075E54]">
+                {formatPrice(product?.precio_venta ?? product?.precio_base)}
+              </div>
+            )}
+          </div>
+
+          {puedeVerMargen && (
+            <div className="rounded-xl border border-[#e5e7eb] bg-[#eef2fb] p-4">
+              <div className="mb-2 flex items-center gap-2 text-[12.5px] font-semibold text-[#475569]">
+                <TrendingUp size={14} className="text-[#94a3b8]" />
+                Margen de Ganancia
+              </div>
+              <div
+                className={`text-[22px] font-bold ${
+                  Number(margen) >= 0 ? 'text-[#075E54]' : 'text-red-600'
+                }`}
+              >
+                {Number(margen).toFixed(2)}%
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* ── FULL WIDTH DESCRIPTION & ATTRIBUTES ── */}
-      <div className="mt-8 flex flex-col gap-6">
+      <div className="mt-5 flex flex-col gap-6">
 
         {/* Descripción */}
         <div className="flex flex-col gap-2">

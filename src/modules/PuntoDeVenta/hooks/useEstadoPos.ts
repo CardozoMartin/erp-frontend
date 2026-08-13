@@ -56,7 +56,7 @@ export const useEstadoPos = () => {
   const puedeAplicarListasPrecio = permiteListasPrecio || listasPrecio.length > 0;
 
   const selectedLista = listasPrecio.find(l => l.id === selectedListaId);
-  const selectedCliente = clientes.find(c => c.id === selectedClienteId);
+  const selectedCliente = clientes.find(c => c.id === selectedClienteId) ?? null;
 
   //Cuenta corriente del cliente seleccionado ───────────────────────────
   const cuentaSeleccionada = selectedCliente?.cuentaCorriente ?? null;

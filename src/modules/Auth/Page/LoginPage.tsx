@@ -29,8 +29,30 @@ const [error, setError] = useState<string | null>(null);
     },
     onError: (error: any) => {
       // el error queda guardado en estado local, no se resetea
-      const mensaje = error?.response?.data?.message ?? 'Email o contraseña incorrectos';
-      setError(mensaje);
+      const data = error?.response?.data;
+
+      // Sin respuesta del servidor: backend caido, CORS o URL mal configurada.
+      if (!error?.response) {
+        setError(
+          'No se pudo conectar con el servidor. Verificá que el backend esté corriendo.',
+        );
+        return;
+      }
+
+      // Errores de validacion (400): el detalle util esta en `errores[]`,
+      // no en `message`, que solo dice "Error de validacion".
+      if (Array.isArray(data?.errores) && data.errores.length > 0) {
+        const detalles = data.errores
+          .flatMap((e: any) => Object.values(e?.errores ?? {}))
+          .join('. ');
+        setError(detalles || data.message || 'Datos inválidos');
+        return;
+      }
+
+      const mensaje = Array.isArray(data?.message)
+        ? data.message.join('. ')
+        : data?.message;
+      setError(mensaje ?? 'Email o contraseña incorrectos');
     },
   });
 

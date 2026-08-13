@@ -52,6 +52,9 @@ api.interceptors.response.use(
 
     // Rutas de auth — no reintentar para evitar loops
     const esRutaAuth = url.includes('/auth/login') || url.includes('/auth/refresh');
+    // El login fallido lo maneja el formulario: no redirigir ni recargar,
+    // porque `window.location.href` borraria el mensaje de error en pantalla.
+    const esLogin = url.includes('/auth/login');
 
     if (status === 401 && !esRutaAuth && !isRetry) {
       error.config._retry = true;
@@ -72,7 +75,7 @@ api.interceptors.response.use(
       }
     }
 
-    if (status === 401 && (esRutaAuth || isRetry)) {
+    if (status === 401 && !esLogin && (esRutaAuth || isRetry)) {
       useAuthStore.getState().cerrarSesion();
       window.location.href = '/login';
     }

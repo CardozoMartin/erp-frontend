@@ -87,6 +87,19 @@ export interface IComprobantePos {
   numero: string;
   caja_id?: string | null;
   cliente_id?: string | null;
+  /** Relacion cargada por el backend (`relations: ['cliente']`) */
+  cliente?: {
+    id: string;
+    nombre?: string | null;
+    apellido?: string | null;
+    razon_social?: string | null;
+    cuit?: string | null;
+    dni?: string | null;
+  } | null;
+  /** Datos del cliente aplanados por @AfterLoad en la entidad Comprobante */
+  cliente_nombre?: string | null;
+  cliente_cuit?: string | null;
+  cliente_dni?: string | null;
   empleado_vendedor_id?: string | null;
   empleado_cajero_id?: string | null;
   tomada_por_cajero_id?: string | null;
@@ -299,4 +312,21 @@ export interface PropsPosVendedorView {
   onAddPaymentDraft: () => void;
   onUpdatePaymentDraft: (id: string, patch: Partial<PaymentDraft>) => void;
   onRemovePaymentDraft: (id: string) => void;
+
+  // Cabecera de la venta: la vista del vendedor la renderiza dentro de su
+  // propia columna, en vez de heredarla de un header comun a todo el POS.
+  sucursalNombre: string;
+  empleadoNombre: string;
+  clientes: IClientePos[];
+  listasPrecio: IListaPrecioPos[];
+  listasPrecioLoading: boolean;
+  selectedListaId: string;
+  tipoFiscal: TipoEmisionFiscal;
+  emitirTicket: boolean;
+  rolPosElegido?: 'vendedor' | 'cajero' | null;
+  onCambiarRol?: () => void;
+  onClienteChange: (id: string) => void;
+  onListaChange: (id: string) => void;
+  onTipoFiscalChange: (tipo: TipoEmisionFiscal) => void;
+  onEmitirTicketChange: (value: boolean) => void;
 }

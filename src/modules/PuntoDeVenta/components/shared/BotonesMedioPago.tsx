@@ -8,6 +8,8 @@ interface Props {
   medioPagoSugeridoId?: string | null;
   onSeleccionar: (id: string) => void;
   disabled?: boolean;
+  /** Columnas de la grilla. El panel de cobro es angosto y usa 2. */
+  columnas?: 2 | 3;
 }
 
 const iconoPorNombre = (nombre: string) => {
@@ -27,6 +29,7 @@ export const BotonesMedioPago = ({
   medioPagoSugeridoId,
   onSeleccionar,
   disabled = false,
+  columnas = 3,
 }: Props) => {
   const opciones: { id: string; nombre: string }[] = [
     ...(puedeUsarCuentaCorriente
@@ -36,7 +39,7 @@ export const BotonesMedioPago = ({
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+    <div className={`grid gap-2 ${columnas === 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'}`}>
       {opciones.map((opcion) => {
         const esSugerido = opcion.id === medioPagoSugeridoId;
         const esSeleccionado = opcion.id === selectedPaymentId;

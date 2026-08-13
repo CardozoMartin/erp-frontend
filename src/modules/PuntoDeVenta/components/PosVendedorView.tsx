@@ -1,8 +1,9 @@
 import type { PropsPosVendedorView } from '../types/pos.type';
 import { formatCurrency } from '../utils/pos.utils';
-import { ProductosBuscador } from './vendedor/ProductosBuscador';
-import { CarritoTabla } from './vendedor/CarritoTabla';
+import { ProductosGrilla } from './vendedor/ProductosGrilla';
+import { CarritoPanel } from './vendedor/CarritoPanel';
 import { CarritoAcciones } from './vendedor/CarritoAcciones';
+import { PosCamposVenta } from './vendedor/PosCamposVenta';
 
 export default function PosVendedorView({
   sucursalId,
@@ -59,49 +60,92 @@ export default function PosVendedorView({
   onAddPaymentDraft,
   onUpdatePaymentDraft,
   onRemovePaymentDraft,
+  // Campos de cabecera (sucursal, empleado, cliente, lista, fiscal)
+  sucursalNombre,
+  empleadoNombre,
+  clientes,
+  listasPrecio,
+  listasPrecioLoading,
+  selectedListaId,
+  tipoFiscal,
+  emitirTicket,
+  rolPosElegido,
+  onCambiarRol,
+  onClienteChange,
+  onListaChange,
+  onTipoFiscalChange,
+  onEmitirTicketChange,
 }: PropsPosVendedorView) {
   return (
-    <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
-      {/* 1.- Buscador de productos con tabla */}
-      <ProductosBuscador
-        productos={filteredProducts}
-        cargando={productsLoading}
-        sucursalId={sucursalId}
-        busqueda={search}
-        selectedLista={selectedLista}
-        puedeVender={posAccess.puedeVender}
-        onBusquedaChange={onSearchChange}
-        onAgregar={onAddProduct}
-      />
+    <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_400px]">
+      {/* Columna izquierda: datos de la venta + grilla de productos */}
+      <div className="flex min-h-0 flex-col gap-4">
+        <PosCamposVenta
+          sucursalNombre={sucursalNombre}
+          empleadoNombre={empleadoNombre}
+          muestraControlesCobro={muestraControlesCobro}
+          tipoFiscal={tipoFiscal}
+          emitirTicket={emitirTicket}
+          selectedClienteId={selectedClienteId}
+          clientes={clientes}
+          listasPrecio={listasPrecio}
+          listasPrecioLoading={listasPrecioLoading}
+          selectedListaId={selectedListaId}
+          selectedLista={selectedLista}
+          rolPosElegido={rolPosElegido}
+          onCambiarRol={onCambiarRol}
+          onTipoFiscalChange={onTipoFiscalChange}
+          onEmitirTicketChange={onEmitirTicketChange}
+          onClienteChange={onClienteChange}
+          onListaChange={onListaChange}
+        />
 
-      {/* 2.- Panel derecho: carrito + acciones */}
-      <aside className="flex flex-col">
-        {/* Info de cuenta corriente del cliente */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[#e5e7eb] bg-white">
+          <ProductosGrilla
+            productos={filteredProducts}
+            cargando={productsLoading}
+            sucursalId={sucursalId}
+            busqueda={search}
+            selectedLista={selectedLista}
+            puedeVender={posAccess.puedeVender}
+            onBusquedaChange={onSearchChange}
+            onAgregar={onAddProduct}
+          />
+        </div>
+      </div>
+
+      {/* Columna derecha: carrito fijo + acciones de cobro */}
+      <aside className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-[#e5e7eb] bg-white">
+        {/* Cuenta corriente del cliente seleccionado */}
         {cuentaSeleccionada && permiteCuentaCorriente ? (
-          <div className="grid gap-2 border-b border-[#c4c6cd] bg-[#f3fbf9] px-4 py-3 text-[12px] sm:grid-cols-3">
+          <div className="grid grid-cols-3 gap-2 border-b border-[#e5e7eb] bg-[#f3fbf9] px-4 py-3 text-[11.5px]">
             {[
-              { label: 'Cuenta corriente', valor: 'Activa', color: 'text-[#075E54]' },
+              { label: 'Cta. corriente', valor: 'Activa', color: 'text-[#075E54]' },
               {
-                label: 'Saldo actual',
+                label: 'Saldo',
                 valor: formatCurrency(saldoCuentaSeleccionada),
                 color: saldoCuentaSeleccionada > 0 ? 'text-[#b42318]' : 'text-[#075E54]',
               },
               {
                 label: 'Disponible',
-                valor: limiteCuentaSeleccionada > 0 ? formatCurrency(disponibleCuentaSeleccionada) : 'Sin límite',
+                valor:
+                  limiteCuentaSeleccionada > 0
+                    ? formatCurrency(disponibleCuentaSeleccionada)
+                    : 'Sin límite',
                 color: 'text-[#041627]',
               },
-            ].map(campo => (
-              <div key={campo.label}>
-                <span className="block font-bold uppercase text-[#44474c]">{campo.label}</span>
-                <strong className={campo.color}>{campo.valor}</strong>
+            ].map((campo) => (
+              <div key={campo.label} className="min-w-0">
+                <span className="block truncate font-bold uppercase tracking-wide text-[#64748b]">
+                  {campo.label}
+                </span>
+                <strong className={`truncate ${campo.color}`}>{campo.valor}</strong>
               </div>
             ))}
           </div>
         ) : null}
 
-        {/* Tabla del carrito con totales */}
-        <CarritoTabla
+        <CarritoPanel
           cartItems={cartItems}
           selectedLista={selectedLista}
           subtotal={subtotal}
@@ -110,7 +154,6 @@ export default function PosVendedorView({
           onQuitar={onRemoveProduct}
         />
 
-        {/* Acciones: pagos mixtos + botones + pendientes */}
         <CarritoAcciones
           cartItems={cartItems}
           mediosPago={mediosPago}

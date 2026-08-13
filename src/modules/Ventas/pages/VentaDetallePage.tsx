@@ -1,4 +1,4 @@
-import { ArrowLeft, CreditCard, FileText, Loader2, Mail, PackageCheck, Pencil, Printer, ReceiptText, RotateCcw, Save, Truck, X } from 'lucide-react';
+import { ArrowLeft, CreditCard, FileText, Loader2, Mail, PackageCheck, Pencil, Printer, RotateCcw, Save, Truck, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -410,12 +410,39 @@ const VentaDetallePage = () => {
   }
 
   return (
-    <div className="min-h-[calc(100vh-52px)] bg-[#f3f4f6] px-4 py-4">
-      <div className="mx-auto max-w-[1500px]">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#c4c6cd] bg-white px-4 py-3 shadow-sm">
-          <div className="flex items-center gap-2 text-[15px] font-bold text-[#041627]">
-            <ReceiptText size={17} className="text-[#075E54]" />
-            Detalle de venta
+    <div className="min-h-[calc(100vh-52px)] bg-[#f5f7fc] px-4 py-5">
+      <div className="mx-auto max-w-375">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-[#e5e7eb] pb-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-[28px] font-bold tracking-tight text-[#041627]">
+                {venta?.comprobante.numero ?? 'Detalle de venta'}
+              </h1>
+              {venta && (
+                <>
+                  <span
+                    className={`rounded-full px-3 py-1 text-[12px] font-semibold ${
+                      venta.comprobante.estado === 'PAGADA'
+                        ? 'bg-[#075E54] text-white'
+                        : venta.comprobante.estado === 'ANULADA'
+                          ? 'bg-[#fee2e2] text-[#b42318]'
+                          : 'bg-[#e8ecf7] text-[#475569]'
+                    }`}
+                  >
+                    {venta.comprobante.estado.replace(/_/g, ' ')}
+                  </span>
+                  <span className="text-[13.5px] text-[#64748b]">
+                    {new Date(venta.comprobante.created_at).toLocaleString('es-AR', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </>
+              )}
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {venta ? (
@@ -839,9 +866,9 @@ const VentaDetallePage = () => {
             />
             <FichaHistoryPanel<IAuditoriaEventoAux>
               variant="section"
-              className="mt-4 bg-white"
+              className="mt-5 rounded-xl border-[#e5e7eb] bg-white"
               title="Historial de la venta"
-              subtitle="Creacion, cambios, cobros y estados del comprobante"
+              subtitle="Creación, cambios, cobros y estados del comprobante"
               events={historialComprobante}
               isLoading={historialQuery.isLoading}
               labels={comprobanteHistoryLabels}
@@ -966,10 +993,10 @@ const DespachoVentaPanel = ({
   };
 
   return (
-    <section className="mt-4 rounded-lg border border-[#c4c6cd] bg-white shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#c4c6cd] px-4 py-3">
-        <div className="flex items-center gap-2 text-[15px] font-bold text-[#041627]">
-          <Truck size={17} className="text-[#075E54]" />
+    <section className="mt-5 overflow-hidden rounded-xl border border-[#e5e7eb] bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e5e7eb] bg-[#f5f7fc] px-5 py-4">
+        <div className="flex items-center gap-2.5 text-[18px] font-bold text-[#041627]">
+          <Truck size={19} className="text-[#075E54]" />
           Despacho
         </div>
         {despacho ? (
