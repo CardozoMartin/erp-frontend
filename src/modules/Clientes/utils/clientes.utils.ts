@@ -2,6 +2,17 @@ import type { ICliente, IClientePayload, TipoVencimientoCuenta } from '../types/
 import type { IMovimientoCuentaCorrienteAux } from '../../POSAuxiliares/types/pos-aux.type';
 import { dateTime } from '../../POSAuxiliares/utils/format';
 
+// ─── Limites legales de la cuenta corriente ───────────────────────────────────
+// Debe coincidir con `cuenta-corriente.constants.ts` del backend, que es quien
+// rechaza el guardado. Aca solo se avisa antes de que el usuario intente guardar.
+
+/** Tope de mora diaria: por encima un juez puede reducirla de oficio (CCyC 771) */
+export const TASA_MORA_DIARIA_MAXIMA = 0.2;
+
+/** Equivalente anual de una tasa diaria, para mostrarlo junto al campo */
+export const tasaAnualEquivalente = (tasaDiaria: number) =>
+  Math.round(tasaDiaria * 365 * 100) / 100;
+
 // ─── Tipos locales ────────────────────────────────────────────────────────────
 
 export type ClienteFormValues = {

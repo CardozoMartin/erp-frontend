@@ -373,6 +373,8 @@ export interface IConfiguracionPosSucursal {
   prefijo_nota_credito: string;
   punto_venta_arca?: string | null;
   permitir_cuenta_corriente: boolean;
+  /** Habilita el circuito de pedidos con envio a domicilio en esta sucursal */
+  permitir_envios: boolean;
   formato_impresion_comprobante: FormatoImpresionComprobante;
   imprimir_automaticamente: boolean;
   diseno_comprobante: DisenoComprobante;

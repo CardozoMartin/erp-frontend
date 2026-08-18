@@ -15,6 +15,8 @@ interface Props {
   listasPrecioLoading: boolean;
   selectedListaId: string;
   selectedLista: IListaPrecioPos | undefined;
+  /** La sucursal habilito envios: sin esto no se muestra el acceso */
+  permiteEnvios?: boolean;
   rolPosElegido?: 'vendedor' | 'cajero' | null;
   onCambiarRol?: () => void;
   onTipoFiscalChange: (tipo: TipoEmisionFiscal) => void;
@@ -41,6 +43,7 @@ export const PosCamposVenta = ({
   listasPrecioLoading,
   selectedListaId,
   selectedLista,
+  permiteEnvios = false,
   rolPosElegido,
   onCambiarRol,
   onTipoFiscalChange,
@@ -165,13 +168,17 @@ export const PosCamposVenta = ({
           </>
         )}
 
-        <Link
-          to="/pedidos-envio"
-          className="ml-auto inline-flex h-11 items-center gap-2 rounded-lg border border-[#cfe2de] bg-[#f3fbf9] px-4 text-[13.5px] font-semibold text-[#075E54] transition-colors hover:bg-[#eef8f6]"
-        >
-          <Truck size={16} />
-          Cargar pedido con envío
-        </Link>
+        {/* Acceso al seguimiento. La carga se hace con el boton "Enviar a
+            domicilio" del carrito, que no obliga a salir del POS. */}
+        {permiteEnvios && (
+          <Link
+            to="/pedidos-envio"
+            className="ml-auto inline-flex h-11 items-center gap-2 rounded-lg border border-[#cfe2de] bg-[#f3fbf9] px-4 text-[13.5px] font-semibold text-[#075E54] transition-colors hover:bg-[#eef8f6]"
+          >
+            <Truck size={16} />
+            Ver envíos
+          </Link>
+        )}
       </div>
     </div>
   );

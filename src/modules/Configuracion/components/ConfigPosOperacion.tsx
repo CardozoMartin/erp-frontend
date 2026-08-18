@@ -72,6 +72,7 @@ export const ConfigPosOperacion = ({ register, watchedModoPos: _, stockOptions }
           ['permitir_listas_precio', 'Usar listas de precio'],
           ['permitir_cotizaciones', 'Permitir cotizaciones'],
           ['permitir_cuenta_corriente', 'Permitir cuenta corriente'],
+          ['permitir_envios', 'Permitir envíos a domicilio'],
           ['consulta_stock_otras_sucursales', 'Consultar stock en otras sucursales'],
         ].map(([name, label]) => (
           <label key={name} className="flex items-center justify-between gap-3 rounded border border-[#c4c6cd] bg-white px-3 py-3">

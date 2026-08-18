@@ -17,6 +17,7 @@ import {
   crearVentaQrFn,
   editarVentaPendienteFn,
   getCajaAbiertaFn,
+  getHayCajaAbiertaFn,
   getClientesPosFn,
   getListasPrecioPosFn,
   getMediosPagoActivosFn,
@@ -44,6 +45,16 @@ export const useCajaAbierta = () => {
     queryKey: ['pos', 'caja-abierta', sucursalActivaId],
     queryFn: getCajaAbiertaFn,
     enabled: !!sucursalActivaId,
+  });
+};
+
+export const useHayCajaAbierta = (habilitado = true) => {
+  const sucursalActivaId = useAuthStore((state) => state.sucursalActiva?.id);
+  return useQuery({
+    queryKey: ['pos', 'hay-caja-abierta', sucursalActivaId],
+    queryFn: getHayCajaAbiertaFn,
+    enabled: !!sucursalActivaId && habilitado,
+    refetchInterval: 15000,
   });
 };
 

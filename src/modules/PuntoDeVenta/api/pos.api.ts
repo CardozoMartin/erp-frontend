@@ -25,6 +25,13 @@ export const getCajaAbiertaFn = async () => {
   return unwrap<ICajaPos | null>(response);
 };
 
+// El vendedor de flujo separado no puede listar cajas, pero necesita saber si hay
+// alguna abierta: sin eso su venta pendiente no tiene adonde ir.
+export const getHayCajaAbiertaFn = async () => {
+  const response = await api.get<{ hayCajaAbierta: boolean }>('/caja/hay-abierta');
+  return unwrap<{ hayCajaAbierta: boolean }>(response).hayCajaAbierta;
+};
+
 export const abrirCajaFn = async (payload: { monto_inicial: number; descripcion?: string }) => {
   const response = await api.post<ICajaPos>('/caja/abrir', {
     monto_inicial: payload.monto_inicial,

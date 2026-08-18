@@ -1,7 +1,242 @@
 # PROGRESO DEL PROYECTO — ERP Gestión Contable de Ventas
 
-> Última actualización: **2026-08-13**
+> Última actualización: **2026-08-14**
 > Stack: NestJS 11 + TypeORM + MySQL 8 | React 19 + Vite 8 + Tailwind 4 + TanStack Query + Zustand
+
+---
+
+## 📌 SESIÓN 2026-08-14 — auditoría de flujos POS × roles
+
+Revisión completa de la matriz **4 modos POS × combinaciones de permisos**, a pedido del usuario: "tiene que funcionar en todos los aspectos".
+
+### Cómo queda cada modo
+
+| Modo | Vender+cobrar junto | Pendientes | Cajas abiertas | Escenario real |
+|---|---|---|---|---|
+| **SIMPLE** | ✅ obligatorio | ❌ prohibido | **1 por sucursal, compartida** | Kiosco. Ahora **varios vendedores** sobre la misma caja |
+| **MULTICAJA** | ✅ obligatorio | ❌ prohibido | 1 por empleado | Varios vendedores, cada uno su caja |
+| **CAJA_CENTRALIZADA** | ❌ prohibido | ✅ obligatorio | 1 por empleado | Vendedores + cajero central |
+| **CON_DESPACHO** | ❌ prohibido | ✅ obligatorio | 1 por empleado | Igual + zona de entrega |
+
+> **Regla que resume todo:** SIMPLE y MULTICAJA exigen un operador que **venda Y cobre**. Un vendedor puro o un cajero puro **no pueden operar** en esos modos — es por diseño, no un bug. Para separar roles hay que usar CAJA_CENTRALIZADA o CON_DESPACHO.
+
+### Los 5 hallazgos y su corrección
+
+| # | Problema | Corrección |
+|---|---|---|
+| **1** 🔴 | **"Varios vendedores, una caja" era imposible.** SIMPLE permite una sola caja abierta (`caja.service.ts:63`) pero cobrar exigía caja **propia** (`pagos-pos.service.ts:55`). El segundo vendedor no podía abrir otra ni usar la ajena: quedaba trabado sin salida | La regla de caja propia **ya no aplica en SIMPLE**. Además `findAbiertaPorEmpleado` devuelve la caja de la sucursal si el empleado no tiene la suya, y `crearVenta` pide "alguna caja abierta" en vez de caja propia. Cada pago sigue guardando su `empleado_id`, así que el arqueo distingue quién cobró |
+| **2** 🔴 | El vendedor de flujo separado descubría que no había caja abierta **recién al enviar la venta**, con el carrito ya armado. Empeoró con el rol POS: ya no pasa por la pantalla de apertura | Nuevo `GET /caja/hay-abierta` (solo devuelve un booleano, sin exponer cajas ajenas) + banner de aviso al entrar al POS |
+| **3** 🟠 | `posAccess.requiereCajaParaCobrar` decía `true` siempre, pero en flujo separado el backend pide caja **de la sucursal**, no propia | Agregado `requiereCajaPropiaParaVender` (solo MULTICAJA) y documentado a qué validación del backend corresponde cada flag |
+| **4** 🟠 | Un cajero puro en modo SIMPLE veía "necesitás permiso `ventas.crear`" — un permiso que su rol **nunca** debería tener. El problema real era el modo de la sucursal | Mensajes reescritos: ahora dicen que la sucursal está en un modo que exige vender y cobrar, y sugieren CAJA_CENTRALIZADA |
+| **5** 🟡 | Se podía pasar a SIMPLE con varias cajas abiertas, dejando un estado que el propio backend rechaza (nadie puede abrir caja hasta cerrarlas todas) | `validarCambioDeModo()` en `ConfiguracionService.update` devuelve 409 si hay más de una caja abierta |
+| **6** 🔴 | **Contracara de #1** (planteado por el usuario): al compartir la caja en SIMPLE había que asegurar que **no se pueda cerrar la caja de otro**. El cierre ya estaba protegido, pero **egresos y consumos internos NO**: cualquiera con el permiso movía plata de una caja ajena | Nuevo helper `validarCajaPropia()` aplicado a **cerrar, movimientos y consumo interno**. Devuelve **403** con mensaje claro. El cierre además pasó de un 404 engañoso ("Caja no encontrada") a un 403 que dice el motivo real |
+
+| **7** 🔴 | **El cambio de modo POS "no se guardaba"**: se elegía otro modo, se guardaba, y la pantalla volvía a mostrar el anterior. **El backend guardaba bien** — verificado por API y en BD; el que revertía era el formulario | Ver detalle abajo |
+
+### P6 cerrado + auditoría legible (2026-08-14)
+
+**P6 ✅** — `NCA-D-000002` emitida sobre `C0001-000011`:
+
+| Verificación | Resultado |
+|---|---|
+| CAE propio de AFIP | ✅ `86330758062175` (distinto al de la factura) |
+| Código fiscal | ✅ `013` (NC clase C) |
+| Vencimiento de CAE | ✅ 2026-08-24 |
+| QR fiscal (`GET /comprobantes/:id/qr`) | ✅ PNG 240×240, `tipoCmp 13`, 11 campos válidos según RG 4892 |
+| Numeración AFIP vs local | ✅ 11 = 11, sin colisiones |
+
+> **Con esto se cierra el circuito fiscal completo.** No quedan brechas de ARCA abiertas fuera de A6 (reintento ante caída de AFIP) y A10 (padrón), ambas no bloqueantes.
+
+### Auditoría: filtros y lectura
+
+La página existía con filtros completos, pero tenía problemas de uso concretos:
+
+| # | Problema | Solución |
+|---|---|---|
+| 1 | **Abría vacía**: el rango arrancaba en "hoy", así que sin movimientos del día parecía rota | Arranca en **últimos 7 días** + atajos **Hoy / Ayer / 7 días / 30 días / Este mes** |
+| 2 | **"Solo sensibles" mentía**: filtraba los 50 registros de la página, no el total. Decía "0 sensibles" habiéndolos en otra página | Filtro movido a **SQL** (`solo_sensibles=true`). Verificado: 347 eventos totales → **18 sensibles** reales |
+| 3 | **El detalle era JSON crudo**: había que comparar dos objetos a ojo para ver qué cambió | Nuevo `CambiosEvento.tsx`: tabla **campo por campo** con valor viejo tachado → valor nuevo, nombres traducidos y montos formateados. El JSON queda plegado en "Ver datos completos" |
+| 4 | La columna Detalle mostraba JSON cortado a 130 caracteres | Ahora dice **"Cambió: estado, total y 2 más"** |
+| 5 | **"Acción exacta"** obligaba a saber que se llamaba `CAMBIAR_ESTADO_PEDIDO_ENVIO` | Selector poblado con las acciones que **existen en la base**, acotado al módulo elegido. Nuevo `GET /auditoria/acciones` |
+
+También distingue altas y bajas (un solo lado, no hay "cambio") y avisa cuando el evento no modificó datos.
+
+> ⚠️ **La UI no se probó en pantalla**, solo compila y los endpoints están verificados por API.
+>
+> **Pendiente sugerido:** exportar el listado filtrado a Excel/PDF — hoy no se puede sacar para un contador o un reclamo.
+
+### Cuenta corriente: encuadre legal (2026-08-14)
+
+Análisis del marco legal argentino de la cuenta corriente comercial y cierre de las dos brechas más urgentes. **Documento completo en [`CUENTA-CORRIENTE-LEGAL.md`](CUENTA-CORRIENTE-LEGAL.md)** — conviene revisarlo con un contador.
+
+**Lo que ya estaba bien:** la venta a plazo se separa del comprobante fiscal, y el interés de mora se calcula **sobre el capital del cargo, no sobre el saldo** — o sea que no capitaliza, lo cual evita el anatocismo (CCyC art. 770) que está prohibido salvo pacto semestral expreso.
+
+| # | Corrección | Detalle |
+|---|---|---|
+| **1** | **Tope legal a la tasa de mora: 0,20% diario (~73% anual)** | El CCyC art. 771 faculta a los jueces a reducir de oficio los intereses usurarios; el criterio habitual es no pasar de 2-2,5x la tasa activa del BNA. Antes se podía cargar **cualquier** tasa: `@Min(0)` sin máximo |
+| **2** | **Leyenda de objeción a 30 días** en el resumen (email **y** PDF) | Sin ese aviso el silencio del cliente **no vale como aceptación** del saldo (CCyC art. 1145), y la cuenta no se puede tener por conformada |
+
+**Doble cerrojo en el tope:** `@Max` en el DTO al guardar el plan, y un recorte defensivo en `calcularRecargos()` para planes cargados antes de la validación (loguea un warning al recortar). El frontend además avisa el equivalente anual mientras se tipea — *1% diario suena poco pero son 365% anual*.
+
+Constantes en `erp-backend/src/clientes/cuenta-corriente.constants.ts`.
+
+#### Verificación por API (2026-08-14)
+
+| Tasa | Resultado |
+|---|---|
+| 0,15% diario | ✅ aceptada |
+| 0,20% diario (tope) | ✅ aceptada |
+| 1,00% diario | ✅ **rechazada** — "no puede superar 0.2% diario (73% anual)… puede considerarse usuraria" |
+| 5,00% diario | ✅ rechazada |
+
+Resumen en PDF generado con la leyenda (`src/scripts/verificar-resumen-cc.ts`). Datos de prueba borrados; queda un PDF de muestra en el escritorio.
+
+#### Pendiente (ordenado por impacto)
+
+1. **Solicitud de crédito firmada** — sin esto la mora es impugnable y el resumen no se tiene por aceptado. **Es la brecha grande**
+2. **Imputación de pagos ordenada** (CCyC arts. 900-903: primero a la deuda más antigua, y dentro de ella primero a intereses). Hoy el pago baja el saldo global: se sabe *cuánto* deben pero no *qué* deben
+3. **Antigüedad de saldos 30/60/90** — lo primero que pide un contador
+
+### Envíos a domicilio: configuración + carga desde el POS (2026-08-14)
+
+**Lo que ya existía** (backend completo, no había que rehacerlo): estados `PENDIENTE → PREPARANDO → EN_CAMINO → ENTREGADO → CANCELADO`, estados de pago `PENDIENTE_PAGO → PENDIENTE_RENDICION → RENDIDO`, y `rendir()` que llama a `pagosPosService.cobrar` — **la plata sí impacta en caja con su movimiento**.
+
+**Las dos brechas que se cerraron:**
+
+| # | Faltaba | Solución |
+|---|---|---|
+| 1 | **Nada habilitaba el módulo.** Estaba siempre activo para todas las sucursales, hicieran delivery o no | Campo `permitir_envios` en `configuracion_sucursal` + toggle "Permitir envíos a domicilio". **Validado en el servicio**, no solo en la UI: `validarEnviosHabilitados()` rechaza la creación por API si la sucursal no lo tiene activo |
+| 2 | **La carga no arrancaba del POS.** El botón era un `<Link>` que sacaba del POS a `/pedidos-envio` y obligaba a recargar cliente y productos desde cero — el carrito se perdía | Nuevo `ModalEnvio.tsx`: botón **"Enviar a domicilio"** en el carrito que abre un modal con los datos de entrega. **Los productos salen del carrito ya armado.** El `<Link>` viejo quedó como "Ver envíos" (acceso al seguimiento) y solo aparece si hay envíos habilitados |
+
+**Cobro:** en el modal se elige el medio previsto y un check **"Ya pagó en el local"**. Si está marcado el pedido nace `PAGADO`; si no, queda `PENDIENTE_PAGO` y al marcarlo entregado pasa a `PENDIENTE_RENDICION` hasta que el repartidor rinde en caja.
+
+#### Verificación por API (2026-08-14)
+
+| Paso | Resultado |
+|---|---|
+| Crear pedido con `permitir_envios = 0` | ✅ **rechazado** con mensaje accionable |
+| Crear pedido con envíos habilitados | ✅ `PENDIENTE` / `PENDIENTE_PAGO`, total $2.960 |
+| Marcar `EN_CAMINO` sin repartidor | ✅ rechazado: "Debe asignar un repartidor" |
+| Marcar `ENTREGADO` | ✅ pasa solo a **`PENDIENTE_RENDICION`** |
+| `rendir()` | ✅ `RENDIDO`, comprobante **`COBRADA`**, monto 2960 |
+| **Impacto en caja** | ✅ `pagos_pos` con el empleado que rindió + movimiento **`COBRO 2960.00`** en la caja |
+
+> Datos de prueba borrados al terminar. **Shaddai quedó con `permitir_envios = 1`** para probar en la UI.
+
+### Modal de cobro con vuelto (2026-08-14)
+
+Al quedar Shaddai en modo SIMPLE apareció el botón "Cobrar" con cobro directo, y el panel de pagos del vendedor era un formulario apretado en la columna derecha, **sin vuelto**.
+
+**Nuevo `components/shared/ModalCobro.tsx`** — se abre al tocar "Cobrar":
+
+- **Total gigante** arriba, que es el número que el cajero canta
+- Botones de medio de pago en grilla de 3
+- Campo **"Con cuánto paga"** grande, enfocado al abrir para tipear sin mouse
+- Atajos: **Justo** + los billetes que alcanzan el total (se filtran los menores)
+- **Vuelto en 34px**, en verde; si falta plata pasa a rojo y dice "Falta"
+- **Enter** confirma, **Escape** cierra
+- **"Dividir pago"** pliega el pago mixto: por defecto un solo medio, que es el caso común
+
+> ⚠️ **El importe recibido NO viaja al backend** — es solo ayuda visual para el vuelto. `construirPagos` cobra el total exacto; mandar lo que entregó el cliente haría fallar el cobro por diferencia. Mismo criterio que ya usaba `PanelMedioPago` del cajero.
+
+**Detalle:** al activar "Dividir pago" se precarga el primer pago con el total, porque `construirPagos` exige que la suma cierre y arrancar en cero obliga a tipear todo de nuevo.
+
+El componente se desmonta al cerrarse (wrapper `ModalCobro` → `ContenidoModalCobro`), así el estado nace limpio sin resetearlo dentro de un efecto.
+
+> 💡 **El cajero ya tenía vuelto** en `PanelMedioPago`. Lo que faltaba era el lado del **vendedor con cobro directo** (SIMPLE / MULTICAJA).
+
+### #7 — Por qué el modo POS parecía no guardarse
+
+El `useEffect` de `ConfiguracionPosPage` que hidrata el form dependía de `configQuery.data`, con un guard de `isDirty` que **no alcanzaba**:
+
+1. Cambiás el modo → `isDirty = true`
+2. Guardás → **el backend persiste correctamente**
+3. `onSuccess` hace `form.reset(payload)` → `isDirty` vuelve a **false**
+4. La mutación hace `setQueryData` → cambia la identidad de `configQuery.data` → **el efecto se dispara de nuevo**
+5. Con `isDirty` ya en false, el guard no protege: un refetch (el query usa `staleTime: 0` + `refetchOnWindowFocus`) rehidrata el form **con el valor viejo**
+
+**Fix:** `sucursalHidratadaRef` — el form se hidrata **una sola vez por sucursal**. Después la fuente de verdad de lo que se ve en pantalla es el form, y el servidor solo se relee al cambiar de sucursal.
+
+> 💡 El síntoma era engañoso: parecía un bug de backend o de permisos, pero el dato viajaba y se guardaba bien. Era puramente de sincronización del formulario.
+
+> 🔑 **Criterio que quedó:** en SIMPLE se comparte **el cobro**, no la **responsabilidad del cierre**. Cobrar sobre la caja de otro está permitido (varios vendedores, una caja); cerrarla, sacar un egreso o registrar un consumo interno **solo puede hacerlo quien la abrió**, porque es quien rinde el arqueo. `validarCajaPropia()` no se relaja en ningún modo.
+
+**Archivos tocados:** `pagos-pos.service.ts`, `pos-ventas.service.ts`, `caja.service.ts`, `caja.controller.ts`, `configuracion.service.ts`, `posAccess.ts`, `pos.api.ts`, `usePos.ts`, `useEstadoPos.ts`, `PuntoDeVentaPages.tsx`. Front y backend compilan limpio.
+
+### Verificación por API (2026-08-14)
+
+Se puso Shaddai2 en SIMPLE y se ejercitó el escenario real con **dos usuarios distintos**:
+
+| Paso | Resultado |
+|---|---|
+| `cajerovendedor` abre la caja única | ✅ |
+| `todospermisos` (sin caja propia) consulta `/caja/abierta` | ✅ **ve la caja compartida** — antes devolvía `null` |
+| `todospermisos` intenta abrir una segunda caja | ✅ rechazado: SIMPLE admite una sola |
+| **`todospermisos` vende y cobra sobre la caja ajena** | ✅ `VTA-000003` **COBRADA** — antes era imposible |
+| Atribución en el arqueo | ✅ el pago quedó con `empleado_id = todospermisos` dentro de la caja de `cajerovendedor`: **el arqueo cierra por caja y sabe quién cobró cada peso** |
+| Pasar Shaddai a SIMPLE con 2 cajas abiertas | ✅ **409** con mensaje accionable (#5) |
+| `GET /caja/hay-abierta` con vendedor y cajero | ✅ 200 en ambos (#2) |
+| Otro usuario intenta **cerrar** caja ajena | ✅ **403** con mensaje claro (#6) |
+| Otro usuario intenta un **egreso** en caja ajena | ✅ **403** (#6) |
+| El **dueño** cierra su propia caja | ✅ pasa la validación de propiedad (frena después por ventas pendientes, que es otra regla y correcta) |
+
+> Los modos de las sucursales se restauraron al terminar (Shaddai `CON_DESPACHO`, Shaddai2 `CAJA_CENTRALIZADA`).
+
+> ⚠️ **Falta probarlo desde la interfaz.** La lógica quedó verificada por API, pero el banner de #2 y los mensajes de #4 son UI y no se vieron en pantalla.
+
+---
+
+## 📌 SESIÓN 2026-08-13 (noche) — selección de rol en el POS
+
+Bloque de cambios en el POS, **sin probar todavía en la interfaz**.
+
+**Qué se agregó:** cuando la sucursal está en modo de flujo separado (`CAJA_CENTRALIZADA` o `CON_DESPACHO`) **y** el empleado tiene los dos permisos (`ventas.crear` + `caja.cobrar`), el POS ya no adivina qué rol cumple: le pregunta.
+
+| Archivo | Qué cambió |
+|---|---|
+| `hooks/useEstadoPos.ts` | Estado `rolPosElegido` + flag `necesitaElegirRol`. `esSoloCajero` ahora sale del rol elegido cuando hay doble permiso |
+| `Pages/PuntoDeVentaPages.tsx` | Modal "¿Cómo vas a operar hoy?" con dos tarjetas (Vendedor / Cajero) |
+| `utils/posAccess.ts` | Nuevos `requiereCajaParaVender`, `requiereCajaParaCobrar` y `descripcionModo` (texto explicativo por modo) |
+| `components/PosAbrirCaja.tsx` | Badge del rol, botón "Cambiar rol" y cartel con la descripción del modo |
+| `components/cajero/PosCajeroBarra.tsx` | Badge del rol y "Cambiar rol" en la cabecera |
+| `components/vendedor/PosCamposVenta.tsx` · `PosVendedorView.tsx` | Idem, del lado del vendedor |
+
+**Dos efectos sobre el flujo:**
+
+- El bloqueo por caja ahora distingue **para qué** se necesita la caja: un vendedor en flujo separado ya no queda trabado en la pantalla de apertura, porque él no cobra
+- `habilitarPendientes` exige `esSoloCajero`: si elegís rol vendedor, las ventas pendientes ni se piden al backend
+
+**Errores de tipos: 21 → 0.** Verificado el 2026-08-14 con `npx tsc --noEmit` en frontend y backend: **ambos compilan limpio**. Queda cerrado el punto 2 de "pendientes" de la sesión anterior.
+
+### Bug encontrado al probar P0 (2026-08-14)
+
+**Síntoma:** al entrar al POS con `vendedor@gmail.com` saltaba el modal **"Acción no permitida"** y la pantalla no cargaba.
+
+**Causa:** `useEstadoPos` llama a `useMediosPagoActivos()` **sin condición**, y `GET /pagos/activos` exige `medios_pago.ver`. Ese permiso **no estaba en ninguno de los tres roles del POS** (Vendedor, Cajero, Vendedor Cajero) — solo en Admin. El 403 lo levantaba el interceptor de `ApiBase.ts` y disparaba el modal global.
+
+Pasó desapercibido hasta ahora porque siempre se probó con usuarios Admin, que tienen todos los permisos.
+
+**Fix:** `medios_pago.ver` agregado a los tres roles, en **dos lugares** (si se toca solo uno, el arreglo se pierde):
+
+1. `src/roles/roles-seed.ts` — la fuente de verdad; sin esto `npm run seed` lo revierte
+2. La base actual, vía `INSERT` en `rol_permisos`, para no depender de correr el seed
+
+**Verificado por API (2026-08-14):** con `vendedor`, `cajero` y `cajerovendedor`, los cinco endpoints del arranque del POS (`/pagos/activos`, `/clientes`, `/listas-precio`, `/caja/abierta`, `/configuracion/:id`) responden **200**. Antes `/pagos/activos` daba 403.
+
+**Segundo hallazgo:** `cajerovendedor@gmail.com` estaba con `activo = 0` en la BD y por eso su login daba 401. Es el **único** usuario con rol "Vendedor Cajero" — el caso real de doble permiso. Reactivado el 2026-08-14.
+
+#### Usuarios de prueba (contraseña `holamundo123` en todos)
+
+| Usuario | vender | cobrar | Sirve para |
+|---|---|---|---|
+| `cajerovendedor@gmail.com` | ✅ | ✅ | **El modal de rol** — es el caso real, sin permisos de más |
+| `vendedor@gmail.com` | ✅ | ❌ | Control: **no** debe salir el modal |
+| `cajero@gmail.com` | ❌ | ✅ | Control: **no** debe salir el modal |
+| `martin@gmail.com` | ✅ | ✅ | Admin. El modal sale, pero tiene permisos de más y **ya escondió un bug** (el de `medios_pago.ver`) |
+
+> 💡 Probar el POS con Admin no vale como prueba de permisos: tiene todo y tapa los 403.
+
+> ⚠️ **El resto del bloque sigue sin probarse en la UI.** Ver **P0**.
 
 ---
 
@@ -70,12 +305,13 @@ Lo esperado del paso 3: `AFIP autorizo hasta = Max local`, **sin colisiones**. S
 
 | # | Qué probar | Qué mirar | Por qué importa |
 |---|---|---|---|
+| **P0** | **Selección de rol en el POS** (código del 13/08 a la noche) | Poner la sucursal en `CAJA_CENTRALIZADA` → entrar al POS con un usuario que tenga **ambos** permisos → debe aparecer el modal. Elegir **Vendedor**: no debe pedir caja ni cargar pendientes. Elegir **Cajero**: pide caja y muestra pendientes. "Cambiar rol" vuelve al modal desde las tres pantallas (apertura de caja, barra de cajero, campos de vendedor) | ⏳ **PENDIENTE.** Es el único código sin ejercitar nunca. Compila, pero compilar no es funcionar |
 | ~~**P1**~~ | ~~Cobrar una venta en el POS con impresión automática~~ | ✅ **OK** (13/08) | |
 | ~~**P2**~~ | ~~Facturar esa venta~~ | ✅ **OK** — `C0001-000011` con CAE | |
 | ~~**P3**~~ | ~~Imprimir la factura~~ | ✅ **OK** — QR visible tras el fix | |
 | ~~**P4**~~ | ~~Escanear el QR con el celular~~ | ✅ **OK** — AFIP responde "no encontrado" porque el visor lee **producción** y el comprobante es de homologación. El QR está bien formado | |
 | ~~**P5**~~ | ~~Mandar la factura por email~~ | ✅ **OK** — PDF con QR, CAE, razón social e IIBB | |
-| **P6** | **Nota de crédito sobre esa factura** | Que traiga **CAE propio** y código `013` | ⏳ **PENDIENTE.** Emitir desde el detalle de una venta ya facturada, o desde `/notas-credito` eligiendo un `C0001-…`. Las NC emitidas hasta ahora salieron sobre ventas internas (`VTA-…`) y por eso no tenían CAE |
+| ~~**P6**~~ | ~~Nota de crédito sobre esa factura~~ | ✅ **OK** (14/08) — `NCA-D-000002` con CAE propio `86330758062175`, código `013`, contra `C0001-000011`. QR fiscal válido (`tipoCmp 13`) | |
 
 ### 🟠 Prioridad 2 — Lo que se tocó y conviene confirmar
 
@@ -115,7 +351,7 @@ Los scripts de `src/scripts/` (ver §4) permiten reprobar cada pieza **sin login
 ### Lo que queda pendiente después de probar
 
 1. ~~**A15**~~ — ✅ resuelto el 13/08: `buildArcaQrUrl` eliminado del front
-2. **21 errores de tipos preexistentes en el frontend** (eran 66) — quedan en Cajas, Empleados y PedidosEnvio. Los de `printComprobante.ts` se resolvieron al agregar los datos de cliente
+2. ~~**21 errores de tipos en el frontend**~~ — ✅ **0 errores** al 2026-08-14. Front y backend compilan limpio con `npx tsc --noEmit`
 3. **Remitos sin probar** — la plantilla A4 tiene bloque propio con firmas y columnas solicitado/entregado/pendiente
 4. **Credenciales de backup probablemente rotas** — mismo motivo que el email (`MASTER_ENCRYPT_KEY` cambió). Hay que recargarlas desde la UI
 5. **12 llamadas a `.descifrar()` sin manejo de error** (MercadoPago 6, backup 3, ARCA 3) → darían 500 opaco si rota su clave
@@ -237,7 +473,7 @@ POSAuxiliares · Cajas · Empleados · Sucursal · Configuracion · Catastro · 
 | ~~A12~~ | ~~CAE vencimiento un día antes~~ | — | ✅ **RESUELTO 2026-08-12** — se arma con constructor local en vez de `T00:00:00Z`. Verificado: `C0001-000004` guardó `2026-08-22` (AFIP dijo `20260822`) |
 | ~~A13~~ | ~~El CUIT impreso no es el del certificado~~ | — | ✅ **RESUELTO 2026-08-12** — ver A14 |
 | ~~A14~~ | ~~Datos fiscales duplicados / desincronizados~~ | — | ✅ **RESUELTO 2026-08-12** — `ConfiguracionService.conDatosFiscalesDeArca()` deriva `cuit_ticket` y `punto_venta_arca` de `arca_config` cuando ARCA está activo. Se aplica en `findBySucursal` y `crearPorDefecto`, que son el paso único de impresión/PDF/email. **Es solo lectura**: no pisa lo guardado, y loguea un warning cuando detecta divergencia. Verificado con `verificar-cuit-fiscal.ts` |
-| **A15** | **QR AFIP con receptor hardcodeado** | `printComprobante.ts:150-151` | 🟠 `tipoDocRec: 99` y `nroDocRec: 0` fijos. En factura A/B con cliente identificado el QR queda inconsistente con el comprobante |
+| ~~A15~~ | ~~QR AFIP con receptor hardcodeado~~ | — | ✅ **RESUELTO 2026-08-13** — `buildArcaQrUrl` eliminado del front. El QR ahora se pide al backend con `obtenerQrFiscalFn(comprobante.id)`, que ya arma el receptor correcto. El front solo lo pide cuando hay CAE |
 | ~~A16~~ | ~~QR depende de un servicio externo~~ | — | ✅ **RESUELTO 2026-08-12** — QR generado local con `qrcode`. Nuevo `GET /comprobantes/:id/qr` (PNG) y `QrAfipService`. `api.qrserver.com` eliminado del código |
 | ~~A17~~ | ~~El PDF no imprime QR ni datos fiscales~~ | — | ✅ **RESUELTO 2026-08-12** — el PDF ahora embebe el QR y agrega razón social, IIBB e inicio de actividades. Además pasó a leer la config vía `ConfiguracionService`, así que hereda el CUIT correcto de A13/A14 (antes iba directo al repo y habría impreso el CUIT viejo) |
 | ~~A3~~ | ~~IVA hardcodeado al 21%~~ | — | ✅ **RESUELTO 2026-08-12** — `productos.alicuota_iva` (decimal, default 21) + `arca-iva.helper.ts` que agrupa por alícuota y arma un `<AlicIva>` por cada una. Exentos van por `ImpOpEx`. Verificado: venta mixta 21%+10,5% da `ImpNeto 2000 / ImpIVA 315` con Ids 5 y 4 |
@@ -360,9 +596,9 @@ Bloqueantes previos:
 11. ~~**UI de la alícuota**~~ ✅ **RESUELTO 2026-08-12** — selector en alta (`ProductForm`) y edición (`TabResumen`), columna `alicuota_iva` en la plantilla Excel + instrucciones. Conversión centralizada en `normalizeProductoPayload`. Verificado end-to-end: producto marcado a 10,5% → el cálculo fiscal emite `<AlicIva Id=4>`
 
 > Decisión pendiente del usuario (2026-08-12): **la condición fiscal real todavía no está definida**. El certificado activo es de monotributo → Factura C, que no discrimina IVA. El desglose de A3 recién se usa al emitir A o B como Responsable Inscripto.
-11. **A15** — QR con receptor hardcodeado (`tipoDocRec: 99`). El backend ya lo resuelve bien; falta que el front deje de armar su propio payload en `buildArcaQrUrl`
+11. ~~**A15** — QR con receptor hardcodeado~~ ✅ **RESUELTO 2026-08-13**
 12. ~~**A5** — CAE para notas de crédito con `CbtesAsoc`~~ ✅ **RESUELTO 2026-08-12**
-13. **← RETOMAR ACÁ: A15** — el front duplica el payload del QR en `buildArcaQrUrl` con `tipoDocRec: 99` fijo. El backend ya lo resuelve bien; falta que el front consuma `GET /comprobantes/:id/qr` sin recalcular
+13. **← RETOMAR ACÁ: pruebas de UI.** No quedan brechas de código de ARCA abiertas fuera de A6/A10 (no bloqueantes). Lo que falta es ejercitar la interfaz: **P0** (rol POS, código sin probar) y **P6** (NC con CAE)
 
 > ⚠️ **El lock de A9 es in-process.** Alcanza para una instancia del backend. Si en el futuro se corre replicado (varios contenedores), hace falta un lock distribuido; el reintento por 10016 mitiga pero no elimina el problema.
 

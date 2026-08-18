@@ -22,6 +22,7 @@ export default function PosVendedorView({
   usaFlujoSeparado,
   usaDespacho,
   permiteCotizaciones,
+  permiteEnvios,
   mercadoPagoDisponible,
   puedeUsarCuentaCorriente,
   selectedClienteId,
@@ -92,6 +93,7 @@ export default function PosVendedorView({
           listasPrecioLoading={listasPrecioLoading}
           selectedListaId={selectedListaId}
           selectedLista={selectedLista}
+          permiteEnvios={permiteEnvios}
           rolPosElegido={rolPosElegido}
           onCambiarRol={onCambiarRol}
           onTipoFiscalChange={onTipoFiscalChange}
@@ -167,6 +169,8 @@ export default function PosVendedorView({
           usaFlujoSeparado={usaFlujoSeparado}
           usaDespacho={usaDespacho}
           permiteCotizaciones={permiteCotizaciones}
+          permiteEnvios={permiteEnvios}
+          clientes={clientes}
           mercadoPagoDisponible={mercadoPagoDisponible}
           puedeUsarCuentaCorriente={puedeUsarCuentaCorriente}
           selectedClienteId={selectedClienteId}

@@ -6,12 +6,14 @@ import DataTable from '../../../components/common/DataTable';
 import type { DataTableColumn } from '../../../components/common/DataTable';
 import { useAuthStore } from '../../../store/auth.store';
 import { getEmpleadosFn } from '../../Empleados/api/empleadosApi';
+import { getAccionesAuditoriaFn } from '../../POSAuxiliares/api/posAux.api';
 import { useAuditoriaAux } from '../../POSAuxiliares/hooks/usePosAux';
+import { CambiosEvento } from '../components/auditoria/CambiosEvento';
+import { RangoFechas } from '../components/auditoria/RangoFechas';
+import { rangoPorDefecto } from '../components/auditoria/rangos';
 import type { IAuditoriaEventoAux } from '../../POSAuxiliares/types/pos-aux.type';
 import { dateTime } from '../../POSAuxiliares/utils/format';
 import { POS_PERMISSIONS } from '../../POSAuxiliares/utils/posPermissions';
-
-const today = () => new Date().toISOString().slice(0, 10);
 
 const modulos = [
   { value: '', label: 'Todos los modulos' },
@@ -113,16 +115,27 @@ const isSensitive = (evento: IAuditoriaEventoAux) =>
 const formatJson = (value?: Record<string, unknown> | null) =>
   value ? JSON.stringify(value, null, 2) : 'Sin datos';
 
-const compactValue = (value?: Record<string, unknown> | null) => {
-  if (!value) return '-';
-  const text = JSON.stringify(value);
-  return text.length > 130 ? `${text.slice(0, 130)}...` : text;
+/** Nombra los campos que cambiaron, en vez de volcar el JSON entero */
+const resumirCambios = (
+  antes?: Record<string, unknown> | null,
+  despues?: Record<string, unknown> | null,
+): string | null => {
+  if (!antes || !despues) return null;
+  const claves = Array.from(new Set([...Object.keys(antes), ...Object.keys(despues)]));
+  const cambiados = claves.filter(
+    (clave) => JSON.stringify(antes[clave] ?? null) !== JSON.stringify(despues[clave] ?? null),
+  );
+  if (!cambiados.length) return null;
+  const nombres = cambiados.slice(0, 3).map((c) => c.replace(/_/g, ' '));
+  const resto = cambiados.length - nombres.length;
+  return `Cambió: ${nombres.join(', ')}${resto > 0 ? ` y ${resto} más` : ''}`;
 };
 
 const AuditoriaPage = () => {
+  const [rangoInicial] = useState(rangoPorDefecto);
   const [page, setPage] = useState(1);
-  const [desde, setDesde] = useState(today());
-  const [hasta, setHasta] = useState(today());
+  const [desde, setDesde] = useState(rangoInicial[0]);
+  const [hasta, setHasta] = useState(rangoInicial[1]);
   const [modulo, setModulo] = useState('');
   const [accion, setAccion] = useState('');
   const [empleadoId, setEmpleadoId] = useState('');
@@ -139,12 +152,14 @@ const AuditoriaPage = () => {
     queryFn: () => getEmpleadosFn(1, 300),
     enabled: puedeVerAuditoria,
   });
-  const empleados = empleadosQuery.data?.data ?? [];
+  const empleados = useMemo(() => empleadosQuery.data?.data ?? [], [empleadosQuery.data]);
   const empleadosById = useMemo(
     () => new Map(empleados.map((empleado) => [empleado.id, empleado])),
     [empleados],
   );
 
+  // El filtro de sensibles viaja al backend: filtrarlo en el front solo revisaba
+  // los 50 registros de la pagina y decia "0 sensibles" habiendolos en otra.
   const params = useMemo(
     () => ({
       page,
@@ -157,18 +172,28 @@ const AuditoriaPage = () => {
       entidad,
       entidad_id: entidadId,
       q,
+      solo_sensibles: soloSensibles,
     }),
-    [accion, desde, empleadoId, entidad, entidadId, hasta, modulo, page, q],
+    [accion, desde, empleadoId, entidad, entidadId, hasta, modulo, page, q, soloSensibles],
   );
   const auditoriaQuery = useAuditoriaAux(params, puedeVerAuditoria);
-  const eventosBase = auditoriaQuery.data?.data ?? [];
-  const eventos = soloSensibles ? eventosBase.filter(isSensitive) : eventosBase;
+  const eventos = auditoriaQuery.data?.data ?? [];
   const meta = auditoriaQuery.data?.meta;
 
+  // Se piden las acciones que existen de verdad, filtradas por el modulo elegido:
+  // antes habia que tipear "CAMBIAR_ESTADO_PEDIDO_ENVIO" de memoria.
+  const accionesQuery = useQuery({
+    queryKey: ['auditoria', 'acciones', modulo],
+    queryFn: () => getAccionesAuditoriaFn(modulo),
+    enabled: puedeVerAuditoria,
+  });
+  const accionesDisponibles = accionesQuery.data ?? [];
+
   const resetFilters = () => {
+    const [d, h] = rangoPorDefecto();
     setPage(1);
-    setDesde(today());
-    setHasta(today());
+    setDesde(d);
+    setHasta(h);
     setModulo('');
     setAccion('');
     setEmpleadoId('');
@@ -177,6 +202,9 @@ const AuditoriaPage = () => {
     setQ('');
     setSoloSensibles(false);
   };
+
+  const hayFiltros =
+    !!modulo || !!accion || !!empleadoId || !!entidad || !!entidadId || !!q || soloSensibles;
 
   if (!puedeVerAuditoria) {
     return (
@@ -245,14 +273,18 @@ const AuditoriaPage = () => {
       key: 'detalle',
       header: 'Detalle',
       className: 'max-w-[340px]',
-      render: (evento) => (
-        <div>
-          <div className="text-[#041627]">{evento.descripcion ?? '-'}</div>
-          <div className="mt-1 truncate font-mono text-[11px] text-[#6b7280]">
-            {compactValue(evento.metadata ?? evento.despues ?? evento.antes)}
+      render: (evento) => {
+        const cambios = resumirCambios(evento.antes, evento.despues);
+        return (
+          <div>
+            <div className="text-[#041627]">{evento.descripcion ?? '-'}</div>
+            {/* Antes esto era JSON cortado a 130 caracteres, que no decia nada */}
+            {cambios ? (
+              <div className="mt-1 text-[11.5px] text-[#6b7280]">{cambios}</div>
+            ) : null}
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       key: 'ver',
@@ -300,28 +332,19 @@ const AuditoriaPage = () => {
             </div>
           </div>
 
-          <div className="grid gap-3 border-b border-[#c4c6cd] bg-[#fbfbfc] p-3 lg:grid-cols-[1.1fr_1fr_1fr_1fr]">
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="date"
-                value={desde}
-                onChange={(event) => {
-                  setDesde(event.target.value);
-                  setPage(1);
-                }}
-                className="h-9 border border-[#c4c6cd] px-3 text-[13px] outline-none focus:border-[#075E54]"
-              />
-              <input
-                type="date"
-                value={hasta}
-                onChange={(event) => {
-                  setHasta(event.target.value);
-                  setPage(1);
-                }}
-                className="h-9 border border-[#c4c6cd] px-3 text-[13px] outline-none focus:border-[#075E54]"
-              />
-            </div>
+          <div className="border-b border-[#c4c6cd] bg-[#fbfbfc] p-3">
+            <RangoFechas
+              desde={desde}
+              hasta={hasta}
+              onCambiar={(d, h) => {
+                setDesde(d);
+                setHasta(h);
+                setPage(1);
+              }}
+            />
+          </div>
 
+          <div className="grid gap-3 border-b border-[#c4c6cd] bg-[#fbfbfc] px-3 pb-3 lg:grid-cols-4">
             <select
               value={modulo}
               onChange={(event) => {
@@ -388,17 +411,25 @@ const AuditoriaPage = () => {
               className="h-9 border border-[#c4c6cd] px-3 text-[13px] outline-none focus:border-[#075E54]"
             />
 
+            {/* Selector poblado con lo que existe en la base y acotado al modulo
+                elegido: tipear la accion exacta obligaba a saberla de memoria. */}
             <div className="flex h-9 items-center gap-2 border border-[#c4c6cd] bg-white px-3">
-              <Filter size={14} className="text-[#075E54]" />
-              <input
+              <Filter size={14} className="shrink-0 text-[#075E54]" />
+              <select
                 value={accion}
                 onChange={(event) => {
-                  setAccion(event.target.value.toUpperCase());
+                  setAccion(event.target.value);
                   setPage(1);
                 }}
-                placeholder="Accion exacta"
-                className="w-full text-[13px] outline-none"
-              />
+                className="w-full bg-white text-[13px] outline-none"
+              >
+                <option value="">Todas las acciones</option>
+                {accionesDisponibles.map((item) => (
+                  <option key={item} value={item}>
+                    {accionLabel[item] ?? item}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="flex h-9 items-center gap-2 border border-[#c4c6cd] bg-white px-3">
@@ -428,8 +459,10 @@ const AuditoriaPage = () => {
 
           <div className="flex items-center justify-between border-t border-[#c4c6cd] px-4 py-3 text-[13px] text-[#44474c]">
             <span>
-              Pagina {meta?.page ?? page} de {meta?.totalPages ?? 1} | {meta?.total ?? 0} eventos
-              {soloSensibles ? ` | ${eventos.length} sensibles visibles` : ''}
+              {meta?.total ?? 0} evento{(meta?.total ?? 0) === 1 ? '' : 's'}
+              {soloSensibles ? ' sensibles' : ''} · página {meta?.page ?? page} de{' '}
+              {meta?.totalPages ?? 1}
+              {hayFiltros ? ' · con filtros aplicados' : ''}
             </span>
             <div className="flex gap-2">
               <button
@@ -488,9 +521,11 @@ const AuditoriaPage = () => {
               />
               <DetailLine label="Descripcion" value={selectedEvento.descripcion ?? '-'} />
 
-              <JsonBlock title="Antes" value={selectedEvento.antes} />
-              <JsonBlock title="Despues" value={selectedEvento.despues} />
-              <JsonBlock title="Metadata" value={selectedEvento.metadata} />
+              <CambiosEvento antes={selectedEvento.antes} despues={selectedEvento.despues} />
+
+              {selectedEvento.metadata ? (
+                <JsonBlock title="Datos adicionales" value={selectedEvento.metadata} />
+              ) : null}
             </div>
           </aside>
         </div>

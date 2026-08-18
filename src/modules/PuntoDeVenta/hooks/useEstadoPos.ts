@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useAuthStore } from '../../../store/auth.store';
 import { useConfiguracionPos, useServiciosSucursal } from '../../POSAuxiliares/hooks/usePosAux';
-import { useCajaAbierta, useClientesPos, useListasPrecioPos, useMediosPagoActivos, useVentasPendientesCobro } from './usePos';
+import { useCajaAbierta, useClientesPos, useHayCajaAbierta, useListasPrecioPos, useMediosPagoActivos, useVentasPendientesCobro } from './usePos';
 import { getPosAccessRules } from '../utils/posAccess';
 import { toNumber } from '../utils/pos.utils';
 import type { TipoEmisionFiscal } from '../types/pos.type';
@@ -53,6 +53,7 @@ export const useEstadoPos = () => {
   const permiteListasPrecio = config?.permitir_listas_precio === true;
   const permiteCotizaciones = config?.permitir_cotizaciones === true;
   const permiteCuentaCorriente = config?.permitir_cuenta_corriente === true;
+  const permiteEnvios = config?.permitir_envios === true;
   const puedeAplicarListasPrecio = permiteListasPrecio || listasPrecio.length > 0;
 
   const selectedLista = listasPrecio.find(l => l.id === selectedListaId);
@@ -84,6 +85,15 @@ export const useEstadoPos = () => {
     permisos.includes('config.pos') ||
     permisos.includes('reportes.ver') ||
     permisos.includes('reportes.ventas');
+
+  // Caja de la sucursal ──────────────────────────────────────────────────
+  // El vendedor de flujo separado no abre caja ni la ve, pero su venta pendiente
+  // necesita una abierta para tener destino. Sin este flag se entera recién al
+  // apretar "Enviar a caja", con el carrito ya armado.
+  const esVendedorDeFlujoSeparado = posAccess.usaFlujoSeparado && !esSoloCajero;
+  const hayCajaEnSucursalQuery = useHayCajaAbierta(esVendedorDeFlujoSeparado);
+  const faltaCajaEnSucursal =
+    esVendedorDeFlujoSeparado && hayCajaEnSucursalQuery.data === false;
 
   //Ventas pendientes ────────────────────────────────────────────────────
   // Solo carga pendientes si el usuario opera como cajero — si eligió rol "vendedor" no las ve
@@ -140,6 +150,7 @@ export const useEstadoPos = () => {
     permitePagoMixto,
     permiteCotizaciones,
     permiteCuentaCorriente,
+    permiteEnvios,
     puedeAplicarListasPrecio,
     // Cuenta corriente
     cuentaSeleccionada,
@@ -151,6 +162,7 @@ export const useEstadoPos = () => {
     posAccess,
     esSoloCajero,
     puedeVerDetallesConfigPos,
+    faltaCajaEnSucursal,
     // Pendientes
     ventasPendientesFiltradas,
     totalPendiente,

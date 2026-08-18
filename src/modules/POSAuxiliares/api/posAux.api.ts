@@ -229,6 +229,7 @@ export type AuditoriaQuery = {
   entidad?: string;
   entidad_id?: string;
   q?: string;
+  solo_sensibles?: boolean;
 };
 
 export const getAuditoriaFn = async (params: AuditoriaQuery) => {
@@ -244,9 +245,19 @@ export const getAuditoriaFn = async (params: AuditoriaQuery) => {
       entidad: params.entidad || undefined,
       entidad_id: params.entidad_id || undefined,
       q: params.q || undefined,
+      // Se filtra en el backend: hacerlo en el front solo miraba la pagina actual
+      solo_sensibles: params.solo_sensibles ? 'true' : undefined,
     },
   });
   return 'meta' in response.data ? response.data : response.data.data;
+};
+
+/** Acciones que existen realmente en la base, para poblar el selector */
+export const getAccionesAuditoriaFn = async (modulo?: string) => {
+  const response = await api.get<string[] | { data: string[] }>('/auditoria/acciones', {
+    params: { modulo: modulo || undefined },
+  });
+  return Array.isArray(response.data) ? response.data : response.data.data;
 };
 
 export const getReporteResumenFn = async (params: ReporteQuery) =>

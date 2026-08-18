@@ -8,6 +8,8 @@ import {
   clienteHistoryLabels,
   clienteNombre,
   money,
+  TASA_MORA_DIARIA_MAXIMA,
+  tasaAnualEquivalente,
   type ClienteFormValues,
 } from '../utils/clientes.utils';
 
@@ -49,6 +51,7 @@ export default function ClienteFichaSection({
   const usarCuentaCorriente = form.watch('usarCuentaCorriente');
   const creditoSinLimite = form.watch('credito_sin_limite');
   const recargoActivo = form.watch('recargo_activo');
+  const tasaMora = form.watch('recargo_porcentaje_diario');
   const tipoVencimiento = form.watch('tipo_vencimiento');
 
   const saldo = Number(selectedCliente?.cuentaCorriente?.saldo ?? 0);
@@ -365,12 +368,32 @@ export default function ClienteFichaSection({
                     <input
                       type="number"
                       min={0}
+                      max={TASA_MORA_DIARIA_MAXIMA}
                       step="0.01"
                       disabled={!recargoActivo}
-                      placeholder="Porcentaje diario"
+                      placeholder={`Porcentaje diario (max ${TASA_MORA_DIARIA_MAXIMA}%)`}
                       {...form.register('recargo_porcentaje_diario', { valueAsNumber: true })}
                       className="h-9 rounded border border-[#c4c6cd] px-2 text-[13px] outline-none focus:border-[#075E54] disabled:bg-[#f4f5f6]"
                     />
+                    {/* Una tasa diaria engaña: 1% diario son 365% anual y un juez
+                        la reduce de oficio. Se muestra el anual equivalente. */}
+                    {recargoActivo && (
+                      <p
+                        className={`text-[11.5px] ${
+                          tasaMora > TASA_MORA_DIARIA_MAXIMA ? 'text-[#b42318]' : 'text-[#64748b]'
+                        }`}
+                      >
+                        {tasaMora > TASA_MORA_DIARIA_MAXIMA ? (
+                          <>
+                            <span className="font-bold">Supera el tope legal.</span> Máximo{' '}
+                            {TASA_MORA_DIARIA_MAXIMA}% diario: por encima puede considerarse
+                            usuraria y ser reducida judicialmente.
+                          </>
+                        ) : (
+                          <>Equivale a {tasaAnualEquivalente(tasaMora || 0)}% anual.</>
+                        )}
+                      </p>
+                    )}
                   </div>
                 </div>
               ) : (

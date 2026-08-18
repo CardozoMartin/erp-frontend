@@ -1,5 +1,5 @@
 import { Loader2, Save, Settings, Store } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useAuthStore } from '../../../store/auth.store';
 import { useConfiguracionCloudinary, useConfiguracionPos, usePosAuxMutation } from '../../POSAuxiliares/hooks/usePosAux';
@@ -24,6 +24,7 @@ const defaultValues = (sucursalId: string): ConfiguracionPosPayload => ({
   prefijo_nota_credito: 'NCA',
   punto_venta_arca: '',
   permitir_cuenta_corriente: false,
+  permitir_envios: false,
   formato_impresion_comprobante: 'TICKET_80MM',
   imprimir_automaticamente: true,
   diseno_comprobante: 'BASICO',
@@ -88,13 +89,25 @@ const ConfiguracionPosPage = () => {
   const isSaving = mutations.crearConfiguracionPos.isPending || mutations.actualizarConfiguracionPos.isPending;
 
   // Sincronizar form con datos del servidor SOLO cuando llegan por primera vez o cambia la sucursal.
-  // Si el usuario tiene cambios sin guardar (isDirty), no pisar el form.
+  //
+  // El guard de `isDirty` no alcanza: al guardar se hace `form.reset(payload)`, que
+  // deja `isDirty` en false, y la mutacion actualiza la cache con `setQueryData`.
+  // Eso cambia la identidad de `configQuery.data` y vuelve a disparar este efecto;
+  // como ademas el query usa `staleTime: 0` + `refetchOnWindowFocus`, un refetch
+  // podia rehidratar el form con el valor viejo y el cambio de modo_pos "se perdia"
+  // en pantalla aunque el backend ya lo tenia guardado.
+  //
+  // Por eso se hidrata una sola vez por sucursal: despues, la fuente de verdad de
+  // lo que se ve es el form, y el servidor solo se relee al cambiar de sucursal.
+  const sucursalHidratadaRef = useRef<string | null>(null);
   useEffect(() => {
     if (!sucursalActiva?.id) return;
     if (configQuery.isLoading) return;
     if (form.formState.isDirty) return;
+    if (sucursalHidratadaRef.current === sucursalActiva.id) return;
 
     if (configQuery.data) {
+      sucursalHidratadaRef.current = sucursalActiva.id;
       const d = configQuery.data;
       form.reset({
         sucursal_id: d.sucursal_id,
@@ -110,6 +123,7 @@ const ConfiguracionPosPage = () => {
         prefijo_nota_credito: d.prefijo_nota_credito,
         punto_venta_arca: d.punto_venta_arca ?? '',
         permitir_cuenta_corriente: d.permitir_cuenta_corriente,
+        permitir_envios: d.permitir_envios ?? false,
         formato_impresion_comprobante: d.formato_impresion_comprobante ?? 'TICKET_80MM',
         imprimir_automaticamente: d.imprimir_automaticamente ?? true,
         diseno_comprobante: d.diseno_comprobante ?? 'BASICO',

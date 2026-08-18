@@ -273,6 +273,8 @@ export interface PropsPosVendedorView {
   usaFlujoSeparado: boolean;
   usaDespacho: boolean;
   permiteCotizaciones: boolean;
+  /** La sucursal habilito envios a domicilio en la configuracion del POS */
+  permiteEnvios: boolean;
   mercadoPagoDisponible: boolean;
   puedeUsarCuentaCorriente: (clienteId?: string | null) => boolean;
   selectedClienteId: string;

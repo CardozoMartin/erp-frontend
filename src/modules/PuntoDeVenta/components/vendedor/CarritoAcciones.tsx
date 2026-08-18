@@ -1,10 +1,13 @@
-import { CreditCard, Loader2, QrCode, ReceiptText, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { CreditCard, Loader2, QrCode, ReceiptText, Trash2, Truck } from 'lucide-react';
+import { usePedidosEnvioMutations } from '../../../PedidosEnvio/hooks/usePedidosEnvio';
+import type { CrearPedidoEnvioPayload } from '../../../PedidosEnvio/types/pedido-envio.type';
+import { ModalEnvio } from '../shared/ModalEnvio';
 import type { ICartItem, IClientePos, IComprobantePos, IListaPrecioPos, IMedioPago, PosAccessSubset } from '../../types/pos.type';
 import type { PaymentDraft } from '../../utils/pos.utils';
 import { formatCurrency, toNumber } from '../../utils/pos.utils';
 import type { ICaja } from '../../../Cajas/types/caja.type';
-import { PagosMixtos } from '../cajero/PagosMixtos';
-import { BotonesMedioPago } from '../shared/BotonesMedioPago';
+import { ModalCobro } from '../shared/ModalCobro';
 import { ResumenEnvioACaja } from '../shared/ResumenEnvioACaja';
 
 interface Props {
@@ -20,6 +23,10 @@ interface Props {
   usaFlujoSeparado: boolean;
   usaDespacho: boolean;
   permiteCotizaciones: boolean;
+  /** La sucursal habilito envios a domicilio en la configuracion del POS */
+  permiteEnvios: boolean;
+  /** Necesarios para elegir a quien se le entrega el pedido */
+  clientes: IClientePos[];
   mercadoPagoDisponible: boolean;
   puedeUsarCuentaCorriente: (clienteId?: string | null) => boolean;
   selectedClienteId: string;
@@ -65,6 +72,8 @@ export const CarritoAcciones = ({
   usaFlujoSeparado,
   usaDespacho,
   permiteCotizaciones,
+  permiteEnvios,
+  clientes,
   mercadoPagoDisponible,
   puedeUsarCuentaCorriente,
   selectedClienteId,
@@ -94,10 +103,33 @@ export const CarritoAcciones = ({
   cobrarPendienteIsPending,
   onCobrarPendiente,
 }: Props) => {
-  const selectedPayment =
-    selectedPaymentId === 'CUENTA_CORRIENTE'
-      ? undefined
-      : mediosPago.find(m => m.id === selectedPaymentId) ?? mediosPago[0];
+  const [modalCobroAbierto, setModalCobroAbierto] = useState(false);
+  const [modalEnvioAbierto, setModalEnvioAbierto] = useState(false);
+  const crearPedidoEnvio = usePedidosEnvioMutations().crear;
+
+  // El pedido nace de los productos que ya estan en el carrito: el modal solo
+  // pide los datos de entrega, no vuelve a cargar la mercaderia.
+  const manejarConfirmarEnvio = (
+    datos: Omit<CrearPedidoEnvioPayload, 'caja_id'>,
+  ) => {
+    if (!cajaAbierta) return;
+    crearPedidoEnvio.mutate(
+      { ...datos, caja_id: cajaAbierta.id },
+      {
+        onSuccess: () => {
+          setModalEnvioAbierto(false);
+          onLimpiar();
+        },
+      },
+    );
+  };
+
+  // El modal se cierra solo cuando la venta se concreta: mientras la mutacion
+  // esta en vuelo se deja abierto para que el cajero vea el spinner.
+  const manejarConfirmarCobro = () => {
+    onFinalizar();
+    setModalCobroAbierto(false);
+  };
 
   return (
     <div className="px-4 py-4 space-y-4">
@@ -144,52 +176,12 @@ export const CarritoAcciones = ({
         </>
       ) : null}
 
-      {/* Flujo directo (vende y cobra): botones grandes de medio de pago */}
+      {/* Flujo directo (vende y cobra) */}
       {permiteCobroDirecto ? (
         <>
-          {/* Pagos mixtos */}
-          {muestraControlesCobro && permitePagoMixto ? (
-            <div className="rounded border border-[#c4c6cd] bg-white">
-              <div className="flex items-center justify-between border-b border-[#c4c6cd] px-3 py-2">
-                <span className="text-[12px] font-bold uppercase tracking-wide text-[#44474c]">Pagos</span>
-                <button
-                  type="button"
-                  onClick={onAddPaymentDraft}
-                  className="rounded border border-[#c4c6cd] bg-white px-2 py-1 text-[12px] font-semibold text-[#041627] hover:bg-[#f4f5f6]"
-                >
-                  Agregar pago
-                </button>
-              </div>
-              <div className="p-3">
-                <PagosMixtos
-                  paymentDrafts={paymentDrafts}
-                  mediosPago={mediosPago}
-                  selectedPayment={selectedPayment}
-                  clienteId={selectedClienteId}
-                  puedeUsarCuentaCorriente={puedeUsarCuentaCorriente}
-                  onAgregar={onAddPaymentDraft}
-                  onActualizar={onUpdatePaymentDraft}
-                  onQuitar={onRemovePaymentDraft}
-                />
-              </div>
-            </div>
-          ) : null}
-
-          {/* Botones de medio de pago (reemplaza el select) */}
-          {muestraControlesCobro && !permitePagoMixto ? (
-            <div>
-              <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-[#44474c]">
-                Medio de pago
-              </div>
-              <BotonesMedioPago
-                mediosPago={mediosPago}
-                selectedPaymentId={selectedPaymentId}
-                puedeUsarCuentaCorriente={puedeUsarCuentaCorriente(selectedClienteId)}
-                onSeleccionar={onSeleccionarMedioPago}
-                disabled={isBusy}
-              />
-            </div>
-          ) : null}
+          {/* El medio de pago, el importe recibido y el vuelto se eligen en el
+              modal de cobro: el panel lateral es angosto y el cajero necesita
+              ver el vuelto grande. Aca queda solo el disparador. */}
 
           {/* Botones de acción: limpiar, cotizar, cobrar */}
           <div className="grid gap-2 sm:grid-cols-2">
@@ -228,13 +220,33 @@ export const CarritoAcciones = ({
 
             <button
               type="button"
-              onClick={onFinalizar}
-              disabled={isBusy || !cartItems.length || !cajaAbierta || !posAccess.puedeVenderYCobrar}
+              onClick={() => setModalCobroAbierto(true)}
+              disabled={
+                isBusy ||
+                !cartItems.length ||
+                !cajaAbierta ||
+                !posAccess.puedeVenderYCobrar ||
+                !muestraControlesCobro
+              }
               className="flex items-center justify-center gap-2 rounded bg-[#075E54] px-4 py-3 text-[14px] font-semibold text-white hover:bg-[#0b6d62] disabled:opacity-60 sm:col-span-2"
             >
               {ventaCompletaIsPending ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
               Cobrar
             </button>
+
+            {/* Envio a domicilio: el carrito ya armado se convierte en pedido
+                sin salir del POS. Solo si la sucursal habilito envios. */}
+            {permiteEnvios ? (
+              <button
+                type="button"
+                onClick={() => setModalEnvioAbierto(true)}
+                disabled={isBusy || !cartItems.length || !cajaAbierta || !posAccess.puedeVender}
+                className="flex items-center justify-center gap-2 rounded border border-[#cfe2de] bg-[#f3fbf9] px-4 py-3 text-[13px] font-semibold text-[#075E54] hover:bg-[#eef8f6] disabled:opacity-60 sm:col-span-2"
+              >
+                <Truck size={15} />
+                Enviar a domicilio
+              </button>
+            ) : null}
 
             {mercadoPagoDisponible ? (
               <button
@@ -289,6 +301,35 @@ export const CarritoAcciones = ({
           </div>
         </div>
       ) : null}
+
+      <ModalCobro
+        abierto={modalCobroAbierto}
+        total={subtotal}
+        mediosPago={mediosPago}
+        selectedPaymentId={selectedPaymentId}
+        puedeUsarCuentaCorriente={puedeUsarCuentaCorriente(selectedClienteId)}
+        permitePagoMixto={permitePagoMixto}
+        paymentDrafts={paymentDrafts}
+        isPending={ventaCompletaIsPending}
+        onSeleccionarMedioPago={onSeleccionarMedioPago}
+        onAddPaymentDraft={onAddPaymentDraft}
+        onUpdatePaymentDraft={onUpdatePaymentDraft}
+        onRemovePaymentDraft={onRemovePaymentDraft}
+        onCerrar={() => setModalCobroAbierto(false)}
+        onConfirmar={manejarConfirmarCobro}
+      />
+
+      <ModalEnvio
+        abierto={modalEnvioAbierto}
+        cartItems={cartItems}
+        total={subtotal}
+        cajaId={cajaAbierta?.id}
+        clientes={clientes}
+        selectedClienteId={selectedClienteId}
+        isPending={crearPedidoEnvio.isPending}
+        onCerrar={() => setModalEnvioAbierto(false)}
+        onConfirmar={manejarConfirmarEnvio}
+      />
     </div>
   );
 };

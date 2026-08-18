@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Lock, ShoppingCart, Wallet } from 'lucide-react';
+import { Info, Lock, ShoppingCart, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { useObtenerProductos } from '../../Productos/hooks/useProductos';
 import { getProductCode, modoPosLabel, toNumber } from '../utils/pos.utils';
@@ -207,6 +207,19 @@ const PuntoDeVentaPages = () => {
             />
           ) : null}
 
+          {/* El vendedor no puede abrir caja: avisarle apenas entra, no cuando
+              ya armó el carrito y el backend le rechaza el envío. */}
+          {estado.faltaCajaEnSucursal ? (
+            <div className="flex items-start gap-2.5 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-4 py-3">
+              <Info size={16} className="mt-0.5 shrink-0 text-[#d97706]" />
+              <p className="text-[13px] text-[#92400e]">
+                <span className="font-bold">No hay ninguna caja abierta en esta sucursal.</span>{' '}
+                Podés armar la venta, pero no vas a poder enviarla a caja hasta que un
+                cajero abra la suya.
+              </p>
+            </div>
+          ) : null}
+
           {posAccess.bloqueadoPorModo || !posAccess.puedeOperarPos ? (
             <div className="rounded-xl border border-[#e5e7eb] bg-white px-4 py-12">
               <div className="mx-auto max-w-190 rounded-xl border border-[#f1c7c7] bg-[#fff5f5] px-5 py-5 text-center">
@@ -275,6 +288,7 @@ const PuntoDeVentaPages = () => {
                 usaFlujoSeparado={posAccess.usaFlujoSeparado}
                 usaDespacho={posAccess.esConDespacho}
                 permiteCotizaciones={estado.permiteCotizaciones}
+                permiteEnvios={estado.permiteEnvios}
                 mercadoPagoDisponible={estado.mercadoPagoDisponible}
                 puedeUsarCuentaCorriente={estado.puedeUsarCuentaCorriente}
                 selectedClienteId={estado.selectedClienteId}
